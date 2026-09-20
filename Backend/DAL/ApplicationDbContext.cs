@@ -1,16 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using Model;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 
 namespace DAL;
 
-public class ApplicationDbContext : DbContext
+public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) 
         : base(options) 
     { 
     }
 
-    public DbSet<User> Users { get; set; }
     public DbSet<Guest> Guests { get; set; }
     public DbSet<Owner> Owners { get; set; }
     // Usunięto: public DbSet<Hotel> Hotels { get; set; }
@@ -52,7 +53,6 @@ public class ApplicationDbContext : DbContext
             .HasForeignKey<Invoice>(i => i.ReservationId)
             .IsRequired(false);
 
-        // Relacja 1:1 dla opinii (jedna opinia na pobyt)
         modelBuilder.Entity<Reservation>()
             .HasOne(r => r.Review)
             .WithOne(rev => rev.Reservation)

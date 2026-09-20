@@ -1,12 +1,11 @@
 using System;
+using Microsoft.AspNetCore.Identity;
 
 namespace Model;
 
-public abstract class User
+public abstract class User : IdentityUser<int>
 {
-    public int UserId { get; set; }
-    public string Email {get; set; } = string.Empty;
-    public string PasswordHash { get; set; } = string.Empty;
+
     public string AccountType { get; set; } = string.Empty;
     public DateTime RegistrationDate { get; set; }
 
