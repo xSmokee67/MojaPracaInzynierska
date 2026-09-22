@@ -3,8 +3,7 @@ import { useState } from 'react';
 import { loginUser, registerUser } from '../api/authApi';
 import type { LoginDto, RegisterDto } from '../types/auth';
 
-export default function AuthForm({ onLoginSuccess }: { onLoginSuccess: (token: string, role: string) => void }) {
-  const [isLogin, setIsLogin] = useState(true);
+export default function AuthForm({ onLoginSuccess }: { onLoginSuccess: (token: string, role: string, email: string) => void }) {  const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -24,7 +23,7 @@ export default function AuthForm({ onLoginSuccess }: { onLoginSuccess: (token: s
       if (isLogin) {
         const payload: LoginDto = { email, password };
         const data = await loginUser(payload);
-        onLoginSuccess(data.token, data.role);
+        onLoginSuccess(data.token, data.role, email);
       } else {
         const payload: RegisterDto = { email, password, firstName, lastName, phoneNumber };
         await registerUser(payload);

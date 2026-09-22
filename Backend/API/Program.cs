@@ -5,12 +5,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Model;
 using System.Text;
+using Services.Interfaces;
+using Services.Mapping;
+// USUNIĘTO: using Services.Services; aby zapobiec konfliktom nazw
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
 
 builder.Services.AddIdentity<User, IdentityRole<int>>(options =>
 {
@@ -42,6 +44,7 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(key)
     };
 });
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
@@ -56,13 +59,17 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-//builder.Services.AddOpenApi();
+// POPRAWKA 1: Precyzyjne wskazanie profilu mapowania (rozwiązuje błąd CS1503)
+builder.Services.AddAutoMapper(cfg => 
+{
+    cfg.AddProfile<ReservationMappingProfile>();
+});
+
+// POPRAWKA 2: Jawne użycie przestrzeni nazw dla serwisu (rozwiązuje błąd CS0104 z encją)
+builder.Services.AddScoped<IReservationService, Services.Services.ReservationService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -71,70 +78,87 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowReactApp");
+
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
 
 using (var scope = app.Services.CreateScope())
 {
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<int>>>();
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
+    // 1. Tworzenie domyślnych ról
     string[] roleNames = { "Owner", "Guest" };
     foreach (var roleName in roleNames)
     {
-        var roleExist = await roleManager.RoleExistsAsync(roleName);
-        if (!roleExist)
-        {
+        if (!await roleManager.RoleExistsAsync(roleName))
             await roleManager.CreateAsync(new IdentityRole<int>(roleName));
-        }
     }
 
+    // 2. Tworzenie domyślnego konta Właściciela
     var ownerEmail = "admin@hotel.com";
-    var ownerUser = await userManager.FindByEmailAsync(ownerEmail);
-
-    if (ownerUser == null)
+    if (await userManager.FindByEmailAsync(ownerEmail) == null)
     {
         var newOwner = new Owner
         {
-            UserName = ownerEmail,
-            Email = ownerEmail,
-            FirstName = "Mateusz",
-            LastName = "Furman",
-            AccountType = "owner",
-            RegistrationDate = DateTime.UtcNow
+            UserName = ownerEmail, Email = ownerEmail,
+            FirstName = "Jan", LastName = "Kowalski",
+            AccountType = "owner", RegistrationDate = DateTime.UtcNow
         };
+        var result = await userManager.CreateAsync(newOwner, "Admin123!");
+        if (result.Succeeded) await userManager.AddToRoleAsync(newOwner, "Owner");
+    }
 
-        var createPowerUser = await userManager.CreateAsync(newOwner, "Admin123!");
-        if (createPowerUser.Succeeded)
+    // 3. SEED DATA - Typy pokoi
+    if (!dbContext.RoomTypes.Any())
+    {
+        dbContext.RoomTypes.AddRange(
+            new RoomType { Name = "Pokój Standardowy", BasePrice = 200, MaxOccupancy = 2 },
+            new RoomType { Name = "Apartament Premium", BasePrice = 500, MaxOccupancy = 4 }
+        );
+        dbContext.SaveChanges();
+    }
+
+    // 4. SEED DATA - Fizyczne pokoje
+    if (!dbContext.Rooms.Any())
+    {
+        var standard = dbContext.RoomTypes.First(rt => rt.Name == "Pokój Standardowy");
+        var premium = dbContext.RoomTypes.First(rt => rt.Name == "Apartament Premium");
+
+        dbContext.Rooms.AddRange(
+            new Room { RoomTypeId = standard.RoomTypeId, RoomNumber = "101", Status = "available" },
+            new Room { RoomTypeId = standard.RoomTypeId, RoomNumber = "102", Status = "available" },
+            new Room { RoomTypeId = premium.RoomTypeId, RoomNumber = "201", Status = "available" }
+        );
+        dbContext.SaveChanges();
+    }
+
+    // 5. SEED DATA - Cennik sezonowy (np. drożej w te wakacje)
+    if (!dbContext.PriceListEntries.Any())
+    {
+        var standard = dbContext.RoomTypes.First(rt => rt.Name == "Pokój Standardowy");
+        dbContext.PriceListEntries.Add(new PriceListEntry
         {
-            await userManager.AddToRoleAsync(newOwner, "Owner");
-        }
+            RoomTypeId = standard.RoomTypeId,
+            StartDate = new DateTime(2027, 6, 1),
+            EndDate = new DateTime(2027, 8, 31),
+            PricePerNight = 350 // W wakacje cena rośnie z 200 na 350 zł
+        });
+        dbContext.SaveChanges();
+    }
+    
+    // 6. SEED DATA - Usługi dodatkowe
+    if (!dbContext.AdditionalServices.Any())
+    {
+        dbContext.AdditionalServices.AddRange(
+            new AdditionalService { Name = "Śniadanie", Price = 50 },
+            new AdditionalService { Name = "Parking", Price = 30 }
+        );
+        dbContext.SaveChanges();
     }
 }
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

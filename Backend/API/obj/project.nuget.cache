@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "/bFwh9ckB64=",
+  "dgSpecHash": "bqNNVVNwzvI=",
   "success": true,
   "projectFilePath": "C:\\Users\\mateu\\MojaPracaInzynierska\\Backend\\API\\API.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\mateu\\.nuget\\packages\\automapper\\16.2.0\\automapper.16.2.0.nupkg.sha512",
     "C:\\Users\\mateu\\.nuget\\packages\\azure.core\\1.50.0\\azure.core.1.50.0.nupkg.sha512",
     "C:\\Users\\mateu\\.nuget\\packages\\azure.identity\\1.17.1\\azure.identity.1.17.1.nupkg.sha512",
     "C:\\Users\\mateu\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",

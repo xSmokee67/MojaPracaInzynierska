@@ -176,3 +176,4 @@ C:\Users\mateu\MojaPracaInzynierska\Backend\API\bin\Debug\net10.0\Swashbuckle.As
 C:\Users\mateu\MojaPracaInzynierska\Backend\API\bin\Debug\net10.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
 C:\Users\mateu\MojaPracaInzynierska\Backend\API\bin\Debug\net10.0\Microsoft.AspNetCore.Identity.EntityFrameworkCore.dll
 C:\Users\mateu\MojaPracaInzynierska\Backend\API\bin\Debug\net10.0\Microsoft.Bcl.Cryptography.dll
+C:\Users\mateu\MojaPracaInzynierska\Backend\API\bin\Debug\net10.0\AutoMapper.dll
