@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import AuthForm from './components/AuthForm';
 import ReservationForm from './components/ReservationForm';
+import AdminDashboard from './components/AdminDashboard'; 
 
 export default function App() {
   const [token, setToken] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null); // Nowy stan dla e-maila
+  const [email, setEmail] = useState<string | null>(null); 
 
   useEffect(() => {
     const savedToken = localStorage.getItem('jwt_token');
     const savedRole = localStorage.getItem('user_role');
-    const savedEmail = localStorage.getItem('user_email'); // Pobranie e-maila
+    const savedEmail = localStorage.getItem('user_email'); 
     
     if (savedToken) {
       setToken(savedToken);
@@ -41,13 +42,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center py-10 px-4 space-y-8">
-      {/* Pasek nawigacji górnej */}
-      <div className="w-full max-w-5xl flex justify-between items-center bg-white p-4 rounded-xl shadow-sm">
+      {/* Pasek nawigacji */}
+      <div className="w-full max-w-6xl flex justify-between items-center bg-white p-4 rounded-xl shadow-sm">
         <h1 className="text-xl font-bold text-emerald-600">Hotel Resort API</h1>
         {token && (
           <div className="flex items-center gap-4">
-            {/* Wyświetlanie adresu e-mail w pasku nawigacji */}
-            <span className="text-sm font-medium text-slate-500">Zalogowano jako: {email}</span>
+            <span className="text-sm font-medium text-slate-500">
+              {role === 'Owner' ? 'Administrator: ' : 'Zalogowano jako: '} {email}
+            </span>
             <button onClick={handleLogout} className="text-sm px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300">
               Wyloguj się
             </button>
@@ -55,20 +57,21 @@ export default function App() {
         )}
       </div>
 
-      {/* Główna zawartość */}
+      {/* Główny routing aplikacji */}
       {!token ? (
         <AuthForm onLoginSuccess={handleLoginSuccess} />
+      ) : role === 'Owner' ? (
+        // WIDOK WŁAŚCICIELA
+        <AdminDashboard token={token} />
       ) : (
+        // WIDOK GOŚCIA
         <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-          {/* Lewa kolumna: Opis */}
           <div className="space-y-4">
             <h2 className="text-3xl font-bold text-slate-800">Witaj w systemie rezerwacji</h2>
             <p className="text-slate-600 leading-relaxed">
-              Skorzystaj z formularza obok, aby sprawdzić dostępność pokoi i dokonać rezerwacji w czasie rzeczywistym. System automatycznie uwzględni cennik sezonowy oraz aktualne blokady serwisowe.
+              Skorzystaj z formularza obok, aby sprawdzić dostępność pokoi i dokonać rezerwacji w czasie rzeczywistym.
             </p>
           </div>
-          
-          {/* Prawa kolumna: Formularz rezerwacji */}
           <div className="flex justify-center">
              <ReservationForm token={token} />
           </div>
