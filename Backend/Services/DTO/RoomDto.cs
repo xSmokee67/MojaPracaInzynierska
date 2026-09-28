@@ -7,4 +7,6 @@ public class RoomDto
     public string RoomTypeName {get; set; } = string.Empty;
     public string RoomNumber {get; set; } = string.Empty;
     public string Status {get; set; } = string.Empty;
+    public List<int> AmenityIds {get; set; } = new ();
+    public List<string> AmenityNames {get; set; } = new ();
 }

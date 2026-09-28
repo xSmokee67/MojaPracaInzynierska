@@ -41,13 +41,19 @@ public class PriceListEntryController : ControllerBase
     {
         if (dto.StartDate >= dto.EndDate)
         {
-            return BadRequest("Data rozpoczęcia musi być wcześniejsza niż data zakończenia");
+            return BadRequest(new { error = "Data rozpoczęcia musi być wcześniejsza niż data zakończenia."});
         }
 
         var typeExists = await _context.RoomTypes.AnyAsync(rt => rt.RoomTypeId == dto.RoomTypeId);
         
         if(!typeExists)
-            return BadRequest("Wskazany typ pokoju nie istnieje!");
+            return BadRequest(new { error = "Wskazany typ pokoju nie istnieje!"});
+
+        if (dto.PricePerNight <= 0)
+            return BadRequest(new { error = "Cena za noc musi być większa od zera."});
+
+        if (await HasOverlappingEntryAsync(dto, null))
+            return BadRequest(new { error = "Okres nakłada się na istniejący wpis cennika dla tego typu pokoju."});
 
         var entry = new PriceListEntry
         {
@@ -62,6 +68,35 @@ public class PriceListEntryController : ControllerBase
         return Ok(new {message = "Cennik sezonowy został zaaktualizowany."});
     }
 
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] PriceListEntryDto dto)
+    {
+        var entry = await _context.PriceListEntries.FindAsync(id);
+        if (entry == null)
+            return NotFound(new { error = "Nie znaleziono wpisu w cenniku."});
+
+        if (dto.StartDate >= dto.EndDate)
+            return BadRequest(new { error = "Data rozpoczęcia musi być wcześniejsza niż data zakończenia."});
+
+        var typeExists = await _context.RoomTypes.AnyAsync(rt => rt.RoomTypeId == dto.RoomTypeId);
+        if (!typeExists)
+            return BadRequest(new { error = "Wskazany typ pokoju nie istnieje!"});
+
+        if (dto.PricePerNight <= 0)
+            return BadRequest(new { error = "Cena za noc musi być większa od zera."});
+
+        if (await HasOverlappingEntryAsync(dto, id))
+            return BadRequest(new { error = "Okres nakłada się na istniejący wpis cennika dla tego typu pokoju."});
+
+        entry.RoomTypeId = dto.RoomTypeId;
+        entry.StartDate = dto.StartDate;
+        entry.EndDate = dto.EndDate;
+        entry.PricePerNight = dto.PricePerNight;
+
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Wpis cennika został zaktualizowany."});
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -72,5 +107,15 @@ public class PriceListEntryController : ControllerBase
         _context.PriceListEntries.Remove(entry);
         await _context.SaveChangesAsync();
         return Ok(new { message = "Wpis z cennika został usunięty."});
+    }
+
+    // Okresy liczone włącznie z obiema datami - tak samo jak przy wyliczaniu ceny w ReservationService
+    private async Task<bool> HasOverlappingEntryAsync(PriceListEntryDto dto, int? excludedId)
+    {
+        return await _context.PriceListEntries.AnyAsync(p =>
+            p.RoomTypeId == dto.RoomTypeId &&
+            (excludedId == null || p.PriceListEntryId != excludedId) &&
+            p.StartDate <= dto.EndDate &&
+            p.EndDate >= dto.StartDate);
     }
 }

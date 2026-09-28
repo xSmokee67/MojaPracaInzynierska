@@ -67,6 +67,7 @@ builder.Services.AddAutoMapper(cfg =>
 
 // POPRAWKA 2: Jawne użycie przestrzeni nazw dla serwisu (rozwiązuje błąd CS0104 z encją)
 builder.Services.AddScoped<IReservationService, Services.Services.ReservationService>();
+builder.Services.AddScoped<IAvailabilityService, Services.Services.AvailabilityService>();
 
 var app = builder.Build();
 
@@ -156,6 +157,18 @@ using (var scope = app.Services.CreateScope())
         dbContext.AdditionalServices.AddRange(
             new AdditionalService { Name = "Śniadanie", Price = 50 },
             new AdditionalService { Name = "Parking", Price = 30 }
+        );
+        dbContext.SaveChanges();
+    }
+
+    // 7. SEED DATA - Udogodnienia
+    if (!dbContext.Amenities.Any())
+    {
+        dbContext.Amenities.AddRange(
+            new Amenity { Name = "WiFi" },
+            new Amenity { Name = "Klimatyzacja" },
+            new Amenity { Name = "Telewizor" },
+            new Amenity { Name = "Widok na morze" }
         );
         dbContext.SaveChanges();
     }

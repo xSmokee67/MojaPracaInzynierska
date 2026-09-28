@@ -36,6 +36,12 @@ public class AdditionalServiceController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] AdditionalServiceDto dto)
     {
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { error = "Nazwa usługi jest wymagana."});
+
+        if (dto.Price <= 0)
+            return BadRequest(new { error = "Cena usługi musi być większa od zera."});
+
         var service = new AdditionalService
         {
             Name = dto.Name,
@@ -45,6 +51,26 @@ public class AdditionalServiceController : ControllerBase
         _context.AdditionalServices.Add(service);
         await _context.SaveChangesAsync();
         return Ok(new {message = "Usługa dodatkowa została dodana."});
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] AdditionalServiceDto dto)
+    {
+        var service = await _context.AdditionalServices.FindAsync(id);
+        if (service == null)
+            return NotFound(new { error = "Nie znaleziono usługi."});
+
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { error = "Nazwa usługi jest wymagana."});
+
+        if (dto.Price <= 0)
+            return BadRequest(new { error = "Cena usługi musi być większa od zera."});
+
+        service.Name = dto.Name;
+        service.Price = dto.Price;
+
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Usługa dodatkowa została zaktualizowana."});
     }
 
     [HttpDelete("{id}")]

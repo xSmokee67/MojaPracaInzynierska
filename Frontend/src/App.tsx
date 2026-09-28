@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import AuthForm from './components/AuthForm';
 import ReservationForm from './components/ReservationForm';
 import AdminDashboard from './components/AdminDashboard'; 
+import MyReservations from './components/MyReservations';
 
 export default function App() {
   const [token, setToken] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null); 
+  const [reservationsRefreshKey, setReservationsRefreshKey] = useState(0);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('jwt_token');
@@ -65,17 +67,20 @@ export default function App() {
         <AdminDashboard token={token} />
       ) : (
         // WIDOK GOŚCIA
-        <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-          <div className="space-y-4">
-            <h2 className="text-3xl font-bold text-slate-800">Witaj w systemie rezerwacji</h2>
-            <p className="text-slate-600 leading-relaxed">
-              Skorzystaj z formularza obok, aby sprawdzić dostępność pokoi i dokonać rezerwacji w czasie rzeczywistym.
-            </p>
+        <>
+          <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+            <div className="space-y-4">
+              <h2 className="text-3xl font-bold text-slate-800">Witaj w systemie rezerwacji</h2>
+              <p className="text-slate-600 leading-relaxed">
+                Skorzystaj z formularza obok, aby sprawdzić dostępność pokoi i dokonać rezerwacji w czasie rzeczywistym.
+              </p>
+            </div>
+            <div className="flex justify-center">
+               <ReservationForm token={token} onReservationCreated={() => setReservationsRefreshKey(prev => prev + 1)} />
+            </div>
           </div>
-          <div className="flex justify-center">
-             <ReservationForm token={token} />
-          </div>
-        </div>
+          <MyReservations token={token} refreshKey={reservationsRefreshKey} />
+        </>
       )}
     </div>
   );

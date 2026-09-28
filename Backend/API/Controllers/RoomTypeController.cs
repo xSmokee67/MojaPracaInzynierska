@@ -37,6 +37,12 @@ public class RoomTypeController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] RoomTypeDto dto)
     {
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { error = "Nazwa typu pokoju jest wymagana."});
+
+        if (dto.BasePrice <= 0 || dto.MaxOccupancy <= 0)
+            return BadRequest(new { error = "Cena bazowa i maksymalna liczba gości muszą być większe od zera."});
+
         var roomType = new RoomType
         {
             Name = dto.Name,
@@ -56,6 +62,12 @@ public class RoomTypeController : ControllerBase
         var roomType = await _context.RoomTypes.FindAsync(id);
         if (roomType == null)
             return NotFound(new { error = "Nie znaleziono typu pokoju."});
+
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { error = "Nazwa typu pokoju jest wymagana."});
+
+        if (dto.BasePrice <= 0 || dto.MaxOccupancy <= 0)
+            return BadRequest(new { error = "Cena bazowa i maksymalna liczba gości muszą być większe od zera."});
 
             roomType.Name = dto.Name;
             roomType.BasePrice = dto.BasePrice;

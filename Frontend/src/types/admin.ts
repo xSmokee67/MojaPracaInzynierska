@@ -11,6 +11,8 @@ export interface RoomDto {
     roomTypeName?: string;
     roomNumber: string;
     status: string;
+    amenityIds: number[];
+    amenityNames?: string[];
 }
 
 export interface AdditionalServiceDto{
@@ -26,4 +28,19 @@ export interface PriceListEntryDto {
     startDate: string;
     endDate: string;
     pricePerNight: number;
+}
+
+export interface AmenityDto {
+    amenityId?: number;
+    name: string;
+}
+
+export interface RoomBlockDto {
+    roomBlockId?: number;
+    roomId: number;
+    roomNumber?: string;
+    ownerName?: string;
+    startDate: string;
+    endDate: string;
+    reason: string;
 }
