@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { loginUser, registerUser } from '../api/authApi';
 import type { LoginDto, RegisterDto } from '../types/auth';
 
-export default function AuthForm({ onLoginSuccess }: { onLoginSuccess: (token: string, role: string, email: string) => void }) {  const [isLogin, setIsLogin] = useState(true);
+export default function AuthForm({ onLoginSuccess, sessionMessage }: { onLoginSuccess: (token: string, role: string, email: string, expiration: string) => void; sessionMessage: string }) {  const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -23,7 +23,7 @@ export default function AuthForm({ onLoginSuccess }: { onLoginSuccess: (token: s
       if (isLogin) {
         const payload: LoginDto = { email, password };
         const data = await loginUser(payload);
-        onLoginSuccess(data.token, data.role, email);
+        onLoginSuccess(data.token, data.role, email, data.expiration);
       } else {
         const payload: RegisterDto = { email, password, firstName, lastName, phoneNumber };
         await registerUser(payload);
@@ -41,6 +41,7 @@ export default function AuthForm({ onLoginSuccess }: { onLoginSuccess: (token: s
         {isLogin ? 'Logowanie' : 'Rejestracja Gościa'}
       </h2>
       
+      {sessionMessage && !error && !message && <div className="p-3 text-sm text-amber-800 bg-amber-100 rounded-lg">{sessionMessage}</div>}
       {error && <div className="p-3 text-sm text-red-700 bg-red-100 rounded-lg">{error}</div>}
       {message && <div className="p-3 text-sm text-green-700 bg-green-100 rounded-lg">{message}</div>}
 
@@ -48,7 +49,7 @@ export default function AuthForm({ onLoginSuccess }: { onLoginSuccess: (token: s
         <div>
           <label className="block text-sm font-medium text-slate-700">Adres e-mail</label>
           <input 
-            type="email" required 
+            type="email" required maxLength={100}
             className="w-full px-4 py-2 mt-1 border rounded-lg focus:ring-emerald-500 focus:border-emerald-500 outline-none" 
             value={email} onChange={(e) => setEmail(e.target.value)} 
           />
@@ -58,9 +59,12 @@ export default function AuthForm({ onLoginSuccess }: { onLoginSuccess: (token: s
           <label className="block text-sm font-medium text-slate-700">Hasło</label>
           <input 
             type="password" required 
+            pattern={isLogin ? undefined : '(?=.*[0-9]).{8,}'}
+            title={isLogin ? undefined : 'Hasło musi mieć co najmniej 8 znaków, w tym jedną cyfrę.'}
             className="w-full px-4 py-2 mt-1 border rounded-lg focus:ring-emerald-500 focus:border-emerald-500 outline-none" 
             value={password} onChange={(e) => setPassword(e.target.value)} 
           />
+          {!isLogin && <p className="mt-1 text-xs text-slate-500">Minimum 8 znaków, w tym co najmniej jedna cyfra.</p>}
         </div>
 
         {!isLogin && (
@@ -68,16 +72,16 @@ export default function AuthForm({ onLoginSuccess }: { onLoginSuccess: (token: s
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700">Imię</label>
-                <input type="text" required className="w-full px-4 py-2 mt-1 border rounded-lg outline-none" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                <input type="text" required maxLength={50} className="w-full px-4 py-2 mt-1 border rounded-lg outline-none" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Nazwisko</label>
-                <input type="text" required className="w-full px-4 py-2 mt-1 border rounded-lg outline-none" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                <input type="text" required maxLength={50} className="w-full px-4 py-2 mt-1 border rounded-lg outline-none" value={lastName} onChange={(e) => setLastName(e.target.value)} />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Numer telefonu</label>
-              <input type="text" required className="w-full px-4 py-2 mt-1 border rounded-lg outline-none" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
+              <input type="tel" required pattern="\+?[0-9 ]{9,15}" title="Podaj 9-15 cyfr, np. +48 600 100 200." placeholder="+48 600 100 200" className="w-full px-4 py-2 mt-1 border rounded-lg outline-none" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
             </div>
           </>
         )}

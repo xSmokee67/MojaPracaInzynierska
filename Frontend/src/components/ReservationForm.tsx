@@ -122,7 +122,7 @@ export default function ReservationForm({ token, onReservationCreated }: { token
   }
 
   return (
-    <div className="w-full max-w-lg p-8 bg-white rounded-xl shadow-lg space-y-6">
+    <div className="w-full max-w-lg p-6 md:p-8 bg-white rounded-xl shadow-lg space-y-6">
       <h2 className="text-2xl font-bold text-slate-800 border-b pb-2">Zarezerwuj pobyt</h2>
       
       <div className="space-y-4">
@@ -137,7 +137,7 @@ export default function ReservationForm({ token, onReservationCreated }: { token
           </select>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700">Od (Zameldowanie)</label>
             <input type="date" min={today} value={checkInDate} onChange={(e) => { setCheckInDate(e.target.value); resetCheck(); }} className="w-full mt-1 px-4 py-2 border rounded-lg outline-none" />

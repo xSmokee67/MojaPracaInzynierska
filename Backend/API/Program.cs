@@ -1,6 +1,8 @@
+using API.Identity;
 using DAL;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Model;
@@ -22,7 +24,8 @@ builder.Services.AddIdentity<User, IdentityRole<int>>(options =>
     options.User.RequireUniqueEmail = true;
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
-.AddDefaultTokenProviders();
+.AddDefaultTokenProviders()
+.AddErrorDescriber<PolishIdentityErrorDescriber>();
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwtSettings["Key"] ?? throw new InvalidOperationException("Brak klucza JWT w konfiguracji!"));
@@ -55,7 +58,24 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddControllers();
+// Błędy walidacji (adnotacje na DTO) zwracane w tym samym formacie { error } co reszta API
+builder.Services.AddControllers()
+.ConfigureApiBehaviorOptions(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        // Błąd parsowania JSON (np. tekst zamiast liczby) - klucze zaczynają się od "$"
+        if (context.ModelState.Keys.Any(k => k.StartsWith("$")))
+            return new BadRequestObjectResult(new { error = "Nieprawidłowy format danych w formularzu." });
+
+        var errors = context.ModelState.Values
+            .SelectMany(v => v.Errors)
+            .Select(e => string.IsNullOrWhiteSpace(e.ErrorMessage) ? "Nieprawidłowe dane w formularzu." : e.ErrorMessage)
+            .Distinct();
+
+        return new BadRequestObjectResult(new { error = string.Join(" ", errors) });
+    };
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

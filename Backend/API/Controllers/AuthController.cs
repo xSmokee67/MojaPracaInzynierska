@@ -30,7 +30,7 @@ public class AuthController : ControllerBase
         var existingUser = await _userManager.FindByEmailAsync(dto.Email);
         if (existingUser != null)
         {
-            return BadRequest("Użytkownik o podanym emailu już istnieje.");
+            return BadRequest(new { error = "Użytkownik o podanym emailu już istnieje." });
         }
 
         var guest = new Guest
@@ -47,7 +47,7 @@ public class AuthController : ControllerBase
         var result = await _userManager.CreateAsync(guest, dto.Password);
         if (!result.Succeeded)
         {
-            return BadRequest(result.Errors);
+            return BadRequest(new { error = string.Join(" ", result.Errors.Select(e => e.Description)) });
         }
 
         if (!await _roleManager.RoleExistsAsync("guest"))
@@ -65,7 +65,7 @@ public class AuthController : ControllerBase
         var user = await _userManager.FindByEmailAsync(dto.Email);
         if(user == null || !await _userManager.CheckPasswordAsync(user, dto.Password))
         {
-            return Unauthorized("Nieprawidłowy email lub hasło.");
+            return Unauthorized(new { error = "Nieprawidłowy email lub hasło." });
         }
 
         var userRoles = await _userManager.GetRolesAsync(user);

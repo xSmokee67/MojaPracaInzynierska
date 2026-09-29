@@ -10,7 +10,8 @@ export const loginUser = async (data: LoginDto): Promise<AuthResponse> => {
     });
 
     if (!response.ok) {
-        throw new Error('Nieprawidłowy email lub hasło.');
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Nieprawidłowy email lub hasło.');
 }
 
 return response.json();
@@ -24,7 +25,7 @@ export const registerUser = async (data: RegisterDto): Promise<void> => {
     });
 
     if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(errorData || 'Wystąpił błąd podczas rejestracji użytkownika.');
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Wystąpił błąd podczas rejestracji użytkownika.');
     }
 };

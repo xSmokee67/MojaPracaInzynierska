@@ -27,6 +27,7 @@ export default function AdminDashboard({ token }: { token: string }) {
   const [blocks, setBlocks] = useState<RoomBlockDto[]>([]);
   const [reviews, setReviews] = useState<ReviewDto[]>([]);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
   // Stany dla formularzy
   const [newRoomType, setNewRoomType] = useState<RoomTypeDto>({ name: '', basePrice: 0, maxOccupancy: 1 });
@@ -93,11 +94,24 @@ export default function AdminDashboard({ token }: { token: string }) {
     loadData();
   }, [activeTab]);
 
+  // Nazwy zakładek do okruszków (breadcrumbs)
+  const tabLabels: Record<typeof activeTab, string> = {
+    roomTypes: 'Typy pokoi', rooms: 'Fizyczne pokoje', amenities: 'Udogodnienia', pricing: 'Cennik sezonowy',
+    services: 'Usługi dodatkowe', blocks: 'Blokady pokoi', reservations: 'Rezerwacje', reviews: 'Opinie'
+  };
+
+  // Komunikat sukcesu po akcji (błąd z poprzedniej akcji jest czyszczony)
+  const showSuccess = (text: string) => { setMessage(text); setError(''); };
+
+  // Zmiana zakładki czyści komunikaty z poprzedniej zakładki
+  const changeTab = (tab: typeof activeTab) => { setActiveTab(tab); setMessage(''); setError(''); };
+
   // Handler dla Typów Pokoi
   const handleAddRoomType = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (editingRoomTypeId) await updateRoomType(editingRoomTypeId, newRoomType, token); else await createRoomType(newRoomType, token);
+      showSuccess(editingRoomTypeId ? 'Zmiany w typie pokoju zostały zapisane.' : 'Typ pokoju został dodany.');
       setNewRoomType({ name: '', basePrice: 0, maxOccupancy: 1 }); setEditingRoomTypeId(null); loadData();
     } catch (err: any) { setError(err.message); }
   };
@@ -105,7 +119,7 @@ export default function AdminDashboard({ token }: { token: string }) {
   const handleCancelEditRoomType = () => { setEditingRoomTypeId(null); setNewRoomType({ name: '', basePrice: 0, maxOccupancy: 1 }); };
   const handleDeleteRoomType = async (id: number) => {
     if(!window.confirm('Na pewno usunąć ten typ pokoju?')) return;
-    try { await deleteRoomType(id, token); loadData(); } catch (err: any) { setError(err.message); }
+    try { await deleteRoomType(id, token); showSuccess('Typ pokoju został usunięty.'); loadData(); } catch (err: any) { setError(err.message); }
   };
 
   // Handler dla Pokoi
@@ -113,6 +127,7 @@ export default function AdminDashboard({ token }: { token: string }) {
     e.preventDefault();
     try {
       if (editingRoomId) await updateRoom(editingRoomId, newRoom, token); else await createRoom(newRoom, token);
+      showSuccess(editingRoomId ? 'Zmiany w pokoju zostały zapisane.' : 'Pokój został dodany.');
       setNewRoom({ ...newRoom, roomNumber: '', status: 'available', amenityIds: [] }); setEditingRoomId(null); loadData();
     } catch (err: any) { setError(err.message); }
   };
@@ -123,7 +138,7 @@ export default function AdminDashboard({ token }: { token: string }) {
   };
   const handleDeleteRoom = async (id: number) => {
     if(!window.confirm('Na pewno usunąć ten pokój?')) return;
-    try { await deleteRoom(id, token); loadData(); } catch (err: any) { setError(err.message); }
+    try { await deleteRoom(id, token); showSuccess('Pokój został usunięty.'); loadData(); } catch (err: any) { setError(err.message); }
   };
 
   // Handler dla Usług
@@ -131,6 +146,7 @@ export default function AdminDashboard({ token }: { token: string }) {
     e.preventDefault();
     try {
       if (editingServiceId) await updateAdditionalService(editingServiceId, newService, token); else await createAdditionalService(newService, token);
+      showSuccess(editingServiceId ? 'Zmiany w usłudze zostały zapisane.' : 'Usługa została dodana.');
       setNewService({ name: '', price: 0 }); setEditingServiceId(null); loadData();
     } catch (err: any) { setError(err.message); }
   };
@@ -138,7 +154,7 @@ export default function AdminDashboard({ token }: { token: string }) {
   const handleCancelEditService = () => { setEditingServiceId(null); setNewService({ name: '', price: 0 }); };
   const handleDeleteService = async (id: number) => {
     if(!window.confirm('Na pewno usunąć usługę?')) return;
-    try { await deleteAdditionalService(id, token); loadData(); } catch (err: any) { setError(err.message); }
+    try { await deleteAdditionalService(id, token); showSuccess('Usługa została usunięta.'); loadData(); } catch (err: any) { setError(err.message); }
   };
 
   // Handler dla Cennika
@@ -146,6 +162,7 @@ export default function AdminDashboard({ token }: { token: string }) {
     e.preventDefault();
     try {
       if (editingPricingId) await updatePriceListEntry(editingPricingId, newPricing, token); else await createPriceListEntry(newPricing, token);
+      showSuccess(editingPricingId ? 'Zmiany w cenniku zostały zapisane.' : 'Cena sezonowa została dodana.');
       setNewPricing({ ...newPricing, startDate: '', endDate: '', pricePerNight: 0 }); setEditingPricingId(null); loadData();
     } catch (err: any) { setError(err.message); }
   };
@@ -153,7 +170,7 @@ export default function AdminDashboard({ token }: { token: string }) {
   const handleCancelEditPricing = () => { setEditingPricingId(null); setNewPricing({ ...newPricing, startDate: '', endDate: '', pricePerNight: 0 }); };
   const handleDeletePricing = async (id: number) => {
     if(!window.confirm('Na pewno usunąć ten wpis z cennika?')) return;
-    try { await deletePriceListEntry(id, token); loadData(); } catch (err: any) { setError(err.message); }
+    try { await deletePriceListEntry(id, token); showSuccess('Wpis z cennika został usunięty.'); loadData(); } catch (err: any) { setError(err.message); }
   };
 
   // Handler dla Udogodnień
@@ -161,6 +178,7 @@ export default function AdminDashboard({ token }: { token: string }) {
     e.preventDefault();
     try {
       if (editingAmenityId) await updateAmenity(editingAmenityId, newAmenity, token); else await createAmenity(newAmenity, token);
+      showSuccess(editingAmenityId ? 'Zmiany w udogodnieniu zostały zapisane.' : 'Udogodnienie zostało dodane.');
       setNewAmenity({ name: '' }); setEditingAmenityId(null); loadData();
     } catch (err: any) { setError(err.message); }
   };
@@ -168,29 +186,29 @@ export default function AdminDashboard({ token }: { token: string }) {
   const handleCancelEditAmenity = () => { setEditingAmenityId(null); setNewAmenity({ name: '' }); };
   const handleDeleteAmenity = async (id: number) => {
     if(!window.confirm('Na pewno usunąć to udogodnienie? Zostanie odpięte od wszystkich pokoi.')) return;
-    try { await deleteAmenity(id, token); loadData(); } catch (err: any) { setError(err.message); }
+    try { await deleteAmenity(id, token); showSuccess('Udogodnienie zostało usunięte.'); loadData(); } catch (err: any) { setError(err.message); }
   };
 
   // Handler dla Blokad
   const handleAddBlock = async (e: React.FormEvent) => {
     e.preventDefault();
-    try { await createRoomBlock(newBlock, token); setNewBlock({ ...newBlock, startDate: '', endDate: '', reason: '' }); loadData(); } catch (err: any) { setError(err.message); }
+    try { await createRoomBlock(newBlock, token); showSuccess('Blokada pokoju została utworzona.'); setNewBlock({ ...newBlock, startDate: '', endDate: '', reason: '' }); loadData(); } catch (err: any) { setError(err.message); }
   };
   const handleDeleteBlock = async (id: number) => {
     if(!window.confirm('Na pewno usunąć tę blokadę?')) return;
-    try { await deleteRoomBlock(id, token); loadData(); } catch (err: any) { setError(err.message); }
+    try { await deleteRoomBlock(id, token); showSuccess('Blokada została usunięta.'); loadData(); } catch (err: any) { setError(err.message); }
   };
 
   // Handler dla Opinii (moderacja)
   const handleDeleteReview = async (id: number) => {
     if(!window.confirm('Na pewno usunąć tę opinię?')) return;
-    try { await deleteReview(id, token); loadData(); } catch (err: any) { setError(err.message); }
+    try { await deleteReview(id, token); showSuccess('Opinia została usunięta.'); loadData(); } catch (err: any) { setError(err.message); }
   };
 
   // Handler dla Rezerwacji
   const handleChangeStatus = async (id: number, status: string) => {
     if (status === 'cancelled' && !window.confirm('Na pewno anulować tę rezerwację? Tej operacji nie można cofnąć.')) return;
-    try { await updateReservationStatus(id, { status }, token); loadData(); } catch (err: any) { setError(err.message); }
+    try { await updateReservationStatus(id, { status }, token); showSuccess(`Status rezerwacji #${id} został zmieniony.`); loadData(); } catch (err: any) { setError(err.message); }
   };
 
   // Filtrowanie rezerwacji po statusie, dacie (pobyt obejmujący wybrany dzień) i gościu
@@ -202,22 +220,30 @@ export default function AdminDashboard({ token }: { token: string }) {
   });
 
   return (
-    <div className="w-full max-w-6xl p-6 bg-white rounded-xl shadow-lg space-y-6">
+    <div className="w-full max-w-6xl p-4 md:p-6 bg-white rounded-xl shadow-lg space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-4 border-b pb-4">
         <h2 className="text-3xl font-bold text-slate-800">Panel Właściciela</h2>
-        <div className="flex flex-wrap justify-end gap-2">
-          <button onClick={() => setActiveTab('roomTypes')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'roomTypes' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Typy Pokoi</button>
-          <button onClick={() => setActiveTab('rooms')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'rooms' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Fizyczne Pokoje</button>
-          <button onClick={() => setActiveTab('amenities')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'amenities' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Udogodnienia</button>
-          <button onClick={() => setActiveTab('pricing')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'pricing' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Cennik Sezonowy</button>
-          <button onClick={() => setActiveTab('services')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'services' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Usługi Dodatkowe</button>
-          <button onClick={() => setActiveTab('blocks')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'blocks' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Blokady</button>
-          <button onClick={() => setActiveTab('reservations')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'reservations' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Rezerwacje</button>
-          <button onClick={() => setActiveTab('reviews')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'reviews' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Opinie</button>
+        <div className="flex flex-wrap md:justify-end gap-2">
+          <button onClick={() => changeTab('roomTypes')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'roomTypes' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Typy Pokoi</button>
+          <button onClick={() => changeTab('rooms')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'rooms' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Fizyczne Pokoje</button>
+          <button onClick={() => changeTab('amenities')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'amenities' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Udogodnienia</button>
+          <button onClick={() => changeTab('pricing')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'pricing' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Cennik Sezonowy</button>
+          <button onClick={() => changeTab('services')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'services' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Usługi Dodatkowe</button>
+          <button onClick={() => changeTab('blocks')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'blocks' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Blokady</button>
+          <button onClick={() => changeTab('reservations')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'reservations' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Rezerwacje</button>
+          <button onClick={() => changeTab('reviews')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${activeTab === 'reviews' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Opinie</button>
         </div>
       </div>
 
+      <nav className="text-sm text-slate-500">
+        <span>Panel Właściciela</span>
+        <span className="mx-2">›</span>
+        <span className="font-semibold text-slate-800">{tabLabels[activeTab]}</span>
+        {selectedReservationId && activeTab === 'reservations' && (<><span className="mx-2">›</span><span className="font-semibold text-slate-800">Rezerwacja #{selectedReservationId}</span></>)}
+      </nav>
+
       {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
+      {message && !error && <div className="p-3 bg-green-100 text-green-700 rounded-lg text-sm font-medium">{message}</div>}
 
       {/* --- ZAKŁADKA 1: TYPY POKOI --- */}
       {activeTab === 'roomTypes' && (
@@ -225,15 +251,15 @@ export default function AdminDashboard({ token }: { token: string }) {
           <form onSubmit={handleAddRoomType} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border">
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase">Nazwa typu</label>
-              <input type="text" required value={newRoomType.name} onChange={e => setNewRoomType({...newRoomType, name: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+              <input type="text" required maxLength={100} value={newRoomType.name} onChange={e => setNewRoomType({...newRoomType, name: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase">Cena bazowa (PLN)</label>
-              <input type="number" required min="1" value={newRoomType.basePrice || ''} onChange={e => setNewRoomType({...newRoomType, basePrice: Number(e.target.value)})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+              <input type="number" required min="0.01" max="100000" step="0.01" value={newRoomType.basePrice || ''} onChange={e => setNewRoomType({...newRoomType, basePrice: Number(e.target.value)})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase">Max. gości</label>
-              <input type="number" required min="1" value={newRoomType.maxOccupancy || ''} onChange={e => setNewRoomType({...newRoomType, maxOccupancy: Number(e.target.value)})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+              <input type="number" required min="1" max="20" value={newRoomType.maxOccupancy || ''} onChange={e => setNewRoomType({...newRoomType, maxOccupancy: Number(e.target.value)})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
             </div>
             <div className="flex items-end gap-2">
               <button type="submit" className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">{editingRoomTypeId ? 'Zapisz Zmiany' : 'Dodaj Typ Pokoju'}</button>
@@ -275,7 +301,7 @@ export default function AdminDashboard({ token }: { token: string }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase">Numer pokoju</label>
-              <input type="text" required value={newRoom.roomNumber} onChange={e => setNewRoom({...newRoom, roomNumber: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+              <input type="text" required maxLength={10} value={newRoom.roomNumber} onChange={e => setNewRoom({...newRoom, roomNumber: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase">Status</label>
@@ -341,11 +367,11 @@ export default function AdminDashboard({ token }: { token: string }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase">Do (Koniec)</label>
-              <input type="date" required value={newPricing.endDate} onChange={e => setNewPricing({...newPricing, endDate: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+              <input type="date" required min={newPricing.startDate} value={newPricing.endDate} onChange={e => setNewPricing({...newPricing, endDate: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase">Cena (PLN/noc)</label>
-              <input type="number" required min="1" value={newPricing.pricePerNight || ''} onChange={e => setNewPricing({...newPricing, pricePerNight: Number(e.target.value)})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+              <input type="number" required min="0.01" max="100000" step="0.01" value={newPricing.pricePerNight || ''} onChange={e => setNewPricing({...newPricing, pricePerNight: Number(e.target.value)})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
             </div>
             <div className="flex gap-2">
               <button type="submit" className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">{editingPricingId ? 'Zapisz Zmiany' : 'Zapisz Cenę'}</button>
@@ -383,11 +409,11 @@ export default function AdminDashboard({ token }: { token: string }) {
           <form onSubmit={handleAddService} className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg border items-end">
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase">Nazwa usługi (np. Śniadanie)</label>
-              <input type="text" required value={newService.name} onChange={e => setNewService({...newService, name: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+              <input type="text" required maxLength={100} value={newService.name} onChange={e => setNewService({...newService, name: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase">Cena (PLN)</label>
-              <input type="number" required min="1" value={newService.price || ''} onChange={e => setNewService({...newService, price: Number(e.target.value)})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+              <input type="number" required min="0.01" max="100000" step="0.01" value={newService.price || ''} onChange={e => setNewService({...newService, price: Number(e.target.value)})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
             </div>
             <div className="flex gap-2">
               <button type="submit" className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">{editingServiceId ? 'Zapisz Zmiany' : 'Dodaj Usługę'}</button>
@@ -478,7 +504,7 @@ export default function AdminDashboard({ token }: { token: string }) {
           <form onSubmit={handleAddAmenity} className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg border items-end">
             <div className="md:col-span-2">
               <label className="block text-xs font-semibold text-slate-500 uppercase">Nazwa udogodnienia (np. WiFi)</label>
-              <input type="text" required value={newAmenity.name} onChange={e => setNewAmenity({...newAmenity, name: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+              <input type="text" required maxLength={100} value={newAmenity.name} onChange={e => setNewAmenity({...newAmenity, name: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
             </div>
             <div className="flex gap-2">
               <button type="submit" className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">{editingAmenityId ? 'Zapisz Zmiany' : 'Dodaj Udogodnienie'}</button>
@@ -525,11 +551,11 @@ export default function AdminDashboard({ token }: { token: string }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase">Do (dzień zwolnienia)</label>
-              <input type="date" required value={newBlock.endDate} onChange={e => setNewBlock({...newBlock, endDate: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+              <input type="date" required min={newBlock.startDate} value={newBlock.endDate} onChange={e => setNewBlock({...newBlock, endDate: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase">Powód</label>
-              <input type="text" required placeholder="np. remont" value={newBlock.reason} onChange={e => setNewBlock({...newBlock, reason: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+              <input type="text" required maxLength={200} placeholder="np. remont" value={newBlock.reason} onChange={e => setNewBlock({...newBlock, reason: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
             </div>
             <div>
               <button type="submit" className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">Zablokuj Pokój</button>

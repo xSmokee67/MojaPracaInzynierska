@@ -37,10 +37,10 @@ export default function MyReservations({ token, refreshKey }: { token: string; r
   );
 
   return (
-    <div className="w-full max-w-5xl p-6 bg-white rounded-xl shadow-lg space-y-6">
-      <div className="flex justify-between items-center border-b pb-4">
+    <div className="w-full max-w-5xl p-4 md:p-6 bg-white rounded-xl shadow-lg space-y-6">
+      <div className="flex flex-wrap justify-between items-center gap-4 border-b pb-4">
         <h2 className="text-2xl font-bold text-slate-800">Moje rezerwacje</h2>
-        <div className="space-x-2">
+        <div className="flex flex-wrap gap-2">
           <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${filter === 'all' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Wszystkie</button>
           <button onClick={() => setFilter('active')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${filter === 'active' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Aktywne</button>
           <button onClick={() => setFilter('history')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${filter === 'history' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Historia</button>
