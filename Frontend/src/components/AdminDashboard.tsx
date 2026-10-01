@@ -17,6 +17,15 @@ import ReservationDetails from './ReservationDetails';
 import RoomTypePhotoManager from './RoomTypePhotoManager';
 import { photoUrl } from '../api/roomApi';
 
+// Statusy pokoju zgodne ze słownikiem danych (available / cleaning / maintenance / disabled)
+const roomStatusLabels: Record<string, string> = { available: 'Dostępny', cleaning: 'Sprzątanie', maintenance: 'W remoncie', disabled: 'Wyłączony' };
+const roomStatusStyles: Record<string, string> = {
+  available: 'bg-emerald-100 text-emerald-700',
+  cleaning: 'bg-sky-100 text-sky-700',
+  maintenance: 'bg-amber-100 text-amber-700',
+  disabled: 'bg-slate-200 text-slate-600'
+};
+
 export default function AdminDashboard({ token }: { token: string }) {
   const [activeTab, setActiveTab] = useState<'roomTypes' | 'rooms' | 'amenities' | 'services' | 'pricing' | 'blocks' | 'reservations' | 'reviews'>('roomTypes');
   
@@ -52,6 +61,7 @@ export default function AdminDashboard({ token }: { token: string }) {
   // Szczegóły rezerwacji (okno) i filtr blokad po pokoju
   const [selectedReservationId, setSelectedReservationId] = useState<number | null>(null);
   const [blockRoomFilter, setBlockRoomFilter] = useState(0);
+  const [showDisabledRooms, setShowDisabledRooms] = useState(false);
 
   // Stany dla filtrów rezerwacji
   const [statusFilter, setStatusFilter] = useState('all');
@@ -141,9 +151,19 @@ export default function AdminDashboard({ token }: { token: string }) {
   const handleToggleRoomAmenity = (amenityId: number) => {
     setNewRoom(prev => ({ ...prev, amenityIds: prev.amenityIds.includes(amenityId) ? prev.amenityIds.filter(id => id !== amenityId) : [...prev.amenityIds, amenityId] }));
   };
-  const handleDeleteRoom = async (id: number) => {
+  const handleDeleteRoom = async (room: RoomDto) => {
     if(!window.confirm('Na pewno usunąć ten pokój?')) return;
-    try { await deleteRoom(id, token); showSuccess('Pokój został usunięty.'); loadData(); } catch (err: any) { setError(err.message); }
+    try {
+      await deleteRoom(room.roomId!, token); showSuccess('Pokój został usunięty.'); loadData();
+    } catch (err: any) {
+      // API nie usuwa pokoju z historią rezerwacji (płatności, faktury) - zamiast tego można go wyłączyć i ukryć z listy
+      if (room.status !== 'disabled' && err.message.startsWith('Nie można usunąć pokoju, który ma rezerwacje')
+        && window.confirm(`Pokój ${room.roomNumber} ma rezerwacje, więc nie można go usunąć.\n\nWyłączyć go z użytku i ukryć z listy? Historia rezerwacji zostanie zachowana.`)) {
+        try { await updateRoom(room.roomId!, { ...room, status: 'disabled' }, token); showSuccess(`Pokój ${room.roomNumber} został wyłączony i ukryty z listy.`); loadData(); } catch (updateErr: any) { setError(updateErr.message); }
+        return;
+      }
+      setError(err.message);
+    }
   };
 
   // Handler dla Usług
@@ -341,6 +361,13 @@ export default function AdminDashboard({ token }: { token: string }) {
             </div>
           </form>
 
+          {rooms.some(r => r.status === 'disabled') && (
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" checked={showDisabledRooms} onChange={e => setShowDisabledRooms(e.target.checked)} className="accent-emerald-600" />
+              Pokaż wyłączone pokoje ({rooms.filter(r => r.status === 'disabled').length})
+            </label>
+          )}
+
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -350,13 +377,13 @@ export default function AdminDashboard({ token }: { token: string }) {
                 </tr>
               </thead>
               <tbody>
-                {rooms.map(r => (
-                  <tr key={r.roomId} className="border-b hover:bg-slate-50">
+                {rooms.filter(r => showDisabledRooms || r.status !== 'disabled').map(r => (
+                  <tr key={r.roomId} className={`border-b hover:bg-slate-50 ${r.status === 'disabled' ? 'opacity-60' : ''}`}>
                     <td className="p-4 text-slate-500">#{r.roomId}</td><td className="p-4 font-bold text-slate-800">{r.roomNumber}</td>
                     <td className="p-4 text-slate-600">{r.roomTypeName}</td>
                     <td className="p-4 text-slate-600 text-sm">{r.amenityNames && r.amenityNames.length > 0 ? r.amenityNames.join(', ') : '—'}</td>
-                    <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${r.status === 'available' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{r.status}</span></td>
-                    <td className="p-4 text-right space-x-3"><button onClick={() => handleEditRoom(r)} className="text-slate-600 hover:text-slate-900 font-medium text-sm">Edytuj</button><button onClick={() => handleDeleteRoom(r.roomId!)} className="text-red-500 hover:text-red-700 font-medium text-sm">Usuń</button></td>
+                    <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${roomStatusStyles[r.status] ?? 'bg-slate-100 text-slate-600'}`}>{roomStatusLabels[r.status] ?? r.status}</span></td>
+                    <td className="p-4 text-right space-x-3"><button onClick={() => handleEditRoom(r)} className="text-slate-600 hover:text-slate-900 font-medium text-sm">Edytuj</button><button onClick={() => handleDeleteRoom(r)} className="text-red-500 hover:text-red-700 font-medium text-sm">Usuń</button></td>
                   </tr>
                 ))}
               </tbody>

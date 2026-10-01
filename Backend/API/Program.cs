@@ -4,11 +4,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Model;
 using System.Text;
 using Services.Interfaces;
 using Services.Mapping;
+using Services.Settings;
 // USUNIĘTO: using Services.Services; aby zapobiec konfliktom nazw
 
 var builder = WebApplication.CreateBuilder(args);
@@ -89,6 +91,12 @@ builder.Services.AddAutoMapper(cfg =>
 builder.Services.AddScoped<IReservationService, Services.Services.ReservationService>();
 builder.Services.AddScoped<IAvailabilityService, Services.Services.AvailabilityService>();
 
+// Zdjęcia pokoi zapisywane w katalogu "uploads" obok projektu API i udostępniane pod adresem /uploads
+var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "uploads");
+Directory.CreateDirectory(uploadsPath);
+builder.Services.AddSingleton(new FileStorageSettings { RootPath = uploadsPath, RequestPath = "/uploads" });
+builder.Services.AddSingleton<IFileStorageService, Services.Services.FileStorageService>();
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -99,6 +107,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowReactApp");
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads"
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -137,8 +151,16 @@ using (var scope = app.Services.CreateScope())
     if (!dbContext.RoomTypes.Any())
     {
         dbContext.RoomTypes.AddRange(
-            new RoomType { Name = "Pokój Standardowy", BasePrice = 200, MaxOccupancy = 2 },
-            new RoomType { Name = "Apartament Premium", BasePrice = 500, MaxOccupancy = 4 }
+            new RoomType
+            {
+                Name = "Pokój Standardowy", BasePrice = 200, MaxOccupancy = 2,
+                Description = "Przytulny pokój dla dwóch osób z podwójnym łóżkiem, biurkiem i łazienką z prysznicem. Idealny na krótki wypad do miasta lub podróż służbową."
+            },
+            new RoomType
+            {
+                Name = "Apartament Premium", BasePrice = 500, MaxOccupancy = 4,
+                Description = "Przestronny apartament z oddzielną sypialnią i salonem z rozkładaną sofą. Łazienka z wanną, aneks kawowy i widok na okolicę. Dobry wybór dla rodzin i dłuższych pobytów."
+            }
         );
         dbContext.SaveChanges();
     }

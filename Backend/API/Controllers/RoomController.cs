@@ -111,6 +111,11 @@ public class RoomController : ControllerBase
         if (room == null)
             return NotFound(new { error = "Nie znaleziono pokoju!"});
 
+        // Pokój z historią rezerwacji (płatności, faktury) nie może zostać usunięty - można go wyłączyć z użytku
+        bool hasReservations = await _context.Reservations.AnyAsync(r => r.RoomId == id);
+        if (hasReservations)
+            return BadRequest(new { error = "Nie można usunąć pokoju, który ma rezerwacje (także historyczne). Zmień jego status na \"Wyłączony\", aby wycofać go z oferty."});
+
         _context.Rooms.Remove(room);
         await _context.SaveChangesAsync();
 
