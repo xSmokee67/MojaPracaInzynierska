@@ -1,5 +1,6 @@
 // Plik: Frontend/src/api/adminApi.ts
 import type { RoomTypeDto, RoomDto, AdditionalServiceDto, PriceListEntryDto, AmenityDto, RoomBlockDto } from '../types/admin';
+import { throwApiError } from './apiErrors';
 import type { ReviewDto } from '../types/reservation';
 
 const API_URL = 'http://localhost:5285/api';
@@ -7,7 +8,7 @@ const API_URL = 'http://localhost:5285/api';
 // --- TYPY POKOI ---
 export const getRoomTypes = async (): Promise<RoomTypeDto[]> => {
   const response = await fetch(`${API_URL}/RoomType`);
-  if (!response.ok) throw new Error('Błąd pobierania typów pokoi');
+  if (!response.ok) await throwApiError(response, 'Błąd pobierania typów pokoi');
   return response.json();
 };
 
@@ -17,10 +18,7 @@ export const createRoomType = async (dto: RoomTypeDto, token: string): Promise<v
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(dto),
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd tworzenia typu pokoju');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd tworzenia typu pokoju');
 };
 
 export const updateRoomType = async (id: number, dto: RoomTypeDto, token: string): Promise<void> => {
@@ -29,10 +27,7 @@ export const updateRoomType = async (id: number, dto: RoomTypeDto, token: string
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(dto),
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd edycji typu pokoju');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd edycji typu pokoju');
 };
 
 export const deleteRoomType = async (id: number, token: string): Promise<void> => {
@@ -40,10 +35,7 @@ export const deleteRoomType = async (id: number, token: string): Promise<void> =
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` }
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd usuwania typu pokoju');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd usuwania typu pokoju');
 };
 
 // --- POKOJE FIZYCZNE ---
@@ -51,7 +43,7 @@ export const getRooms = async (token: string): Promise<RoomDto[]> => {
   const response = await fetch(`${API_URL}/Room`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
-  if (!response.ok) throw new Error('Błąd pobierania pokoi');
+  if (!response.ok) await throwApiError(response, 'Błąd pobierania pokoi');
   return response.json();
 };
 
@@ -61,10 +53,7 @@ export const createRoom = async (dto: RoomDto, token: string): Promise<void> => 
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(dto),
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd tworzenia pokoju');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd tworzenia pokoju');
 };
 
 export const updateRoom = async (id: number, dto: RoomDto, token: string): Promise<void> => {
@@ -73,10 +62,7 @@ export const updateRoom = async (id: number, dto: RoomDto, token: string): Promi
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(dto),
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd edycji pokoju');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd edycji pokoju');
 };
 
 export const deleteRoom = async (id: number, token: string): Promise<void> => {
@@ -84,16 +70,13 @@ export const deleteRoom = async (id: number, token: string): Promise<void> => {
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` }
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd usuwania pokoju');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd usuwania pokoju');
 };
 
 // --- USŁUGI DODATKOWE ---
 export const getAdditionalServices = async (): Promise<AdditionalServiceDto[]> => {
   const response = await fetch(`${API_URL}/AdditionalService`);
-  if (!response.ok) throw new Error('Błąd pobierania usług');
+  if (!response.ok) await throwApiError(response, 'Błąd pobierania usług');
   return response.json();
 };
 
@@ -103,10 +86,7 @@ export const createAdditionalService = async (dto: AdditionalServiceDto, token: 
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(dto),
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd dodawania usługi');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd dodawania usługi');
 };
 
 export const updateAdditionalService = async (id: number, dto: AdditionalServiceDto, token: string): Promise<void> => {
@@ -115,10 +95,7 @@ export const updateAdditionalService = async (id: number, dto: AdditionalService
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(dto),
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd edycji usługi');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd edycji usługi');
 };
 
 export const deleteAdditionalService = async (id: number, token: string): Promise<void> => {
@@ -126,10 +103,7 @@ export const deleteAdditionalService = async (id: number, token: string): Promis
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` }
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd usuwania usługi');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd usuwania usługi');
 };
 
 // --- CENNIK SEZONOWY ---
@@ -137,7 +111,7 @@ export const getPriceListEntries = async (token: string): Promise<PriceListEntry
   const response = await fetch(`${API_URL}/PriceListEntry`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
-  if (!response.ok) throw new Error('Błąd pobierania cennika');
+  if (!response.ok) await throwApiError(response, 'Błąd pobierania cennika');
   return response.json();
 };
 
@@ -147,10 +121,7 @@ export const createPriceListEntry = async (dto: PriceListEntryDto, token: string
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(dto),
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || errorData || 'Błąd dodawania wpisu w cenniku');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd dodawania wpisu w cenniku');
 };
 
 export const updatePriceListEntry = async (id: number, dto: PriceListEntryDto, token: string): Promise<void> => {
@@ -159,10 +130,7 @@ export const updatePriceListEntry = async (id: number, dto: PriceListEntryDto, t
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(dto),
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd edycji wpisu w cenniku');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd edycji wpisu w cenniku');
 };
 
 export const deletePriceListEntry = async (id: number, token: string): Promise<void> => {
@@ -170,16 +138,13 @@ export const deletePriceListEntry = async (id: number, token: string): Promise<v
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` }
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd usuwania wpisu z cennika');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd usuwania wpisu z cennika');
 };
 
 // --- UDOGODNIENIA ---
 export const getAmenities = async (): Promise<AmenityDto[]> => {
   const response = await fetch(`${API_URL}/Amenity`);
-  if (!response.ok) throw new Error('Błąd pobierania udogodnień');
+  if (!response.ok) await throwApiError(response, 'Błąd pobierania udogodnień');
   return response.json();
 };
 
@@ -189,10 +154,7 @@ export const createAmenity = async (dto: AmenityDto, token: string): Promise<voi
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(dto),
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd dodawania udogodnienia');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd dodawania udogodnienia');
 };
 
 export const updateAmenity = async (id: number, dto: AmenityDto, token: string): Promise<void> => {
@@ -201,10 +163,7 @@ export const updateAmenity = async (id: number, dto: AmenityDto, token: string):
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(dto),
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd edycji udogodnienia');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd edycji udogodnienia');
 };
 
 export const deleteAmenity = async (id: number, token: string): Promise<void> => {
@@ -212,10 +171,7 @@ export const deleteAmenity = async (id: number, token: string): Promise<void> =>
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` }
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd usuwania udogodnienia');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd usuwania udogodnienia');
 };
 
 // --- BLOKADY POKOI ---
@@ -223,7 +179,7 @@ export const getRoomBlocks = async (token: string): Promise<RoomBlockDto[]> => {
   const response = await fetch(`${API_URL}/RoomBlock`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
-  if (!response.ok) throw new Error('Błąd pobierania blokad');
+  if (!response.ok) await throwApiError(response, 'Błąd pobierania blokad');
   return response.json();
 };
 
@@ -233,10 +189,7 @@ export const createRoomBlock = async (dto: RoomBlockDto, token: string): Promise
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(dto),
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd tworzenia blokady');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd tworzenia blokady');
 };
 
 export const deleteRoomBlock = async (id: number, token: string): Promise<void> => {
@@ -244,16 +197,13 @@ export const deleteRoomBlock = async (id: number, token: string): Promise<void> 
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` }
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd usuwania blokady');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd usuwania blokady');
 };
 
 // --- OPINIE (MODERACJA) ---
 export const getReviews = async (): Promise<ReviewDto[]> => {
   const response = await fetch(`${API_URL}/Review`);
-  if (!response.ok) throw new Error('Błąd pobierania opinii');
+  if (!response.ok) await throwApiError(response, 'Błąd pobierania opinii');
   return response.json();
 };
 
@@ -262,8 +212,5 @@ export const deleteReview = async (id: number, token: string): Promise<void> => 
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` }
   });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Błąd usuwania opinii');
-  }
+  if (!response.ok) await throwApiError(response, 'Błąd usuwania opinii');
 };

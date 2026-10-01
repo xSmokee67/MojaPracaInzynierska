@@ -3,6 +3,7 @@ import AuthForm from './components/AuthForm';
 import ReservationForm from './components/ReservationForm';
 import AdminDashboard from './components/AdminDashboard';
 import MyReservations from './components/MyReservations';
+import { SESSION_EXPIRED_EVENT } from './api/apiErrors';
 
 export default function App() {
   const [token, setToken] = useState<string | null>(null);
@@ -40,6 +41,13 @@ export default function App() {
     const timer = setTimeout(() => handleLogout('Sesja wygasła. Zaloguj się ponownie.'), Math.max(timeLeft, 0));
     return () => clearTimeout(timer);
   }, [token]);
+
+  // API zwróciło 401 (token wygasł lub jest nieważny) - wylogowanie z komunikatem
+  useEffect(() => {
+    const onSessionExpired = () => handleLogout('Sesja wygasła. Zaloguj się ponownie.');
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, []);
 
   const handleLoginSuccess = (newToken: string, newRole: string, newEmail: string, expiration: string) => {
     localStorage.setItem('jwt_token', newToken);

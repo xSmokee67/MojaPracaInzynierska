@@ -17,6 +17,7 @@ export default function ReservationForm({ token, onReservationCreated }: { token
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
   const [totalPrice, setTotalPrice] = useState<number | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
+  const [isError, setIsError] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
   const loadData = async () => {
@@ -28,6 +29,7 @@ export default function ReservationForm({ token, onReservationCreated }: { token
       const servicesData = await getAdditionalServices();
       setServices(servicesData);
     } catch (err: any) {
+      setIsError(true);
       setStatusMessage(err.message);
     }
   };
@@ -38,6 +40,7 @@ export default function ReservationForm({ token, onReservationCreated }: { token
 
   // Zmiana parametrów unieważnia poprzednio wyliczoną cenę - trzeba sprawdzić ponownie
   const resetCheck = () => {
+    setIsError(false);
     setIsAvailable(null);
     setTotalPrice(null);
     setStatusMessage('');
@@ -63,6 +66,7 @@ export default function ReservationForm({ token, onReservationCreated }: { token
     }
     
     try {
+      setIsError(false);
       setStatusMessage('Sprawdzanie dostępności...');
       const avail = await checkAvailability(roomTypeId, checkInDate, checkOutDate);
       setIsAvailable(avail.isAvailable);
@@ -83,6 +87,7 @@ export default function ReservationForm({ token, onReservationCreated }: { token
         setStatusMessage(avail.message);
       }
     } catch (err: any) {
+      setIsError(true);
       setStatusMessage(err.message);
     }
   };
@@ -104,6 +109,7 @@ export default function ReservationForm({ token, onReservationCreated }: { token
       onReservationCreated();
       setStatusMessage('Rezerwacja została pomyślnie potwierdzona!');
     } catch (err: any) {
+      setIsError(true);
       setStatusMessage(err.message);
     }
   };
@@ -171,7 +177,7 @@ export default function ReservationForm({ token, onReservationCreated }: { token
       </div>
 
       {statusMessage && (
-        <div className={`p-4 rounded-lg text-sm font-medium ${isAvailable ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+        <div className={`p-4 rounded-lg text-sm font-medium ${isError ? 'bg-red-100 text-red-700' : isAvailable ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
           {statusMessage}
         </div>
       )}

@@ -91,7 +91,7 @@ public class RoomController : ControllerBase
 
         room.RoomTypeId = dto.RoomTypeId;
         room.RoomNumber = dto.RoomNumber;
-        room.Status = dto.Status;
+        room.Status = string.IsNullOrWhiteSpace(dto.Status) ? "available" : dto.Status;
 
         var amenities = await _context.Amenities.Where(a => dto.AmenityIds.Contains(a.AmenityId)).ToListAsync();
         room.Amenities.Clear();
