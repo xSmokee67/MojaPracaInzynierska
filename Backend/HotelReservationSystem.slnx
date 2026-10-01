@@ -3,4 +3,5 @@
   <Project Path="DAL/DAL.csproj" />
   <Project Path="Model/Model.csproj" />
   <Project Path="Services/Services.csproj" />
+  <Project Path="Tests/Tests.csproj" />
 </Solution>
