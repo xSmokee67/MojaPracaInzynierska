@@ -1,13 +1,13 @@
-   # Wyniki kompilacji .NET
-   bin/
-   obj/
+# Wyniki kompilacji .NET
+bin/
+obj/
 
-   # Pliki Visual Studio / Rider / VS Code
-   .vs/
-   .idea/
-   .vscode/
-   *.user
-   *.suo
+# Pliki Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
 
-   # Wyniki testów
-   TestResults/
+# Wyniki testów
+TestResults/
