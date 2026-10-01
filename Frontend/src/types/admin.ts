@@ -1,8 +1,11 @@
 export interface RoomTypeDto {
     roomTypeId?: number;
     name: string;
+    description: string;
     basePrice: number;
     maxOccupancy: number;
+    mainPhotoUrl?: string | null;
+    photoCount?: number;
 }
 
 export interface RoomDto {

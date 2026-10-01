@@ -3,15 +3,44 @@ import AuthForm from './components/AuthForm';
 import ReservationForm from './components/ReservationForm';
 import AdminDashboard from './components/AdminDashboard';
 import MyReservations from './components/MyReservations';
+import RoomGallery from './components/RoomGallery';
+import RoomTypeProfile from './components/RoomTypeProfile';
 import { SESSION_EXPIRED_EVENT } from './api/apiErrors';
+
+// Proste trasy oparte o hash w adresie (#/pokoj/2) - działa przycisk "Wstecz" i można wysłać link do pokoju
+type Route =
+  | { view: 'rooms' }
+  | { view: 'room'; roomTypeId: number }
+  | { view: 'book'; roomTypeId?: number }
+  | { view: 'reservations' }
+  | { view: 'login' };
+
+const parseRoute = (hash: string): Route => {
+  const [section, id] = hash.replace(/^#\/?/, '').split('/');
+  const numericId = Number(id);
+  if (section === 'pokoj' && numericId > 0) return { view: 'room', roomTypeId: numericId };
+  if (section === 'rezerwacja') return { view: 'book', roomTypeId: numericId > 0 ? numericId : undefined };
+  if (section === 'moje-rezerwacje') return { view: 'reservations' };
+  if (section === 'logowanie') return { view: 'login' };
+  return { view: 'rooms' };
+};
+
+const navigate = (path: string) => { window.location.hash = path; };
 
 export default function App() {
   const [token, setToken] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [reservationsRefreshKey, setReservationsRefreshKey] = useState(0);
-  const [guestTab, setGuestTab] = useState<'book' | 'reservations'>('book');
+  const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
   const [sessionMessage, setSessionMessage] = useState('');
+
+  // Zmiana adresu (kliknięcie linku, przycisk "Wstecz") przełącza widok
+  useEffect(() => {
+    const onHashChange = () => { setRoute(parseRoute(window.location.hash)); window.scrollTo(0, 0); };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('jwt_token');
@@ -58,8 +87,11 @@ export default function App() {
     setToken(newToken);
     setRole(newRole);
     setEmail(newEmail);
-    setGuestTab('book');
     setSessionMessage('');
+
+    // Po logowaniu z przycisku "Zaloguj się" wracamy na stronę główną;
+    // przy logowaniu w trakcie rezerwacji zostajemy na tej samej trasie (#/rezerwacja/2)
+    if (route.view === 'login') navigate('/');
   };
 
   const handleLogout = (reason = '') => {
@@ -72,20 +104,35 @@ export default function App() {
     setRole(null);
     setEmail(null);
     setSessionMessage(reason);
+
+    // Ręczne wylogowanie z tras dostępnych tylko po zalogowaniu - powrót na stronę główną.
+    // Przy wygaśnięciu sesji (reason) zostajemy na miejscu: pojawi się logowanie z komunikatem, a potem powrót do formularza
+    const currentView = parseRoute(window.location.hash).view;
+    if (!reason && (currentView === 'book' || currentView === 'reservations')) navigate('/');
   };
+
+  const navButton = (active: boolean) => `flex-1 md:flex-none px-4 py-2 rounded-lg font-semibold transition-colors ${active ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
+  const requiresLogin = route.view === 'book' || route.view === 'reservations' || route.view === 'login';
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center py-6 md:py-10 px-4 space-y-8">
       {/* Pasek nawigacji */}
       <div className="w-full max-w-6xl flex flex-wrap justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm">
-        <h1 className="text-xl font-bold text-emerald-600">Hotel Resort API</h1>
+        <button onClick={() => navigate('/')} className="text-xl font-bold text-emerald-600">Hotel Resort API</button>
 
-        {/* Menu nawigacji gościa */}
-        {token && role !== 'Owner' && (
+        {/* Menu nawigacji gościa (także niezalogowanego) */}
+        {role !== 'Owner' && (
           <nav className="flex gap-2 order-3 w-full md:order-none md:w-auto">
-            <button onClick={() => setGuestTab('book')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg font-semibold transition-colors ${guestTab === 'book' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Zarezerwuj pobyt</button>
-            <button onClick={() => setGuestTab('reservations')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg font-semibold transition-colors ${guestTab === 'reservations' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Moje rezerwacje</button>
+            <button onClick={() => navigate('/')} className={navButton(route.view === 'rooms' || route.view === 'room')}>Pokoje</button>
+            {token && <button onClick={() => navigate('/rezerwacja')} className={navButton(route.view === 'book')}>Zarezerwuj pobyt</button>}
+            {token && <button onClick={() => navigate('/moje-rezerwacje')} className={navButton(route.view === 'reservations')}>Moje rezerwacje</button>}
           </nav>
+        )}
+
+        {!token && route.view !== 'login' && (
+          <button onClick={() => navigate('/logowanie')} className="text-sm px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700">
+            Zaloguj się
+          </button>
         )}
 
         {token && (
@@ -101,12 +148,16 @@ export default function App() {
       </div>
 
       {/* Główny routing aplikacji */}
-      {!token ? (
-        <AuthForm onLoginSuccess={handleLoginSuccess} sessionMessage={sessionMessage} />
-      ) : role === 'Owner' ? (
+      {token && role === 'Owner' ? (
         // WIDOK WŁAŚCICIELA
         <AdminDashboard token={token} />
-      ) : guestTab === 'book' ? (
+      ) : !token && requiresLogin ? (
+        // Rezerwacja i "Moje rezerwacje" wymagają zalogowania - po zalogowaniu gość zostaje na tej samej trasie
+        <AuthForm onLoginSuccess={handleLoginSuccess} sessionMessage={sessionMessage || (route.view === 'book' ? 'Zaloguj się lub załóż konto, aby zarezerwować pokój.' : '')} />
+      ) : route.view === 'room' ? (
+        // PROFIL POKOJU (publiczny)
+        <RoomTypeProfile roomTypeId={route.roomTypeId} onBook={id => navigate(`/rezerwacja/${id}`)} onBack={() => navigate('/')} />
+      ) : token && route.view === 'book' ? (
         // WIDOK GOŚCIA - rezerwacja
         <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
           <div className="space-y-4">
@@ -115,16 +166,19 @@ export default function App() {
               Skorzystaj z formularza obok, aby sprawdzić dostępność pokoi i dokonać rezerwacji w czasie rzeczywistym.
             </p>
             <p className="text-slate-600 leading-relaxed">
-              Swoje rezerwacje, płatności i faktury znajdziesz w zakładce <button onClick={() => setGuestTab('reservations')} className="text-emerald-600 font-semibold hover:underline">Moje rezerwacje</button>.
+              Swoje rezerwacje, płatności i faktury znajdziesz w zakładce <button onClick={() => navigate('/moje-rezerwacje')} className="text-emerald-600 font-semibold hover:underline">Moje rezerwacje</button>.
             </p>
           </div>
           <div className="flex justify-center">
-             <ReservationForm token={token} onReservationCreated={() => setReservationsRefreshKey(prev => prev + 1)} />
+             <ReservationForm key={route.roomTypeId ?? 0} token={token} initialRoomTypeId={route.roomTypeId} onReservationCreated={() => setReservationsRefreshKey(prev => prev + 1)} />
           </div>
         </div>
-      ) : (
+      ) : token && route.view === 'reservations' ? (
         // WIDOK GOŚCIA - moje rezerwacje
         <MyReservations token={token} refreshKey={reservationsRefreshKey} />
+      ) : (
+        // STRONA GŁÓWNA - galeria pokoi (publiczna)
+        <RoomGallery onSelect={id => navigate(`/pokoj/${id}`)} />
       )}
     </div>
   );

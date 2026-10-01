@@ -214,3 +214,33 @@ export const deleteReview = async (id: number, token: string): Promise<void> => 
   });
   if (!response.ok) await throwApiError(response, 'Błąd usuwania opinii');
 };
+
+// --- ZDJĘCIA TYPÓW POKOI ---
+export const uploadRoomTypePhotos = async (roomTypeId: number, files: File[], token: string): Promise<void> => {
+  const formData = new FormData();
+  files.forEach(file => formData.append('files', file));
+
+  // Bez nagłówka Content-Type - przeglądarka sama ustawia multipart/form-data z granicą (boundary)
+  const response = await fetch(`${API_URL}/RoomType/${roomTypeId}/photos`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData,
+  });
+  if (!response.ok) await throwApiError(response, 'Błąd dodawania zdjęć');
+};
+
+export const deleteRoomTypePhoto = async (photoId: number, token: string): Promise<void> => {
+  const response = await fetch(`${API_URL}/RoomType/photos/${photoId}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (!response.ok) await throwApiError(response, 'Błąd usuwania zdjęcia');
+};
+
+export const setMainRoomTypePhoto = async (photoId: number, token: string): Promise<void> => {
+  const response = await fetch(`${API_URL}/RoomType/photos/${photoId}/main`, {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (!response.ok) await throwApiError(response, 'Błąd ustawiania zdjęcia głównego');
+};

@@ -14,6 +14,8 @@ import {
 } from '../api/adminApi';
 import { getAllReservations, updateReservationStatus } from '../api/reservationApi';
 import ReservationDetails from './ReservationDetails';
+import RoomTypePhotoManager from './RoomTypePhotoManager';
+import { photoUrl } from '../api/roomApi';
 
 export default function AdminDashboard({ token }: { token: string }) {
   const [activeTab, setActiveTab] = useState<'roomTypes' | 'rooms' | 'amenities' | 'services' | 'pricing' | 'blocks' | 'reservations' | 'reviews'>('roomTypes');
@@ -30,7 +32,7 @@ export default function AdminDashboard({ token }: { token: string }) {
   const [message, setMessage] = useState('');
 
   // Stany dla formularzy
-  const [newRoomType, setNewRoomType] = useState<RoomTypeDto>({ name: '', basePrice: 0, maxOccupancy: 1 });
+  const [newRoomType, setNewRoomType] = useState<RoomTypeDto>({ name: '', description: '', basePrice: 0, maxOccupancy: 1 });
   const [newRoom, setNewRoom] = useState<RoomDto>({ roomTypeId: 0, roomNumber: '', status: 'available', amenityIds: [] });
   const [newService, setNewService] = useState<AdditionalServiceDto>({ name: '', price: 0 });
   const [newPricing, setNewPricing] = useState<PriceListEntryDto>({ roomTypeId: 0, startDate: '', endDate: '', pricePerNight: 0 });
@@ -43,6 +45,9 @@ export default function AdminDashboard({ token }: { token: string }) {
   const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
   const [editingPricingId, setEditingPricingId] = useState<number | null>(null);
   const [editingAmenityId, setEditingAmenityId] = useState<number | null>(null);
+
+  // Okno zarządzania zdjęciami typu pokoju
+  const [photoRoomType, setPhotoRoomType] = useState<RoomTypeDto | null>(null);
 
   // Szczegóły rezerwacji (okno) i filtr blokad po pokoju
   const [selectedReservationId, setSelectedReservationId] = useState<number | null>(null);
@@ -112,11 +117,11 @@ export default function AdminDashboard({ token }: { token: string }) {
     try {
       if (editingRoomTypeId) await updateRoomType(editingRoomTypeId, newRoomType, token); else await createRoomType(newRoomType, token);
       showSuccess(editingRoomTypeId ? 'Zmiany w typie pokoju zostały zapisane.' : 'Typ pokoju został dodany.');
-      setNewRoomType({ name: '', basePrice: 0, maxOccupancy: 1 }); setEditingRoomTypeId(null); loadData();
+      setNewRoomType({ name: '', description: '', basePrice: 0, maxOccupancy: 1 }); setEditingRoomTypeId(null); loadData();
     } catch (err: any) { setError(err.message); }
   };
-  const handleEditRoomType = (rt: RoomTypeDto) => { setEditingRoomTypeId(rt.roomTypeId!); setNewRoomType({ name: rt.name, basePrice: rt.basePrice, maxOccupancy: rt.maxOccupancy }); };
-  const handleCancelEditRoomType = () => { setEditingRoomTypeId(null); setNewRoomType({ name: '', basePrice: 0, maxOccupancy: 1 }); };
+  const handleEditRoomType = (rt: RoomTypeDto) => { setEditingRoomTypeId(rt.roomTypeId!); setNewRoomType({ name: rt.name, description: rt.description, basePrice: rt.basePrice, maxOccupancy: rt.maxOccupancy }); };
+  const handleCancelEditRoomType = () => { setEditingRoomTypeId(null); setNewRoomType({ name: '', description: '', basePrice: 0, maxOccupancy: 1 }); };
   const handleDeleteRoomType = async (id: number) => {
     if(!window.confirm('Na pewno usunąć ten typ pokoju?')) return;
     try { await deleteRoomType(id, token); showSuccess('Typ pokoju został usunięty.'); loadData(); } catch (err: any) { setError(err.message); }
@@ -265,22 +270,31 @@ export default function AdminDashboard({ token }: { token: string }) {
               <button type="submit" className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">{editingRoomTypeId ? 'Zapisz Zmiany' : 'Dodaj Typ Pokoju'}</button>
               {editingRoomTypeId && <button type="button" onClick={handleCancelEditRoomType} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300">Anuluj</button>}
             </div>
+            <div className="md:col-span-4">
+              <label className="block text-xs font-semibold text-slate-500 uppercase">Opis (widoczny na stronie pokoju)</label>
+              <textarea rows={3} maxLength={2000} value={newRoomType.description} onChange={e => setNewRoomType({...newRoomType, description: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+            </div>
           </form>
 
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-100 text-slate-600 text-sm border-b">
-                  <th className="p-4 font-semibold">ID</th><th className="p-4 font-semibold">Nazwa</th>
+                  <th className="p-4 font-semibold">Zdjęcie</th><th className="p-4 font-semibold">Nazwa</th>
                   <th className="p-4 font-semibold">Cena bazowa</th><th className="p-4 font-semibold">Max Gości</th><th className="p-4 font-semibold text-right">Akcje</th>
                 </tr>
               </thead>
               <tbody>
                 {roomTypes.map(rt => (
                   <tr key={rt.roomTypeId} className="border-b hover:bg-slate-50">
-                    <td className="p-4 text-slate-500">#{rt.roomTypeId}</td><td className="p-4 font-medium text-slate-800">{rt.name}</td>
+                    <td className="p-4">
+                      <div className="w-20 h-14 rounded-md overflow-hidden bg-slate-200 flex items-center justify-center text-xs text-slate-400">
+                        {rt.mainPhotoUrl ? <img src={photoUrl(rt.mainPhotoUrl)} alt={rt.name} className="w-full h-full object-cover" /> : 'brak'}
+                      </div>
+                    </td>
+                    <td className="p-4"><div className="font-medium text-slate-800">{rt.name}</div><div className="text-xs text-slate-500">#{rt.roomTypeId} · zdjęć: {rt.photoCount ?? 0}</div></td>
                     <td className="p-4">{rt.basePrice} PLN</td><td className="p-4">{rt.maxOccupancy} os.</td>
-                    <td className="p-4 text-right space-x-3"><button onClick={() => handleEditRoomType(rt)} className="text-slate-600 hover:text-slate-900 font-medium text-sm">Edytuj</button><button onClick={() => handleDeleteRoomType(rt.roomTypeId!)} className="text-red-500 hover:text-red-700 font-medium text-sm">Usuń</button></td>
+                    <td className="p-4 text-right space-x-3"><button onClick={() => setPhotoRoomType(rt)} className="text-emerald-600 hover:text-emerald-800 font-medium text-sm">Zdjęcia</button><button onClick={() => handleEditRoomType(rt)} className="text-slate-600 hover:text-slate-900 font-medium text-sm">Edytuj</button><button onClick={() => handleDeleteRoomType(rt.roomTypeId!)} className="text-red-500 hover:text-red-700 font-medium text-sm">Usuń</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -621,6 +635,10 @@ export default function AdminDashboard({ token }: { token: string }) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {photoRoomType && (
+        <RoomTypePhotoManager token={token} roomTypeId={photoRoomType.roomTypeId!} roomTypeName={photoRoomType.name} onClose={() => setPhotoRoomType(null)} onChanged={loadData} />
       )}
 
       {selectedReservationId && (

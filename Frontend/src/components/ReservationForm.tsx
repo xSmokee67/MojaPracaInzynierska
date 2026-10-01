@@ -5,7 +5,7 @@ import type { RoomTypeDto, AdditionalServiceDto } from '../types/admin';
 import { checkAvailability, calculatePrice, createReservation } from '../api/reservationApi';
 import { getRoomTypes, getAdditionalServices } from '../api/adminApi';
 
-export default function ReservationForm({ token, onReservationCreated }: { token: string; onReservationCreated: () => void }) {
+export default function ReservationForm({ token, onReservationCreated, initialRoomTypeId }: { token: string; onReservationCreated: () => void; initialRoomTypeId?: number }) {
   const [roomTypes, setRoomTypes] = useState<RoomTypeDto[]>([]);
   const [services, setServices] = useState<AdditionalServiceDto[]>([]);
 
@@ -24,7 +24,9 @@ export default function ReservationForm({ token, onReservationCreated }: { token
     try {
       const types = await getRoomTypes();
       setRoomTypes(types);
-      if (types.length > 0) setRoomTypeId(types[0].roomTypeId!);
+      // Typ pokoju wybrany na stronie pokoju (przycisk "Zarezerwuj ten pokój") albo pierwszy z listy
+      const preselected = types.find(rt => rt.roomTypeId === initialRoomTypeId);
+      if (types.length > 0) setRoomTypeId(preselected ? preselected.roomTypeId! : types[0].roomTypeId!);
 
       const servicesData = await getAdditionalServices();
       setServices(servicesData);
