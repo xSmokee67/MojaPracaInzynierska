@@ -22,7 +22,7 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 - **EF Core InMemory**: baza danych w pamięci zamiast SQL Servera
 - **AutoMapper**: ten sam profil `ReservationMappingProfile` co w aplikacji
 
-### Zakres (61 przypadków testowych)
+### Zakres (86 przypadków testowych)
 
 | Plik | Co jest testowane | Przypadki |
 |------|-------------------|-----------|
@@ -30,6 +30,8 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 | `ReservationServicePriceTests.cs` | Wyliczanie ceny (`CalculateTotalPriceAsync`): cena bazowa, sezonowa, pobyt na przełomie sezonu, usługi dodatkowe | 9 |
 | `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji, zmiana statusu, anulowanie przez gościa, płatności, faktury | 29 |
 | `AvailabilityServiceTests.cs` | Aktualizacja kalendarza dostępności (`Availability`) | 4 |
+| `ReservationServiceSearchTests.cs` | Wyszukiwarka na stronie głównej: liczba wolnych pokoi każdego typu, cena całego pobytu (z cennikiem sezonowym), dopasowanie do liczby gości | 9 |
+| `FileStorageServiceTests.cs` | Zapis zdjęć pokoi na dysku: dozwolone formaty, limit rozmiaru, unikalne nazwy, usuwanie, ochrona przed ścieżkami spoza katalogu | 16 |
 
 Testy pokrywają całą logikę biznesową z warstwy `Services`. Kontrolery API są cienką warstwą (walidacja wejścia i wywołanie serwisu), więc sprawdzają je testy manualne poniżej.
 
@@ -97,3 +99,20 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | D3 | Wywołanie `GET /api/Reservation/all` z tokenem gościa | 403 Forbidden (tylko rola Owner) | |
 | D4 | W przeglądarce: F12 → Application → Local Storage → ustaw `token_expiration` na datę z przeszłości, odśwież stronę | Wylogowanie z komunikatem „Sesja wygasła. Zaloguj się ponownie.” | |
 | D5 | Gość otwiera szczegóły cudzej rezerwacji (`GET /api/Reservation/{id}` z jego tokenem) | 403 Forbidden | |
+
+### Scenariusz E: strona główna, wyszukiwarka, profil pokoju i zdjęcia
+
+| # | Krok | Oczekiwany wynik | Wynik |
+|---|------|------------------|-------|
+| E1 | Właściciel → „Typy Pokoi” → „Edytuj” przy typie pokoju, uzupełnij opis, zapisz | Komunikat sukcesu, opis widoczny na stronie pokoju | |
+| E2 | „Zdjęcia” → „Dodaj zdjęcia”, wybierz 3 pliki JPG/PNG | Miniatury w oknie, pierwsze oznaczone jako „Główne”, w tabeli liczba zdjęć 3 | |
+| E3 | Dodaj plik GIF albo większy niż 5 MB | Komunikat o nieobsługiwanym formacie / za dużym pliku, nic nie zostaje zapisane | |
+| E4 | „Ustaw jako główne” przy drugim zdjęciu | To zdjęcie wyświetla się na kafelku na stronie głównej | |
+| E5 | „Usuń” przy zdjęciu (po potwierdzeniu) | Zdjęcie znika z listy i z folderu `Backend/API/uploads/room-types` | |
+| E6 | Wyloguj się, otwórz stronę główną | Sekcja powitalna z wyszukiwarką; kafelki ze zdjęciem, średnią oceną (lub „Brak opinii”), do 3 udogodnień i ceną za noc | |
+| E7 | Wybierz daty i liczbę gości, „Szukaj pokoi” | Nagłówek „Dostępne pokoje: N” z terminem; ceny za cały pobyt („1050 PLN za 3 noce”); etykiety „Dostępny” / „Ostatni wolny pokój!” / „Brak wolnych pokoi”; pokoje za małe dla tylu gości ukryte | |
+| E8 | Kliknij dostępny pokój z wyników | Adres `#/pokoj/{id}`, galeria, opis, udogodnienia, opinie (imię i inicjał) oraz ramka „Twój termin” z ceną pobytu | |
+| E9 | „Zarezerwuj ten termin” bez logowania | Formularz logowania z komunikatem „Zaloguj się lub załóż konto, aby zarezerwować pokój.” | |
+| E10 | Zaloguj się jako gość | Od razu formularz rezerwacji z typem pokoju i datami z wyszukiwarki | |
+| E11 | Przycisk „Wstecz” w przeglądarce, potem odśwież stronę główną | Powrót do profilu; wyniki wyszukiwania zostają po odświeżeniu | |
+| E12 | „Pokaż wszystkie pokoje” | Pełna lista typów pokoi z ceną za noc | |
