@@ -16,4 +16,7 @@ public class RoomTypeDto
     public int MaxOccupancy {get; set; }
     public string? MainPhotoUrl {get; set; }
     public int PhotoCount {get; set; }
+    public double? AverageRating {get; set; }
+    public int ReviewCount {get; set; }
+    public List<string> Amenities {get; set; } = new ();
 }

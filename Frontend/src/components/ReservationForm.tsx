@@ -5,13 +5,13 @@ import type { RoomTypeDto, AdditionalServiceDto } from '../types/admin';
 import { checkAvailability, calculatePrice, createReservation } from '../api/reservationApi';
 import { getRoomTypes, getAdditionalServices } from '../api/adminApi';
 
-export default function ReservationForm({ token, onReservationCreated, initialRoomTypeId }: { token: string; onReservationCreated: () => void; initialRoomTypeId?: number }) {
+export default function ReservationForm({ token, onReservationCreated, initialRoomTypeId, initialCheckIn, initialCheckOut }: { token: string; onReservationCreated: () => void; initialRoomTypeId?: number; initialCheckIn?: string; initialCheckOut?: string }) {
   const [roomTypes, setRoomTypes] = useState<RoomTypeDto[]>([]);
   const [services, setServices] = useState<AdditionalServiceDto[]>([]);
 
   const [roomTypeId, setRoomTypeId] = useState<number>(0);
-  const [checkInDate, setCheckInDate] = useState('');
-  const [checkOutDate, setCheckOutDate] = useState('');
+  const [checkInDate, setCheckInDate] = useState(initialCheckIn ?? '');
+  const [checkOutDate, setCheckOutDate] = useState(initialCheckOut ?? '');
   const [additionalServiceIds, setAdditionalServiceIds] = useState<number[]>([]);
   
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null);

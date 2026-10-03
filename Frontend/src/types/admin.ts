@@ -6,6 +6,9 @@ export interface RoomTypeDto {
     maxOccupancy: number;
     mainPhotoUrl?: string | null;
     photoCount?: number;
+    averageRating?: number | null;
+    reviewCount?: number;
+    amenities?: string[];
 }
 
 export interface RoomDto {

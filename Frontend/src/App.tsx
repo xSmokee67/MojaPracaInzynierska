@@ -6,6 +6,7 @@ import MyReservations from './components/MyReservations';
 import RoomGallery from './components/RoomGallery';
 import RoomTypeProfile from './components/RoomTypeProfile';
 import { SESSION_EXPIRED_EVENT } from './api/apiErrors';
+import type { SearchCriteria } from './types/room';
 
 // Proste trasy oparte o hash w adresie (#/pokoj/2) - działa przycisk "Wstecz" i można wysłać link do pokoju
 type Route =
@@ -27,6 +28,17 @@ const parseRoute = (hash: string): Route => {
 
 const navigate = (path: string) => { window.location.hash = path; };
 
+// Kryteria wyszukiwarki pamiętane w sesji przeglądarki - zostają po odświeżeniu strony i przechodzą do profilu i formularza
+const SEARCH_STORAGE_KEY = 'hotel_search';
+const loadSearch = (): SearchCriteria | null => {
+  try {
+    const saved = sessionStorage.getItem(SEARCH_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+};
+
 export default function App() {
   const [token, setToken] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
@@ -34,6 +46,22 @@ export default function App() {
   const [reservationsRefreshKey, setReservationsRefreshKey] = useState(0);
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
   const [sessionMessage, setSessionMessage] = useState('');
+  const [search, setSearch] = useState<SearchCriteria | null>(() => {
+    // Termin z przeszłości (np. zapamiętany wczoraj) nie jest przywracany
+    const saved = loadSearch();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return saved && new Date(`${saved.checkIn}T00:00:00`) >= today ? saved : null;
+  });
+
+  const handleSearch = (criteria: SearchCriteria | null) => {
+    setSearch(criteria);
+    try {
+      if (criteria) sessionStorage.setItem(SEARCH_STORAGE_KEY, JSON.stringify(criteria));
+      else sessionStorage.removeItem(SEARCH_STORAGE_KEY);
+    } catch {
+      // brak dostępu do sessionStorage (np. tryb prywatny) - wyszukiwanie działa bez zapamiętywania
+    }
+  };
 
   // Zmiana adresu (kliknięcie linku, przycisk "Wstecz") przełącza widok
   useEffect(() => {
@@ -118,7 +146,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-100 flex flex-col items-center py-6 md:py-10 px-4 space-y-8">
       {/* Pasek nawigacji */}
       <div className="w-full max-w-6xl flex flex-wrap justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm">
-        <button onClick={() => navigate('/')} className="text-xl font-bold text-emerald-600">Hotel Resort API</button>
+        <button onClick={() => navigate('/')} className="text-xl font-bold text-emerald-600">Hotel Resort</button>
 
         {/* Menu nawigacji gościa (także niezalogowanego) */}
         {role !== 'Owner' && (
@@ -156,7 +184,7 @@ export default function App() {
         <AuthForm onLoginSuccess={handleLoginSuccess} sessionMessage={sessionMessage || (route.view === 'book' ? 'Zaloguj się lub załóż konto, aby zarezerwować pokój.' : '')} />
       ) : route.view === 'room' ? (
         // PROFIL POKOJU (publiczny)
-        <RoomTypeProfile roomTypeId={route.roomTypeId} onBook={id => navigate(`/rezerwacja/${id}`)} onBack={() => navigate('/')} />
+        <RoomTypeProfile roomTypeId={route.roomTypeId} search={search} onBook={id => navigate(`/rezerwacja/${id}`)} onBack={() => navigate('/')} />
       ) : token && route.view === 'book' ? (
         // WIDOK GOŚCIA - rezerwacja
         <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
@@ -170,7 +198,7 @@ export default function App() {
             </p>
           </div>
           <div className="flex justify-center">
-             <ReservationForm key={route.roomTypeId ?? 0} token={token} initialRoomTypeId={route.roomTypeId} onReservationCreated={() => setReservationsRefreshKey(prev => prev + 1)} />
+             <ReservationForm key={route.roomTypeId ?? 0} token={token} initialRoomTypeId={route.roomTypeId} initialCheckIn={search?.checkIn} initialCheckOut={search?.checkOut} onReservationCreated={() => setReservationsRefreshKey(prev => prev + 1)} />
           </div>
         </div>
       ) : token && route.view === 'reservations' ? (
@@ -178,7 +206,7 @@ export default function App() {
         <MyReservations token={token} refreshKey={reservationsRefreshKey} />
       ) : (
         // STRONA GŁÓWNA - galeria pokoi (publiczna)
-        <RoomGallery onSelect={id => navigate(`/pokoj/${id}`)} />
+        <RoomGallery search={search} onSearch={handleSearch} onClearSearch={() => handleSearch(null)} onSelect={id => navigate(`/pokoj/${id}`)} />
       )}
     </div>
   );

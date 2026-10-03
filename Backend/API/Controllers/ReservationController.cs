@@ -47,6 +47,29 @@ public class ReservationController : ControllerBase
         }
     }
 
+    // Wyszukiwarka na stronie głównej (bez logowania)
+    [HttpGet("search")]
+    public async Task<IActionResult> Search([FromQuery] string checkIn, [FromQuery] string checkOut, [FromQuery] int guests = 1)
+    {
+        if (!DateTime.TryParseExact(checkIn, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var ci) ||
+            !DateTime.TryParseExact(checkOut, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var co))
+        {
+            return BadRequest(new { error = "Nieprawidłowy format daty. Oczekiwano YYYY-MM-DD." });
+        }
+
+        if (ci >= co || ci.Date < DateTime.Today)
+            return BadRequest(new { error = "Nieprawidłowy termin pobytu - data przyjazdu nie może być w przeszłości i musi poprzedzać datę wyjazdu." });
+
+        if ((co - ci).Days > 60)
+            return BadRequest(new { error = "Pobyt może trwać maksymalnie 60 nocy." });
+
+        if (guests < 1 || guests > 20)
+            return BadRequest(new { error = "Liczba gości musi mieścić się w zakresie 1 - 20." });
+
+        var results = await _reservationService.SearchRoomTypesAsync(ci, co, guests);
+        return Ok(results);
+    }
+
     [HttpPost("price")]
     public async Task<IActionResult> CalculatePrice([FromBody] CreateReservationDto dto)
     {

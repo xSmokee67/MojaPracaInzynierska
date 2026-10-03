@@ -21,3 +21,19 @@ export interface RoomTypeDetailsDto {
     reviewCount: number;
     latestReviews: ReviewDto[];
 }
+
+// Kryteria wyszukiwarki ze strony głównej (daty w formacie yyyy-MM-dd)
+export interface SearchCriteria {
+    checkIn: string;
+    checkOut: string;
+    guests: number;
+}
+
+export interface RoomTypeAvailabilityDto {
+    roomTypeId: number;
+    fitsGuests: boolean;
+    isAvailable: boolean;
+    availableRooms: number;
+    nights: number;
+    totalPrice: number;
+}

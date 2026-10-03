@@ -40,6 +40,27 @@ public class RoomTypeController : ControllerBase
         })
         .ToListAsync();
 
+        // Średnia ocena z opinii gości dla każdego typu pokoju (do kafelków na stronie głównej)
+        var ratings = await _context.Reviews
+            .GroupBy(r => r.Reservation.Room.RoomTypeId)
+            .Select(g => new { RoomTypeId = g.Key, Average = g.Average(r => r.Rating), Count = g.Count() })
+            .ToListAsync();
+
+        // Udogodnienia pokoi w użytku, zebrane per typ pokoju
+        var amenities = await _context.Rooms
+            .Where(r => r.Status != "disabled")
+            .SelectMany(r => r.Amenities, (room, amenity) => new { room.RoomTypeId, amenity.Name })
+            .Distinct()
+            .ToListAsync();
+
+        foreach (var roomType in roomTypes)
+        {
+            var rating = ratings.FirstOrDefault(r => r.RoomTypeId == roomType.RoomTypeId);
+            roomType.AverageRating = rating != null ? Math.Round(rating.Average, 1) : null;
+            roomType.ReviewCount = rating?.Count ?? 0;
+            roomType.Amenities = amenities.Where(a => a.RoomTypeId == roomType.RoomTypeId).Select(a => a.Name).OrderBy(name => name).ToList();
+        }
+
         return Ok(roomTypes);
     }
 

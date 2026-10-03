@@ -22,6 +22,15 @@ public class ReservationService : IReservationService
 
 public async Task<int?> GetAvailableRoomIdAsync(int roomTypeId, DateTime checkIn, DateTime checkOut)
     {
+        var roomIds = await GetAvailableRoomIdsAsync(roomTypeId, checkIn, checkOut);
+        return roomIds.Count > 0 ? roomIds[0] : null;
+    }
+
+    // Wszystkie pokoje danego typu wolne w terminie (bez nakładających się rezerwacji i blokad)
+    public async Task<List<int>> GetAvailableRoomIdsAsync(int roomTypeId, DateTime checkIn, DateTime checkOut)
+    {
+        var availableRoomIds = new List<int>();
+
         var rooms = await _context.Rooms
             .Include(r => r.Reservations)
             .Include(r => r.RoomBlocks)
@@ -41,10 +50,34 @@ public async Task<int?> GetAvailableRoomIdAsync(int roomTypeId, DateTime checkIn
 
             if (!isReserved && !isBlocked)
             {
-                return room.RoomId;
+                availableRoomIds.Add(room.RoomId);
             }
         }
-        return null;
+        return availableRoomIds;
+    }
+
+    // Wyszukiwarka na stronie głównej: dostępność i cena całego pobytu dla każdego typu pokoju
+    public async Task<List<RoomTypeAvailabilityDto>> SearchRoomTypesAsync(DateTime checkIn, DateTime checkOut, int guests)
+    {
+        var roomTypes = await _context.RoomTypes.ToListAsync();
+        var results = new List<RoomTypeAvailabilityDto>();
+
+        foreach (var roomType in roomTypes)
+        {
+            var availableRoomIds = await GetAvailableRoomIdsAsync(roomType.RoomTypeId, checkIn, checkOut);
+
+            results.Add(new RoomTypeAvailabilityDto
+            {
+                RoomTypeId = roomType.RoomTypeId,
+                FitsGuests = roomType.MaxOccupancy >= guests,
+                IsAvailable = availableRoomIds.Count > 0,
+                AvailableRooms = availableRoomIds.Count,
+                Nights = (checkOut.Date - checkIn.Date).Days,
+                TotalPrice = await CalculateTotalPriceAsync(roomType.RoomTypeId, checkIn, checkOut, new List<int>())
+            });
+        }
+
+        return results;
     }
 
     public async Task<decimal> CalculateTotalPriceAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, List<int> additionalServiceIds)
