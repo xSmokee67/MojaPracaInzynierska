@@ -14,7 +14,6 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<int>, i
 
     public DbSet<Guest> Guests { get; set; }
     public DbSet<Owner> Owners { get; set; }
-    // Usunięto: public DbSet<Hotel> Hotels { get; set; }
     public DbSet<RoomType> RoomTypes { get; set; }
     public DbSet<RoomTypePhoto> RoomTypePhotos { get; set; }
     public DbSet<Room> Rooms { get; set; }

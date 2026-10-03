@@ -20,7 +20,7 @@ public class ReservationService : IReservationService
         _availabilityService = availabilityService;
     }
 
-public async Task<int?> GetAvailableRoomIdAsync(int roomTypeId, DateTime checkIn, DateTime checkOut)
+    public async Task<int?> GetAvailableRoomIdAsync(int roomTypeId, DateTime checkIn, DateTime checkOut)
     {
         var roomIds = await GetAvailableRoomIdsAsync(roomTypeId, checkIn, checkOut);
         return roomIds.Count > 0 ? roomIds[0] : null;
@@ -37,16 +37,16 @@ public async Task<int?> GetAvailableRoomIdAsync(int roomTypeId, DateTime checkIn
             .Where(r => r.RoomTypeId == roomTypeId && r.Status == "available")
             .ToListAsync();
 
-            foreach (var room in rooms)
+        foreach (var room in rooms)
         {
             bool isReserved = room.Reservations.Any(r =>
-            r.Status != "cancelled" &&
-            r.CheckInDate < checkOut &&
-            r.CheckOutDate > checkIn);
+                r.Status != "cancelled" &&
+                r.CheckInDate < checkOut &&
+                r.CheckOutDate > checkIn);
 
             bool isBlocked = room.RoomBlocks.Any(b =>
-            b.StartDate < checkOut &&
-            b.EndDate > checkIn);
+                b.StartDate < checkOut &&
+                b.EndDate > checkIn);
 
             if (!isReserved && !isBlocked)
             {
@@ -82,10 +82,9 @@ public async Task<int?> GetAvailableRoomIdAsync(int roomTypeId, DateTime checkIn
 
     public async Task<decimal> CalculateTotalPriceAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, List<int> additionalServiceIds)
     {
-
         var roomType = await _context.RoomTypes
-        .Include(rt => rt.PriceListEntries)
-        .FirstOrDefaultAsync(rt => rt.RoomTypeId == roomTypeId);
+            .Include(rt => rt.PriceListEntries)
+            .FirstOrDefaultAsync(rt => rt.RoomTypeId == roomTypeId);
 
         if (roomType == null)
         {
@@ -94,10 +93,10 @@ public async Task<int?> GetAvailableRoomIdAsync(int roomTypeId, DateTime checkIn
 
         decimal totalRoomPrice = 0;
 
-        for(var date = checkIn.Date; date< checkOut.Date; date = date.AddDays(1))
+        for (var date = checkIn.Date; date < checkOut.Date; date = date.AddDays(1))
         {
             var seasonalPrice = roomType.PriceListEntries
-            .FirstOrDefault(p => p.StartDate.Date <= date && p.EndDate.Date >= date);
+                .FirstOrDefault(p => p.StartDate.Date <= date && p.EndDate.Date >= date);
 
             totalRoomPrice += seasonalPrice != null ? seasonalPrice.PricePerNight : roomType.BasePrice;
         }
@@ -106,8 +105,8 @@ public async Task<int?> GetAvailableRoomIdAsync(int roomTypeId, DateTime checkIn
         if (additionalServiceIds.Any())
         {
             var services = await _context.AdditionalServices
-            .Where(s => additionalServiceIds.Contains(s.ServiceId))
-            .ToListAsync();
+                .Where(s => additionalServiceIds.Contains(s.ServiceId))
+                .ToListAsync();
 
             additionalServicesPrice = services.Sum(s => s.Price);
         }
@@ -133,7 +132,7 @@ public async Task<int?> GetAvailableRoomIdAsync(int roomTypeId, DateTime checkIn
             .Where(s => dto.AdditionalServiceIds.Contains(s.ServiceId))
             .ToListAsync();
 
-        foreach(var service in services)
+        foreach (var service in services)
         {
             reservation.ReservationServices.Add(new Model.ReservationService
             {

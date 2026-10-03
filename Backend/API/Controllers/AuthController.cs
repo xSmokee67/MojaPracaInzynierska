@@ -63,10 +63,31 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
         var user = await _userManager.FindByEmailAsync(dto.Email);
-        if(user == null || !await _userManager.CheckPasswordAsync(user, dto.Password))
+        if (user == null)
         {
             return Unauthorized(new { error = "Nieprawidłowy email lub hasło." });
         }
+
+        // Konto zablokowane po zbyt wielu nieudanych próbach (ustawienia Lockout w Program.cs)
+        if (await _userManager.IsLockedOutAsync(user))
+        {
+            return Unauthorized(new { error = LockoutMessage(user) });
+        }
+
+        if (!await _userManager.CheckPasswordAsync(user, dto.Password))
+        {
+            // Zlicza nieudaną próbę - po przekroczeniu limitu Identity samo ustawia LockoutEnd
+            await _userManager.AccessFailedAsync(user);
+
+            if (await _userManager.IsLockedOutAsync(user))
+            {
+                return Unauthorized(new { error = LockoutMessage(user) });
+            }
+
+            return Unauthorized(new { error = "Nieprawidłowy email lub hasło." });
+        }
+
+        await _userManager.ResetAccessFailedCountAsync(user);
 
         var userRoles = await _userManager.GetRolesAsync(user);
 
@@ -83,14 +104,14 @@ public class AuthController : ControllerBase
         }
 
         var jwtSettings = _configuration.GetSection("Jwt");
-        var authSingningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]!));
+        var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]!));
 
         var token = new JwtSecurityToken(
             issuer: jwtSettings["Issuer"],
             audience: jwtSettings["Audience"],
             expires: DateTime.Now.AddHours(3),
             claims: authClaims,
-            signingCredentials: new SigningCredentials(authSingningKey, SecurityAlgorithms.HmacSha256)
+            signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
         );
 
         return Ok(new
@@ -99,5 +120,11 @@ public class AuthController : ControllerBase
             expiration = token.ValidTo,
             role = userRoles.FirstOrDefault()
         });
+    }
+
+    private static string LockoutMessage(User user)
+    {
+        var minutesLeft = (int)Math.Ceiling((user.LockoutEnd!.Value - DateTimeOffset.UtcNow).TotalMinutes);
+        return $"Konto zostało tymczasowo zablokowane po kilku nieudanych próbach logowania. Spróbuj ponownie za {minutesLeft} min.";
     }
 }

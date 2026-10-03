@@ -1,8 +1,8 @@
 import type { RoomTypeDetailsDto, RoomTypeAvailabilityDto, SearchCriteria } from '../types/room';
 import { throwApiError } from './apiErrors';
+import { SERVER_URL, API_BASE_URL } from './config';
 
-const SERVER_URL = 'http://localhost:5285';
-const API_URL = `${SERVER_URL}/api/RoomType`;
+const API_URL = `${API_BASE_URL}/RoomType`;
 
 // API zwraca adresy zdjęć względne (/uploads/...) - obrazki są serwowane przez serwer API
 export const photoUrl = (url: string) => `${SERVER_URL}${url}`;

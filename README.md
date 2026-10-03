@@ -1,0 +1,110 @@
+# Hotel Resort – system rezerwacji pokoi hotelowych
+
+Projekt realizowany w ramach pracy inżynierskiej. Aplikacja webowa do przeglądania oferty hotelu, sprawdzania dostępności pokoi i rezerwacji pobytu online oraz panel administracyjny do zarządzania hotelem.
+
+## Funkcje
+
+**Gość (bez logowania)**
+- strona główna z wyszukiwarką: termin pobytu i liczba gości, dostępność i cena całego pobytu dla każdego typu pokoju
+- profil typu pokoju: galeria zdjęć, opis, udogodnienia, ceny sezonowe i opinie gości
+
+**Gość (zalogowany)**
+- rezerwacja pokoju z usługami dodatkowymi i wyliczeniem ceny (z cennikiem sezonowym)
+- lista własnych rezerwacji, szczegóły (płatności, faktura), anulowanie rezerwacji
+- wystawienie opinii po zakończonym pobycie
+
+**Właściciel (administrator)**
+- typy pokoi (z opisem i zdjęciami), pokoje, udogodnienia, usługi dodatkowe, cennik sezonowy
+- blokady pokoi (remont, konserwacja)
+- wszystkie rezerwacje: zmiana statusu, rejestracja płatności, wystawianie faktur
+- moderacja opinii
+
+## Technologie
+
+| Warstwa | Technologie |
+|---------|-------------|
+| Backend | ASP.NET Core Web API (.NET 10), Entity Framework Core, SQL Server, ASP.NET Core Identity, JWT, AutoMapper, Swagger |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS |
+| Testy | xUnit, EF Core InMemory |
+
+## Architektura
+
+Backend jest aplikacją wielowarstwową (N-layer). Każda warstwa to osobny projekt i korzysta tylko z warstwy pod sobą:
+
+```
+Backend/
+├── API        – warstwa prezentacji: kontrolery REST, konfiguracja (Program.cs), uwierzytelnianie JWT
+├── Services   – logika biznesowa: serwisy, interfejsy, DTO, mapowanie (AutoMapper)
+├── DAL        – dostęp do danych: ApplicationDbContext (EF Core), migracje
+├── Model      – encje bazy danych
+└── Tests      – testy jednostkowe serwisów (opis w Tests/README.md)
+
+Frontend/src/
+├── api        – komunikacja z API (fetch), adres serwera w config.ts
+├── components – widoki aplikacji (strona główna, profil pokoju, rezerwacje, panel administratora)
+├── types      – typy TypeScript odpowiadające DTO z API
+└── utils      – formatowanie dat i odmiana liczebników
+```
+
+Kontrolery nie odwołują się bezpośrednio do bazy danych – wywołują serwisy z warstwy `Services`, które korzystają z `ApplicationDbContext`. EF Core pełni rolę repozytorium (`DbSet<T>`) i jednostki pracy (`DbContext`).
+
+## Uruchomienie
+
+### Wymagania
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- SQL Server LocalDB (instalowany razem z Visual Studio) lub inny SQL Server
+- [Node.js](https://nodejs.org/) 20.19+ lub 22.12+
+- narzędzie EF Core: `dotnet tool install --global dotnet-ef`
+
+### 1. Backend
+
+W katalogu `Backend/API`:
+
+```
+dotnet user-secrets set "Jwt:Key" "<losowy ciąg min. 32 znaków>"
+dotnet ef database update --project ../DAL
+dotnet run
+```
+
+- Klucz podpisu tokenów JWT nie jest trzymany w repozytorium – przechowują go User Secrets na komputerze dewelopera.
+- `dotnet ef database update` tworzy bazę `HotelReservationDb` (connection string w `appsettings.json`).
+- Przy pierwszym uruchomieniu aplikacja dodaje dane startowe: role, konto właściciela, przykładowe typy pokoi, pokoje, cennik i usługi.
+- API działa pod adresem `http://localhost:5285`, dokumentacja Swagger: `http://localhost:5285/swagger` (przycisk **Authorize** przyjmuje token z `POST /api/Auth/login`).
+
+### 2. Frontend
+
+W katalogu `Frontend`:
+
+```
+npm install
+npm run dev
+```
+
+Aplikacja działa pod adresem `http://localhost:5173`. Adres API jest ustawiony w pliku `Frontend/.env` (`VITE_API_URL`).
+
+### 3. Konto właściciela
+
+| E-mail | Hasło |
+|--------|-------|
+| admin@hotel.com | Admin123! |
+
+Konto gościa zakłada się przez formularz rejestracji.
+
+## Testy
+
+W katalogu `Backend`:
+
+```
+dotnet test
+```
+
+Opis testów jednostkowych i scenariusze testów manualnych: [Backend/Tests/README.md](Backend/Tests/README.md).
+
+## Bezpieczeństwo
+
+- uwierzytelnianie tokenem JWT (ważny 3 godziny), autoryzacja oparta na rolach (`Owner`, `Guest`)
+- hasła hashowane przez ASP.NET Core Identity (min. 8 znaków, w tym cyfra)
+- blokada konta na 15 minut po 5 nieudanych próbach logowania
+- walidacja danych wejściowych w DTO i serwisach, kontrola rozszerzenia i rozmiaru przesyłanych zdjęć
+- klucz JWT poza repozytorium (User Secrets)

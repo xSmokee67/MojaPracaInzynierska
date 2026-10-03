@@ -1,7 +1,8 @@
 import type { CreateReservationDto, AvailabilityResponse, PriceResponse, ReservationDto, UpdateReservationStatusDto, ReservationDetailsDto, PaymentDto, ReviewDto } from "../types/reservation";
 import { throwApiError } from './apiErrors';
+import { API_BASE_URL } from './config';
 
-const API_URL = 'http://localhost:5285/api/Reservation';
+const API_URL = `${API_BASE_URL}/Reservation`;
 
 export const checkAvailability = async (roomTypeId: number, checkIn: string, checkOut: string): Promise<AvailabilityResponse> => {
   const response = await fetch(`${API_URL}/availability?roomTypeId=${roomTypeId}&checkIn=${checkIn}&checkOut=${checkOut}`);
@@ -92,7 +93,7 @@ export const issueInvoice = async (id: number, token: string): Promise<void> => 
 
 // --- OPINIE ---
 export const createReview = async (dto: ReviewDto, token: string): Promise<void> => {
-  const response = await fetch('http://localhost:5285/api/Review', {
+  const response = await fetch(`${API_BASE_URL}/Review`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(dto),

@@ -6,12 +6,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using Model;
 using System.Text;
 using Services.Interfaces;
 using Services.Mapping;
 using Services.Settings;
-// USUNIĘTO: using Services.Services; aby zapobiec konfliktom nazw
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,13 +24,22 @@ builder.Services.AddIdentity<User, IdentityRole<int>>(options =>
     options.Password.RequiredLength = 8;
     options.Password.RequireNonAlphanumeric = false;
     options.User.RequireUniqueEmail = true;
+
+    // Blokada konta na 15 minut po 5 nieudanych próbach logowania (ochrona przed zgadywaniem hasła)
+    options.Lockout.AllowedForNewUsers = true;
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders()
 .AddErrorDescriber<PolishIdentityErrorDescriber>();
 
+// Klucz podpisu tokenów nie jest trzymany w repozytorium - ustawia się go w User Secrets (instrukcja w README.md)
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var key = Encoding.UTF8.GetBytes(jwtSettings["Key"] ?? throw new InvalidOperationException("Brak klucza JWT w konfiguracji!"));
+var jwtKey = jwtSettings["Key"];
+if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+    throw new InvalidOperationException("Brak klucza JWT (min. 32 znaki). Ustaw go w katalogu Backend/API poleceniem: dotnet user-secrets set \"Jwt:Key\" \"<losowy ciąg min. 32 znaków>\"");
+var key = Encoding.UTF8.GetBytes(jwtKey);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -79,15 +88,30 @@ builder.Services.AddControllers()
     };
 });
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
-// POPRAWKA 1: Precyzyjne wskazanie profilu mapowania (rozwiązuje błąd CS1503)
-builder.Services.AddAutoMapper(cfg => 
+// Przycisk "Authorize" w Swaggerze - token z /api/Auth/login jest dołączany do wywołań chronionych endpointów
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Wklej token zwrócony przez POST /api/Auth/login (bez słowa \"Bearer\")."
+    });
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("bearer", document)] = []
+    });
+});
+
+// Profil mapowania encji na DTO
+builder.Services.AddAutoMapper(cfg =>
 {
     cfg.AddProfile<ReservationMappingProfile>();
 });
 
-// POPRAWKA 2: Jawne użycie przestrzeni nazw dla serwisu (rozwiązuje błąd CS0104 z encją)
+// Serwisy warstwy logiki biznesowej (pełne nazwy klas, bo encja Model.ReservationService nazywa się tak samo jak serwis)
 builder.Services.AddScoped<IReservationService, Services.Services.ReservationService>();
 builder.Services.AddScoped<IAvailabilityService, Services.Services.AvailabilityService>();
 builder.Services.AddScoped<IRoomService, Services.Services.RoomService>();

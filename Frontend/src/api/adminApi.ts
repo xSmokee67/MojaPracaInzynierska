@@ -2,8 +2,9 @@
 import type { RoomTypeDto, RoomDto, AdditionalServiceDto, PriceListEntryDto, AmenityDto, RoomBlockDto } from '../types/admin';
 import { throwApiError } from './apiErrors';
 import type { ReviewDto } from '../types/reservation';
+import { API_BASE_URL } from './config';
 
-const API_URL = 'http://localhost:5285/api';
+const API_URL = API_BASE_URL;
 
 // --- TYPY POKOI ---
 export const getRoomTypes = async (): Promise<RoomTypeDto[]> => {
