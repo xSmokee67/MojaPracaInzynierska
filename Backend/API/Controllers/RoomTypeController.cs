@@ -1,66 +1,27 @@
-using DAL;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Model;
 using Services.DTO;
 using Services.Interfaces;
 
 namespace API.Controllers;
+
 [Route("api/[controller]")]
 [ApiController]
 [Authorize(Roles = "Owner")]
 public class RoomTypeController : ControllerBase
 {
-    private const int MaxPhotosPerRoomType = 10;
-    private const string PhotoFolder = "room-types";
+    private readonly IRoomTypeService _roomTypeService;
 
-    private readonly ApplicationDbContext _context;
-    private readonly IFileStorageService _fileStorage;
-
-    public RoomTypeController(ApplicationDbContext context, IFileStorageService fileStorage)
+    public RoomTypeController(IRoomTypeService roomTypeService)
     {
-        _context = context;
-        _fileStorage = fileStorage;
+        _roomTypeService = roomTypeService;
     }
 
     [HttpGet]
     [AllowAnonymous]
     public async Task<IActionResult> GetAll()
     {
-        var roomTypes = await _context.RoomTypes.Select(rt => new RoomTypeDto
-        {
-            RoomTypeId = rt.RoomTypeId,
-            Name = rt.Name,
-            Description = rt.Description,
-            BasePrice = rt.BasePrice,
-            MaxOccupancy = rt.MaxOccupancy,
-            MainPhotoUrl = rt.Photos.OrderBy(p => p.SortOrder).Select(p => p.PhotoUrl).FirstOrDefault(),
-            PhotoCount = rt.Photos.Count
-        })
-        .ToListAsync();
-
-        // Średnia ocena z opinii gości dla każdego typu pokoju (do kafelków na stronie głównej)
-        var ratings = await _context.Reviews
-            .GroupBy(r => r.Reservation.Room.RoomTypeId)
-            .Select(g => new { RoomTypeId = g.Key, Average = g.Average(r => r.Rating), Count = g.Count() })
-            .ToListAsync();
-
-        // Udogodnienia pokoi w użytku, zebrane per typ pokoju
-        var amenities = await _context.Rooms
-            .Where(r => r.Status != "disabled")
-            .SelectMany(r => r.Amenities, (room, amenity) => new { room.RoomTypeId, amenity.Name })
-            .Distinct()
-            .ToListAsync();
-
-        foreach (var roomType in roomTypes)
-        {
-            var rating = ratings.FirstOrDefault(r => r.RoomTypeId == roomType.RoomTypeId);
-            roomType.AverageRating = rating != null ? Math.Round(rating.Average, 1) : null;
-            roomType.ReviewCount = rating?.Count ?? 0;
-            roomType.Amenities = amenities.Where(a => a.RoomTypeId == roomType.RoomTypeId).Select(a => a.Name).OrderBy(name => name).ToList();
-        }
-
+        var roomTypes = await _roomTypeService.GetAllRoomTypesAsync();
         return Ok(roomTypes);
     }
 
@@ -69,59 +30,9 @@ public class RoomTypeController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> GetDetails(int id)
     {
-        var roomType = await _context.RoomTypes
-            .Include(rt => rt.Photos)
-            .Include(rt => rt.PriceListEntries)
-            .Include(rt => rt.Rooms)
-                .ThenInclude(r => r.Amenities)
-            .FirstOrDefaultAsync(rt => rt.RoomTypeId == id);
-
-        if (roomType == null)
+        var details = await _roomTypeService.GetRoomTypeDetailsAsync(id);
+        if (details == null)
             return NotFound(new { error = "Nie znaleziono typu pokoju."});
-
-        var reviews = await _context.Reviews
-            .Include(r => r.Guest)
-            .Where(r => r.Reservation.Room.RoomTypeId == id)
-            .OrderByDescending(r => r.Date)
-            .ToListAsync();
-
-        var details = new RoomTypeDetailsDto
-        {
-            RoomTypeId = roomType.RoomTypeId,
-            Name = roomType.Name,
-            Description = roomType.Description,
-            BasePrice = roomType.BasePrice,
-            MaxOccupancy = roomType.MaxOccupancy,
-            RoomCount = roomType.Rooms.Count(r => r.Status != "disabled"),
-            Photos = roomType.Photos
-                .OrderBy(p => p.SortOrder)
-                .Select(p => new RoomTypePhotoDto { RoomTypePhotoId = p.RoomTypePhotoId, PhotoUrl = p.PhotoUrl, SortOrder = p.SortOrder })
-                .ToList(),
-            Amenities = roomType.Rooms
-                .SelectMany(r => r.Amenities)
-                .Select(a => a.Name)
-                .Distinct()
-                .OrderBy(name => name)
-                .ToList(),
-            SeasonalPrices = roomType.PriceListEntries
-                .Where(p => p.EndDate.Date >= DateTime.Today)
-                .OrderBy(p => p.StartDate)
-                .Select(p => new PriceListEntryDto { PriceListEntryId = p.PriceListEntryId, RoomTypeId = p.RoomTypeId, RoomTypeName = roomType.Name, StartDate = p.StartDate, EndDate = p.EndDate, PricePerNight = p.PricePerNight })
-                .ToList(),
-            AverageRating = reviews.Count > 0 ? Math.Round(reviews.Average(r => r.Rating), 1) : null,
-            ReviewCount = reviews.Count,
-            // Na publicznej stronie tylko imię i inicjał nazwiska gościa
-            LatestReviews = reviews.Take(3).Select(r => new ReviewDto
-            {
-                ReviewId = r.ReviewId,
-                GuestName = r.Guest.LastName.Length > 0 ? $"{r.Guest.FirstName} {r.Guest.LastName[0]}." : r.Guest.FirstName,
-                ReservationId = r.ReservationId,
-                RoomTypeName = roomType.Name,
-                Rating = r.Rating,
-                Comment = r.Comment,
-                Date = r.Date
-            }).ToList()
-        };
 
         return Ok(details);
     }
@@ -129,70 +40,51 @@ public class RoomTypeController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] RoomTypeDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Name))
-            return BadRequest(new { error = "Nazwa typu pokoju jest wymagana."});
-
-        if (dto.BasePrice <= 0 || dto.MaxOccupancy <= 0)
-            return BadRequest(new { error = "Cena bazowa i maksymalna liczba gości muszą być większe od zera."});
-
-        var roomType = new RoomType
+        try
         {
-            Name = dto.Name,
-            Description = dto.Description,
-            BasePrice  = dto.BasePrice,
-            MaxOccupancy = dto.MaxOccupancy
-        };
-
-        _context.RoomTypes.Add(roomType);
-        await _context.SaveChangesAsync();
-
-        return Ok(new { message = "Typ pokoju został pomyślnie utworzony."});
+            await _roomTypeService.CreateRoomTypeAsync(dto);
+            return Ok(new { message = "Typ pokoju został pomyślnie utworzony."});
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(new { error = e.Message});
+        }
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] RoomTypeDto dto)
     {
-        var roomType = await _context.RoomTypes.FindAsync(id);
-        if (roomType == null)
-            return NotFound(new { error = "Nie znaleziono typu pokoju."});
+        try
+        {
+            var success = await _roomTypeService.UpdateRoomTypeAsync(id, dto);
 
-        if (string.IsNullOrWhiteSpace(dto.Name))
-            return BadRequest(new { error = "Nazwa typu pokoju jest wymagana."});
+            if (!success)
+                return NotFound(new { error = "Nie znaleziono typu pokoju."});
 
-        if (dto.BasePrice <= 0 || dto.MaxOccupancy <= 0)
-            return BadRequest(new { error = "Cena bazowa i maksymalna liczba gości muszą być większe od zera."});
-
-            roomType.Name = dto.Name;
-            roomType.Description = dto.Description;
-            roomType.BasePrice = dto.BasePrice;
-            roomType.MaxOccupancy = dto.MaxOccupancy;
-
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "Typ pokoju został zaaktualizowany."});
+            return Ok(new { message = "Typ pokoju został zaktualizowany."});
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(new { error = e.Message});
+        }
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete (int id)
+    public async Task<IActionResult> Delete(int id)
     {
-        var roomType = await _context.RoomTypes.Include(rt => rt.Photos).FirstOrDefaultAsync(rt => rt.RoomTypeId == id);
-        if (roomType == null)
-        return NotFound("Nie znaleziono typu pokoju.");
-
-        bool hasRooms = await _context.Rooms.AnyAsync(r => r.RoomTypeId == id);
-        if (hasRooms)
-        return BadRequest(new { error = "Nie można usunąć typu pokoju, posiada on przypisane pokoje do siebie!"});
-
-        var photoUrls = roomType.Photos.Select(p => p.PhotoUrl).ToList();
-
-        _context.RoomTypes.Remove(roomType);
-        await _context.SaveChangesAsync();
-
-        foreach (var url in photoUrls)
+        try
         {
-            _fileStorage.Delete(url);
-        }
+            var success = await _roomTypeService.DeleteRoomTypeAsync(id);
 
-        return Ok(new {message = "Usunięto typ pokoju!"});
+            if (!success)
+                return NotFound(new { error = "Nie znaleziono typu pokoju."});
+
+            return Ok(new { message = "Usunięto typ pokoju!"});
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(new { error = e.Message});
+        }
     }
 
     // --- ZDJĘCIA TYPU POKOJU ---
@@ -201,52 +93,43 @@ public class RoomTypeController : ControllerBase
     [RequestSizeLimit(60 * 1024 * 1024)]
     public async Task<IActionResult> UploadPhotos(int id, [FromForm] List<IFormFile> files)
     {
-        var roomType = await _context.RoomTypes.Include(rt => rt.Photos).FirstOrDefaultAsync(rt => rt.RoomTypeId == id);
-        if (roomType == null)
-            return NotFound(new { error = "Nie znaleziono typu pokoju."});
+        // Pliki z formularza przekazujemy do serwisu jako strumienie
+        var photos = files.Select(f => new PhotoUploadDto
+        {
+            FileName = f.FileName,
+            Length = f.Length,
+            Content = f.OpenReadStream()
+        }).ToList();
 
-        if (files.Count == 0)
-            return BadRequest(new { error = "Wybierz co najmniej jedno zdjęcie."});
-
-        if (roomType.Photos.Count + files.Count > MaxPhotosPerRoomType)
-            return BadRequest(new { error = $"Typ pokoju może mieć maksymalnie {MaxPhotosPerRoomType} zdjęć (obecnie: {roomType.Photos.Count})."});
-
-        // Najpierw walidacja wszystkich plików - żeby nie zapisać połowy zestawu
         try
         {
-            foreach (var file in files)
-            {
-                _fileStorage.ValidateImage(file.FileName, file.Length);
-            }
+            var success = await _roomTypeService.AddPhotosAsync(id, photos);
+
+            if (!success)
+                return NotFound(new { error = "Nie znaleziono typu pokoju."});
+
+            return Ok(new { message = files.Count == 1 ? "Zdjęcie zostało dodane." : $"Dodano zdjęcia: {files.Count}."});
         }
         catch (ArgumentException e)
         {
             return BadRequest(new { error = e.Message});
         }
-
-        var nextSortOrder = roomType.Photos.Count == 0 ? 0 : roomType.Photos.Max(p => p.SortOrder) + 1;
-        foreach (var file in files)
+        finally
         {
-            await using var stream = file.OpenReadStream();
-            var url = await _fileStorage.SaveImageAsync(stream, file.FileName, PhotoFolder);
-
-            roomType.Photos.Add(new RoomTypePhoto { PhotoUrl = url, SortOrder = nextSortOrder++ });
+            foreach (var photo in photos)
+            {
+                await photo.Content.DisposeAsync();
+            }
         }
-
-        await _context.SaveChangesAsync();
-        return Ok(new { message = files.Count == 1 ? "Zdjęcie zostało dodane." : $"Dodano zdjęcia: {files.Count}."});
     }
 
     [HttpDelete("photos/{photoId}")]
     public async Task<IActionResult> DeletePhoto(int photoId)
     {
-        var photo = await _context.RoomTypePhotos.FindAsync(photoId);
-        if (photo == null)
-            return NotFound(new { error = "Nie znaleziono zdjęcia."});
+        var success = await _roomTypeService.DeletePhotoAsync(photoId);
 
-        _context.RoomTypePhotos.Remove(photo);
-        await _context.SaveChangesAsync();
-        _fileStorage.Delete(photo.PhotoUrl);
+        if (!success)
+            return NotFound(new { error = "Nie znaleziono zdjęcia."});
 
         return Ok(new { message = "Zdjęcie zostało usunięte."});
     }
@@ -255,18 +138,11 @@ public class RoomTypeController : ControllerBase
     [HttpPut("photos/{photoId}/main")]
     public async Task<IActionResult> SetMainPhoto(int photoId)
     {
-        var photo = await _context.RoomTypePhotos.FindAsync(photoId);
-        if (photo == null)
+        var success = await _roomTypeService.SetMainPhotoAsync(photoId);
+
+        if (!success)
             return NotFound(new { error = "Nie znaleziono zdjęcia."});
-
-        var minSortOrder = await _context.RoomTypePhotos
-            .Where(p => p.RoomTypeId == photo.RoomTypeId)
-            .MinAsync(p => p.SortOrder);
-
-        photo.SortOrder = minSortOrder - 1;
-        await _context.SaveChangesAsync();
 
         return Ok(new { message = "Ustawiono zdjęcie główne."});
     }
-
 }

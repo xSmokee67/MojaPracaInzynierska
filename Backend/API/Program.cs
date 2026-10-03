@@ -90,6 +90,13 @@ builder.Services.AddAutoMapper(cfg =>
 // POPRAWKA 2: Jawne użycie przestrzeni nazw dla serwisu (rozwiązuje błąd CS0104 z encją)
 builder.Services.AddScoped<IReservationService, Services.Services.ReservationService>();
 builder.Services.AddScoped<IAvailabilityService, Services.Services.AvailabilityService>();
+builder.Services.AddScoped<IRoomService, Services.Services.RoomService>();
+builder.Services.AddScoped<IRoomTypeService, Services.Services.RoomTypeService>();
+builder.Services.AddScoped<IAmenityService, Services.Services.AmenityService>();
+builder.Services.AddScoped<IAdditionalServiceService, Services.Services.AdditionalServiceService>();
+builder.Services.AddScoped<IPriceListEntryService, Services.Services.PriceListEntryService>();
+builder.Services.AddScoped<IRoomBlockService, Services.Services.RoomBlockService>();
+builder.Services.AddScoped<IReviewService, Services.Services.ReviewService>();
 
 // Zdjęcia pokoi zapisywane w katalogu "uploads" obok projektu API i udostępniane pod adresem /uploads
 var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "uploads");

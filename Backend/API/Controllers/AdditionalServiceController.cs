@@ -1,9 +1,7 @@
-using DAL;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Model;
 using Services.DTO;
+using Services.Interfaces;
 
 namespace API.Controllers;
 
@@ -12,76 +10,61 @@ namespace API.Controllers;
 [Authorize(Roles = "Owner")]
 public class AdditionalServiceController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IAdditionalServiceService _additionalServiceService;
 
-    public AdditionalServiceController(ApplicationDbContext context)
+    public AdditionalServiceController(IAdditionalServiceService additionalServiceService)
     {
-        _context = context;
+        _additionalServiceService = additionalServiceService;
     }
 
     [HttpGet]
     [AllowAnonymous]
     public async Task<IActionResult> GetAll()
     {
-        var services = await _context.AdditionalServices.Select(s => new AdditionalServiceDto
-        {
-            ServiceId = s.ServiceId,
-            Name = s.Name,
-            Price = s.Price
-        }).ToListAsync();
-
+        var services = await _additionalServiceService.GetAllAdditionalServicesAsync();
         return Ok(services);
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] AdditionalServiceDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Name))
-            return BadRequest(new { error = "Nazwa usługi jest wymagana."});
-
-        if (dto.Price <= 0)
-            return BadRequest(new { error = "Cena usługi musi być większa od zera."});
-
-        var service = new AdditionalService
+        try
         {
-            Name = dto.Name,
-            Price = dto.Price
-        };
-
-        _context.AdditionalServices.Add(service);
-        await _context.SaveChangesAsync();
-        return Ok(new {message = "Usługa dodatkowa została dodana."});
+            await _additionalServiceService.CreateAdditionalServiceAsync(dto);
+            return Ok(new { message = "Usługa dodatkowa została dodana."});
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(new { error = e.Message});
+        }
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] AdditionalServiceDto dto)
     {
-        var service = await _context.AdditionalServices.FindAsync(id);
-        if (service == null)
-            return NotFound(new { error = "Nie znaleziono usługi."});
+        try
+        {
+            var success = await _additionalServiceService.UpdateAdditionalServiceAsync(id, dto);
 
-        if (string.IsNullOrWhiteSpace(dto.Name))
-            return BadRequest(new { error = "Nazwa usługi jest wymagana."});
+            if (!success)
+                return NotFound(new { error = "Nie znaleziono usługi."});
 
-        if (dto.Price <= 0)
-            return BadRequest(new { error = "Cena usługi musi być większa od zera."});
-
-        service.Name = dto.Name;
-        service.Price = dto.Price;
-
-        await _context.SaveChangesAsync();
-        return Ok(new { message = "Usługa dodatkowa została zaktualizowana."});
+            return Ok(new { message = "Usługa dodatkowa została zaktualizowana."});
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(new { error = e.Message});
+        }
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var service = await _context.AdditionalServices.FindAsync(id);
-        if (service == null)
-            return NotFound("Nie znaleziono usługi.");
+        var success = await _additionalServiceService.DeleteAdditionalServiceAsync(id);
 
-        _context.AdditionalServices.Remove(service);
-        await _context.SaveChangesAsync();
+        if (!success)
+            return NotFound(new { error = "Nie znaleziono usługi."});
+
         return Ok(new { message = "Usługa została usunięta."});
     }
 }

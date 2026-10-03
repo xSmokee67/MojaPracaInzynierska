@@ -1,9 +1,7 @@
-using DAL;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Model;
 using Services.DTO;
+using Services.Interfaces;
 
 namespace API.Controllers;
 
@@ -12,113 +10,67 @@ namespace API.Controllers;
 [Authorize(Roles = "Owner")]
 public class RoomController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
-    
-    public RoomController(ApplicationDbContext context)
+    private readonly IRoomService _roomService;
+
+    public RoomController(IRoomService roomService)
     {
-        _context = context;
+        _roomService = roomService;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var rooms = await _context.Rooms.Include(r => r.RoomType).Include(r => r.Amenities).Select(r => new RoomDto
-        {
-            RoomId = r.RoomId,
-            RoomTypeId = r.RoomTypeId,
-            RoomTypeName = r.RoomType.Name,
-            RoomNumber = r.RoomNumber,
-            Status = r.Status,
-            AmenityIds = r.Amenities.Select(a => a.AmenityId).ToList(),
-            AmenityNames = r.Amenities.Select(a => a.Name).ToList()
-        }).ToListAsync();
-
+        var rooms = await _roomService.GetAllRoomsAsync();
         return Ok(rooms);
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] RoomDto dto)
     {
-        var typeExists = await _context.RoomTypes.AnyAsync(rt => rt.RoomTypeId == dto.RoomTypeId);
-        if (!typeExists) 
-            return BadRequest(new { error = "Wskazany typ pokoju nie istenieje!"});
-
-        if (string.IsNullOrWhiteSpace(dto.RoomNumber))
-            return BadRequest(new { error = "Numer pokoju jest wymagany!"});
-
-        var numberTaken = await _context.Rooms.AnyAsync(r => r.RoomNumber == dto.RoomNumber);
-        if (numberTaken)
-            return BadRequest(new { error = "Pokój o takim numerze już istnieje!"});
-
-        var room = new Room
+        try
         {
-            RoomTypeId = dto.RoomTypeId,
-            RoomNumber = dto.RoomNumber,
-            Status = string.IsNullOrWhiteSpace(dto.Status) ? "available" : dto.Status
-        };
-
-        var amenities = await _context.Amenities.Where(a => dto.AmenityIds.Contains(a.AmenityId)).ToListAsync();
-        foreach (var amenity in amenities)
-        {
-            room.Amenities.Add(amenity);
+            await _roomService.CreateRoomAsync(dto);
+            return Ok(new { message = "Pokój został pomyślnie dodany!"});
         }
-
-        _context.Rooms.Add(room);
-        await _context.SaveChangesAsync();
-
-        return Ok(new { message = "Pokój został pomyślnie dodany!"});
+        catch (ArgumentException e)
+        {
+            return BadRequest(new { error = e.Message});
+        }
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] RoomDto dto)
     {
-
-        var room = await _context.Rooms.Include(r => r.Amenities).FirstOrDefaultAsync(r => r.RoomId == id);
-        if (room == null)
-            return NotFound(new { error = "Nie znaleziono pokoju!"});
-
-
-        var typeExists = await _context.RoomTypes.AnyAsync(rt => rt.RoomTypeId == dto.RoomTypeId);
-        if (!typeExists) 
-            return BadRequest(new { error = "Wskazany typ pokoju nie istenieje!"});
-
-        if (string.IsNullOrWhiteSpace(dto.RoomNumber))
-            return BadRequest(new { error = "Numer pokoju jest wymagany!"});
-
-        var numberTaken = await _context.Rooms.AnyAsync(r => r.RoomNumber == dto.RoomNumber && r.RoomId != id);
-        if (numberTaken)
-            return BadRequest(new { error = "Pokój o takim numerze już istnieje!"});
-
-        room.RoomTypeId = dto.RoomTypeId;
-        room.RoomNumber = dto.RoomNumber;
-        room.Status = string.IsNullOrWhiteSpace(dto.Status) ? "available" : dto.Status;
-
-        var amenities = await _context.Amenities.Where(a => dto.AmenityIds.Contains(a.AmenityId)).ToListAsync();
-        room.Amenities.Clear();
-        foreach (var amenity in amenities)
+        try
         {
-            room.Amenities.Add(amenity);
-        }
+            var success = await _roomService.UpdateRoomAsync(id, dto);
 
-        await _context.SaveChangesAsync();
-        return Ok(new { message = "Dane pokoju zostały zaaktualizowane!"});
+            if (!success)
+                return NotFound(new { error = "Nie znaleziono pokoju!"});
+
+            return Ok(new { message = "Dane pokoju zostały zaktualizowane!"});
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(new { error = e.Message});
+        }
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var room = await _context.Rooms.FindAsync(id);
-        if (room == null)
-            return NotFound(new { error = "Nie znaleziono pokoju!"});
+        try
+        {
+            var success = await _roomService.DeleteRoomAsync(id);
 
-        // Pokój z historią rezerwacji (płatności, faktury) nie może zostać usunięty - można go wyłączyć z użytku
-        bool hasReservations = await _context.Reservations.AnyAsync(r => r.RoomId == id);
-        if (hasReservations)
-            return BadRequest(new { error = "Nie można usunąć pokoju, który ma rezerwacje (także historyczne). Zmień jego status na \"Wyłączony\", aby wycofać go z oferty."});
+            if (!success)
+                return NotFound(new { error = "Nie znaleziono pokoju!"});
 
-        _context.Rooms.Remove(room);
-        await _context.SaveChangesAsync();
-
-        return Ok(new {message = "Pokój został usunięty!"});
+            return Ok(new { message = "Pokój został usunięty!"});
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(new { error = e.Message});
+        }
     }
 }

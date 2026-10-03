@@ -1,9 +1,7 @@
-using DAL;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Model;
 using Services.DTO;
+using Services.Interfaces;
 
 namespace API.Controllers;
 
@@ -12,75 +10,61 @@ namespace API.Controllers;
 [Authorize(Roles = "Owner")]
 public class AmenityController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IAmenityService _amenityService;
 
-    public AmenityController(ApplicationDbContext context)
+    public AmenityController(IAmenityService amenityService)
     {
-        _context = context;
+        _amenityService = amenityService;
     }
 
     [HttpGet]
     [AllowAnonymous]
     public async Task<IActionResult> GetAll()
     {
-        var amenities = await _context.Amenities.Select(a => new AmenityDto
-        {
-            AmenityId = a.AmenityId,
-            Name = a.Name
-        }).ToListAsync();
-
+        var amenities = await _amenityService.GetAllAmenitiesAsync();
         return Ok(amenities);
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] AmenityDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Name))
-            return BadRequest(new { error = "Nazwa udogodnienia jest wymagana."});
-
-        var nameTaken = await _context.Amenities.AnyAsync(a => a.Name == dto.Name);
-        if (nameTaken)
-            return BadRequest(new { error = "Udogodnienie o takiej nazwie już istnieje."});
-
-        var amenity = new Amenity
+        try
         {
-            Name = dto.Name
-        };
-
-        _context.Amenities.Add(amenity);
-        await _context.SaveChangesAsync();
-        return Ok(new { message = "Udogodnienie zostało dodane."});
+            await _amenityService.CreateAmenityAsync(dto);
+            return Ok(new { message = "Udogodnienie zostało dodane."});
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(new { error = e.Message});
+        }
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] AmenityDto dto)
     {
-        var amenity = await _context.Amenities.FindAsync(id);
-        if (amenity == null)
-            return NotFound(new { error = "Nie znaleziono udogodnienia."});
+        try
+        {
+            var success = await _amenityService.UpdateAmenityAsync(id, dto);
 
-        if (string.IsNullOrWhiteSpace(dto.Name))
-            return BadRequest(new { error = "Nazwa udogodnienia jest wymagana."});
+            if (!success)
+                return NotFound(new { error = "Nie znaleziono udogodnienia."});
 
-        var nameTaken = await _context.Amenities.AnyAsync(a => a.Name == dto.Name && a.AmenityId != id);
-        if (nameTaken)
-            return BadRequest(new { error = "Udogodnienie o takiej nazwie już istnieje."});
-
-        amenity.Name = dto.Name;
-
-        await _context.SaveChangesAsync();
-        return Ok(new { message = "Udogodnienie zostało zaktualizowane."});
+            return Ok(new { message = "Udogodnienie zostało zaktualizowane."});
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(new { error = e.Message});
+        }
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var amenity = await _context.Amenities.FindAsync(id);
-        if (amenity == null)
+        var success = await _amenityService.DeleteAmenityAsync(id);
+
+        if (!success)
             return NotFound(new { error = "Nie znaleziono udogodnienia."});
 
-        _context.Amenities.Remove(amenity);
-        await _context.SaveChangesAsync();
         return Ok(new { message = "Udogodnienie zostało usunięte."});
     }
 }
