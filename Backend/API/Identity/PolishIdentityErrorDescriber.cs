@@ -5,6 +5,9 @@ namespace API.Identity;
 // Polskie komunikaty błędów ASP.NET Core Identity (rejestracja, polityka haseł, zmiana hasła)
 public class PolishIdentityErrorDescriber : IdentityErrorDescriber
 {
+    public override IdentityError InvalidToken() =>
+        new IdentityError { Code = nameof(InvalidToken), Description = "Link do resetu hasła jest nieprawidłowy lub wygasł. Poproś o nowy link." };
+
     public override IdentityError PasswordMismatch() =>
         new IdentityError { Code = nameof(PasswordMismatch), Description = "Obecne hasło jest nieprawidłowe." };
 

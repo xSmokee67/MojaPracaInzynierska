@@ -34,6 +34,19 @@ builder.Services.AddIdentity<User, IdentityRole<int>>(options =>
 .AddDefaultTokenProviders()
 .AddErrorDescriber<PolishIdentityErrorDescriber>();
 
+// Link do resetu hasła (token Identity) jest ważny 2 godziny
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+    options.TokenLifespan = TimeSpan.FromHours(Services.Services.PasswordResetService.TokenValidHours));
+
+// Adres aplikacji React (linki w e-mailach, CORS) i wysyłka e-maili - sekcje "Frontend" i "Email" w appsettings.json
+var frontendSettings = builder.Configuration.GetSection("Frontend").Get<FrontendSettings>() ?? new FrontendSettings();
+builder.Services.AddSingleton(frontendSettings);
+
+// Bez serwera SMTP e-maile są zapisywane jako pliki .eml w katalogu Backend/API/Emails
+var emailSettings = builder.Configuration.GetSection("Email").Get<EmailSettings>() ?? new EmailSettings();
+emailSettings.PickupDirectory = Path.Combine(builder.Environment.ContentRootPath, emailSettings.PickupDirectory);
+builder.Services.AddSingleton(emailSettings);
+
 // Klucz podpisu tokenów nie jest trzymany w repozytorium - ustawia się go w User Secrets (instrukcja w README.md)
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var jwtKey = jwtSettings["Key"];
@@ -63,7 +76,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins(frontendSettings.BaseUrl.TrimEnd('/'))
         .AllowAnyHeader()
         .AllowAnyMethod();
     });
@@ -122,6 +135,8 @@ builder.Services.AddScoped<IPriceListEntryService, Services.Services.PriceListEn
 builder.Services.AddScoped<IRoomBlockService, Services.Services.RoomBlockService>();
 builder.Services.AddScoped<IReviewService, Services.Services.ReviewService>();
 builder.Services.AddScoped<IProfileService, Services.Services.ProfileService>();
+builder.Services.AddScoped<IPasswordResetService, Services.Services.PasswordResetService>();
+builder.Services.AddScoped<IEmailService, Services.Services.EmailService>();
 
 // Zdjęcia pokoi zapisywane w katalogu "uploads" obok projektu API i udostępniane pod adresem /uploads
 var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "uploads");

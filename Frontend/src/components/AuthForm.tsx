@@ -4,7 +4,7 @@ import { loginUser, registerUser } from '../api/authApi';
 import { errorMessage } from '../api/apiErrors';
 import type { LoginDto, RegisterDto } from '../types/auth';
 
-export default function AuthForm({ onLoginSuccess, sessionMessage }: { onLoginSuccess: (token: string, role: string, email: string, expiration: string, firstName: string) => void; sessionMessage: string }) {
+export default function AuthForm({ onLoginSuccess, onForgotPassword, sessionMessage }: { onLoginSuccess: (token: string, role: string, email: string, expiration: string, firstName: string) => void; onForgotPassword: () => void; sessionMessage: string }) {
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -67,6 +67,11 @@ export default function AuthForm({ onLoginSuccess, sessionMessage }: { onLoginSu
             value={password} onChange={(e) => setPassword(e.target.value)} 
           />
           {!isLogin && <p className="mt-1 text-xs text-slate-500">Minimum 8 znaków, w tym co najmniej jedna cyfra.</p>}
+          {isLogin && (
+            <div className="mt-1 text-right">
+              <button type="button" onClick={onForgotPassword} className="text-sm text-emerald-600 hover:underline">Nie pamiętasz hasła?</button>
+            </div>
+          )}
         </div>
 
         {!isLogin && (

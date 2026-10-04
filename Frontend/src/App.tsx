@@ -6,27 +6,44 @@ import MyReservations from './components/MyReservations';
 import RoomGallery from './components/RoomGallery';
 import RoomTypeProfile from './components/RoomTypeProfile';
 import UserProfile from './components/UserProfile';
+import ForgotPasswordForm from './components/ForgotPasswordForm';
+import ResetPasswordForm from './components/ResetPasswordForm';
+import type { AdminTab } from './components/admin/adminTabs';
+import { adminTabBySlug } from './components/admin/adminTabs';
 import { SESSION_EXPIRED_EVENT } from './api/apiErrors';
 import type { SearchCriteria } from './types/room';
 
-// Proste trasy oparte o hash w adresie (#/pokoj/2) - działa przycisk "Wstecz" i można wysłać link do pokoju
+// Proste trasy oparte o hash w adresie (#/pokoj/2, #/panel/pokoje) - działa przycisk "Wstecz" i można wysłać link do pokoju
 type Route =
   | { view: 'rooms' }
   | { view: 'room'; roomTypeId: number }
   | { view: 'book'; roomTypeId?: number }
   | { view: 'reservations' }
   | { view: 'profile' }
-  | { view: 'panel' }
+  | { view: 'panel'; tab: AdminTab; reservationId?: number }
+  | { view: 'forgotPassword' }
+  | { view: 'resetPassword'; email: string; token: string }
   | { view: 'login' };
 
 const parseRoute = (hash: string): Route => {
-  const [section, id] = hash.replace(/^#\/?/, '').split('/');
+  const [path, query] = hash.replace(/^#\/?/, '').split('?');
+  const [section, id, subId] = path.split('/');
   const numericId = Number(id);
   if (section === 'pokoj' && numericId > 0) return { view: 'room', roomTypeId: numericId };
   if (section === 'rezerwacja') return { view: 'book', roomTypeId: numericId > 0 ? numericId : undefined };
   if (section === 'moje-rezerwacje') return { view: 'reservations' };
   if (section === 'profil') return { view: 'profile' };
-  if (section === 'panel') return { view: 'panel' };
+  if (section === 'panel') {
+    const tab = adminTabBySlug(id);
+    const reservationId = Number(subId);
+    return { view: 'panel', tab, reservationId: tab === 'reservations' && reservationId > 0 ? reservationId : undefined };
+  }
+  if (section === 'nie-pamietam-hasla') return { view: 'forgotPassword' };
+  if (section === 'reset-hasla') {
+    // Link z e-maila: #/reset-hasla?email=...&token=...
+    const params = new URLSearchParams(query ?? '');
+    return { view: 'resetPassword', email: params.get('email') ?? '', token: params.get('token') ?? '' };
+  }
   if (section === 'logowanie') return { view: 'login' };
   return { view: 'rooms' };
 };
@@ -103,7 +120,15 @@ export default function App() {
 
   // Zmiana adresu (kliknięcie linku, przycisk "Wstecz") przełącza widok
   useEffect(() => {
-    const onHashChange = () => { setRoute(parseRoute(window.location.hash)); window.scrollTo(0, 0); };
+    let previous = parseRoute(window.location.hash);
+    const onHashChange = () => {
+      const next = parseRoute(window.location.hash);
+      setRoute(next);
+      // Otwarcie i zamknięcie szczegółów rezerwacji w panelu nie przewija listy rezerwacji na górę
+      const sameReservationsTab = previous.view === 'panel' && next.view === 'panel' && previous.tab === 'reservations' && next.tab === 'reservations';
+      if (!sameReservationsTab) window.scrollTo(0, 0);
+      previous = next;
+    };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
@@ -192,10 +217,16 @@ export default function App() {
       {/* Główny routing aplikacji */}
       {!token && requiresLogin ? (
         // Rezerwacja, "Moje rezerwacje", profil i panel wymagają zalogowania - po zalogowaniu zostajemy na tej samej trasie
-        <AuthForm onLoginSuccess={handleLoginSuccess} sessionMessage={sessionMessage || (route.view === 'book' ? 'Zaloguj się lub załóż konto, aby zarezerwować pokój.' : '')} />
+        <AuthForm onLoginSuccess={handleLoginSuccess} onForgotPassword={() => navigate('/nie-pamietam-hasla')} sessionMessage={sessionMessage || (route.view === 'book' ? 'Zaloguj się lub załóż konto, aby zarezerwować pokój.' : '')} />
+      ) : route.view === 'forgotPassword' ? (
+        // RESET HASŁA - krok 1: wysłanie linku na e-mail
+        <ForgotPasswordForm onBackToLogin={() => navigate('/logowanie')} />
+      ) : route.view === 'resetPassword' ? (
+        // RESET HASŁA - krok 2: nowe hasło (link z e-maila)
+        <ResetPasswordForm key={route.token} email={route.email} token={route.token} onGoToLogin={() => navigate('/logowanie')} onRequestNewLink={() => navigate('/nie-pamietam-hasla')} />
       ) : token && isOwner && route.view === 'panel' ? (
-        // PANEL WŁAŚCICIELA (czerwony przycisk w pasku nawigacji)
-        <AdminDashboard token={token} />
+        // PANEL WŁAŚCICIELA (czerwony przycisk w pasku nawigacji) - każda zakładka pod własnym adresem
+        <AdminDashboard token={token} tab={route.tab} reservationId={route.reservationId} onNavigate={navigate} />
       ) : token && route.view === 'profile' ? (
         // MÓJ PROFIL (gość i właściciel)
         <UserProfile token={token} onProfileUpdated={handleProfileUpdated} onNavigate={navigate} />

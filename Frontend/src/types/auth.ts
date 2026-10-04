@@ -17,3 +17,9 @@ export interface AuthResponse{
     role: string;
     firstName: string;
 }
+
+export interface ResetPasswordDto{
+    email: string;
+    token: string;
+    newPassword: string;
+}

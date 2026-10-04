@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Model;
 using Services.DTO;
+using Services.Interfaces;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -16,12 +17,14 @@ public class AuthController : ControllerBase
     private readonly UserManager<User> _userManager;
     private readonly RoleManager<IdentityRole<int>> _roleManager;
     private readonly IConfiguration _configuration;
+    private readonly IPasswordResetService _passwordResetService;
 
-    public AuthController(UserManager<User> userManager, RoleManager<IdentityRole<int>> roleManager, IConfiguration configuration)
+    public AuthController(UserManager<User> userManager, RoleManager<IdentityRole<int>> roleManager, IConfiguration configuration, IPasswordResetService passwordResetService)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _configuration = configuration;
+        _passwordResetService = passwordResetService;
     }
 
     [HttpPost("register")]
@@ -127,6 +130,29 @@ public class AuthController : ControllerBase
                 _ => string.Empty
             }
         });
+    }
+
+    // Krok 1 resetu hasła: e-mail z linkiem (odpowiedź jest taka sama niezależnie od tego, czy konto istnieje)
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
+    {
+        await _passwordResetService.SendResetLinkAsync(dto.Email);
+        return Ok(new { message = "Jeśli konto o podanym adresie istnieje, wysłaliśmy na nie link do ustawienia nowego hasła." });
+    }
+
+    // Krok 2 resetu hasła: nowe hasło z tokenem z linku
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+    {
+        try
+        {
+            await _passwordResetService.ResetPasswordAsync(dto);
+            return Ok(new { message = "Hasło zostało zmienione. Możesz się teraz zalogować." });
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(new { error = e.Message });
+        }
     }
 
     private static string LockoutMessage(User user)
