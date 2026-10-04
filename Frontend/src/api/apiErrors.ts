@@ -20,3 +20,6 @@ export const throwApiError = async (response: Response, fallbackMessage: string)
   const errorData = await response.json().catch(() => null);
   throw new Error(errorData?.error || fallbackMessage);
 };
+
+// Treść błędu do wyświetlenia w komponencie (API rzuca Error z komunikatem z odpowiedzi)
+export const errorMessage = (err: unknown): string => err instanceof Error ? err.message : 'Wystąpił nieoczekiwany błąd.';

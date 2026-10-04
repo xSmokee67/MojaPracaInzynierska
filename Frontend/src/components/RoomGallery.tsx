@@ -4,13 +4,14 @@ import type { RoomTypeDto } from '../types/admin';
 import type { RoomTypeAvailabilityDto, SearchCriteria } from '../types/room';
 import { getRoomTypes } from '../api/adminApi';
 import { photoUrl, searchRoomTypes } from '../api/roomApi';
+import { errorMessage } from '../api/apiErrors';
 import { personsLabel, reviewsLabel, nightsLabel, formatDate, toInputDate, addDaysToInputDate } from '../utils/format';
 import RoomPhotoPlaceholder from './RoomPhotoPlaceholder';
 
 // Strona główna: wyszukiwarka z datami + kafelki typów pokoi (kliknięcie otwiera profil pokoju)
 export default function RoomGallery({ search, onSearch, onClearSearch, onSelect }: { search: SearchCriteria | null; onSearch: (criteria: SearchCriteria) => void; onClearSearch: () => void; onSelect: (roomTypeId: number) => void }) {
   const [roomTypes, setRoomTypes] = useState<RoomTypeDto[]>([]);
-  const [results, setResults] = useState<RoomTypeAvailabilityDto[] | null>(null);
+  const [searchResults, setSearchResults] = useState<RoomTypeAvailabilityDto[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -20,36 +21,37 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
   const [checkOut, setCheckOut] = useState(search?.checkOut ?? addDaysToInputDate(today, 3));
   const [guests, setGuests] = useState(search?.guests ?? 2);
 
-  const loadData = async () => {
-    try {
-      const data = await getRoomTypes();
-      setRoomTypes(data);
-      setError('');
-    } catch (err: any) {
-      setError(err.message);
-    }
-    setIsLoading(false);
-  };
-
-  const loadResults = async () => {
-    if (!search) { setResults(null); return; }
-    try {
-      const data = await searchRoomTypes(search);
-      setResults(data);
-      setError('');
-    } catch (err: any) {
-      setResults(null);
-      setError(err.message);
-    }
-  };
-
   useEffect(() => {
+    const loadData = async () => {
+      try {
+        const data = await getRoomTypes();
+        setRoomTypes(data);
+        setError('');
+      } catch (err) {
+        setError(errorMessage(err));
+      }
+      setIsLoading(false);
+    };
     loadData();
   }, []);
 
   useEffect(() => {
+    if (!search) return;
+    const loadResults = async () => {
+      try {
+        const data = await searchRoomTypes(search);
+        setSearchResults(data);
+        setError('');
+      } catch (err) {
+        setSearchResults(null);
+        setError(errorMessage(err));
+      }
+    };
     loadResults();
   }, [search]);
+
+  // Wyniki wyszukiwania tylko przy aktywnym wyszukiwaniu ("Pokaż wszystkie pokoje" je chowa)
+  const results = search ? searchResults : null;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

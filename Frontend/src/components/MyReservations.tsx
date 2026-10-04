@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import type { ReservationDto } from '../types/reservation';
 import { reservationStatusLabels, reservationStatusStyles } from '../types/reservation';
 import { getMyReservations } from '../api/reservationApi';
+import { errorMessage } from '../api/apiErrors';
 import ReservationDetails from './ReservationDetails';
 
 export default function MyReservations({ token, refreshKey }: { token: string; refreshKey: number }) {
@@ -10,20 +11,21 @@ export default function MyReservations({ token, refreshKey }: { token: string; r
   const [filter, setFilter] = useState<'all' | 'active' | 'history'>('all');
   const [error, setError] = useState('');
   const [selectedReservationId, setSelectedReservationId] = useState<number | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const loadData = async () => {
-    try {
-      const data = await getMyReservations(token);
-      setReservations(data);
-      setError('');
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
+  // refreshKey - nowa rezerwacja z formularza, reloadKey - zmiana w oknie szczegółów (np. anulowanie)
   useEffect(() => {
+    const loadData = async () => {
+      try {
+        const data = await getMyReservations(token);
+        setReservations(data);
+        setError('');
+      } catch (err) {
+        setError(errorMessage(err));
+      }
+    };
     loadData();
-  }, [refreshKey]);
+  }, [token, refreshKey, reloadKey]);
 
   // Aktywna = oczekująca lub potwierdzona, której termin wymeldowania jeszcze nie minął
   const isActive = (r: ReservationDto) => {
@@ -76,7 +78,7 @@ export default function MyReservations({ token, refreshKey }: { token: string; r
       </div>
 
       {selectedReservationId && (
-        <ReservationDetails token={token} reservationId={selectedReservationId} isOwner={false} onClose={() => setSelectedReservationId(null)} onChanged={loadData} />
+        <ReservationDetails token={token} reservationId={selectedReservationId} isOwner={false} onClose={() => setSelectedReservationId(null)} onChanged={() => setReloadKey(key => key + 1)} />
       )}
     </div>
   );

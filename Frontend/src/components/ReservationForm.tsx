@@ -4,6 +4,7 @@ import type { CreateReservationDto } from '../types/reservation';
 import type { RoomTypeDto, AdditionalServiceDto } from '../types/admin';
 import { checkAvailability, calculatePrice, createReservation } from '../api/reservationApi';
 import { getRoomTypes, getAdditionalServices } from '../api/adminApi';
+import { errorMessage } from '../api/apiErrors';
 
 export default function ReservationForm({ token, onReservationCreated, initialRoomTypeId, initialCheckIn, initialCheckOut }: { token: string; onReservationCreated: () => void; initialRoomTypeId?: number; initialCheckIn?: string; initialCheckOut?: string }) {
   const [roomTypes, setRoomTypes] = useState<RoomTypeDto[]>([]);
@@ -20,25 +21,24 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
   const [isError, setIsError] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const loadData = async () => {
-    try {
-      const types = await getRoomTypes();
-      setRoomTypes(types);
-      // Typ pokoju wybrany na stronie pokoju (przycisk "Zarezerwuj ten pokój") albo pierwszy z listy
-      const preselected = types.find(rt => rt.roomTypeId === initialRoomTypeId);
-      if (types.length > 0) setRoomTypeId(preselected ? preselected.roomTypeId! : types[0].roomTypeId!);
-
-      const servicesData = await getAdditionalServices();
-      setServices(servicesData);
-    } catch (err: any) {
-      setIsError(true);
-      setStatusMessage(err.message);
-    }
-  };
-
   useEffect(() => {
+    const loadData = async () => {
+      try {
+        const types = await getRoomTypes();
+        setRoomTypes(types);
+        // Typ pokoju wybrany na stronie pokoju (przycisk "Zarezerwuj ten pokój") albo pierwszy z listy
+        const preselected = types.find(rt => rt.roomTypeId === initialRoomTypeId);
+        if (types.length > 0) setRoomTypeId(preselected ? preselected.roomTypeId! : types[0].roomTypeId!);
+
+        const servicesData = await getAdditionalServices();
+        setServices(servicesData);
+      } catch (err) {
+        setIsError(true);
+        setStatusMessage(errorMessage(err));
+      }
+    };
     loadData();
-  }, []);
+  }, [initialRoomTypeId]);
 
   // Zmiana parametrów unieważnia poprzednio wyliczoną cenę - trzeba sprawdzić ponownie
   const resetCheck = () => {
@@ -88,9 +88,9 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
         setTotalPrice(null);
         setStatusMessage(avail.message);
       }
-    } catch (err: any) {
+    } catch (err) {
       setIsError(true);
-      setStatusMessage(err.message);
+      setStatusMessage(errorMessage(err));
     }
   };
 
@@ -110,9 +110,9 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
       resetCheck();
       onReservationCreated();
       setStatusMessage('Rezerwacja została pomyślnie potwierdzona!');
-    } catch (err: any) {
+    } catch (err) {
       setIsError(true);
-      setStatusMessage(err.message);
+      setStatusMessage(errorMessage(err));
     }
   };
 

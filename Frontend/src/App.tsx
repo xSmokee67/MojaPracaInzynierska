@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import AuthForm from './components/AuthForm';
 import ReservationForm from './components/ReservationForm';
 import AdminDashboard from './components/AdminDashboard';
@@ -39,13 +39,30 @@ const loadSearch = (): SearchCriteria | null => {
   }
 };
 
+// Sesja zapisana w localStorage - przywracana przy starcie aplikacji, jeśli token nie wygasł
+const SESSION_KEYS = ['jwt_token', 'user_role', 'user_email', 'token_expiration'];
+const clearSession = () => SESSION_KEYS.forEach(key => localStorage.removeItem(key));
+const loadSession = () => {
+  const savedToken = localStorage.getItem('jwt_token');
+  const savedExpiration = localStorage.getItem('token_expiration');
+
+  // Token po terminie ważności - nie przywracamy sesji
+  if (savedToken && savedExpiration && new Date(savedExpiration).getTime() <= Date.now()) {
+    clearSession();
+    return { token: null, role: null, email: null, message: 'Sesja wygasła. Zaloguj się ponownie.' };
+  }
+
+  return { token: savedToken, role: localStorage.getItem('user_role'), email: localStorage.getItem('user_email'), message: '' };
+};
+
 export default function App() {
-  const [token, setToken] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
+  const [initialSession] = useState(loadSession);
+  const [token, setToken] = useState<string | null>(initialSession.token);
+  const [role, setRole] = useState<string | null>(initialSession.role);
+  const [email, setEmail] = useState<string | null>(initialSession.email);
   const [reservationsRefreshKey, setReservationsRefreshKey] = useState(0);
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
-  const [sessionMessage, setSessionMessage] = useState('');
+  const [sessionMessage, setSessionMessage] = useState(initialSession.message);
   const [search, setSearch] = useState<SearchCriteria | null>(() => {
     // Termin z przeszłości (np. zapamiętany wczoraj) nie jest przywracany
     const saved = loadSearch();
@@ -63,30 +80,25 @@ export default function App() {
     }
   };
 
+  const handleLogout = useCallback((reason = '') => {
+    clearSession();
+
+    setToken(null);
+    setRole(null);
+    setEmail(null);
+    setSessionMessage(reason);
+
+    // Ręczne wylogowanie z tras dostępnych tylko po zalogowaniu - powrót na stronę główną.
+    // Przy wygaśnięciu sesji (reason) zostajemy na miejscu: pojawi się logowanie z komunikatem, a potem powrót do formularza
+    const currentView = parseRoute(window.location.hash).view;
+    if (!reason && (currentView === 'book' || currentView === 'reservations')) navigate('/');
+  }, []);
+
   // Zmiana adresu (kliknięcie linku, przycisk "Wstecz") przełącza widok
   useEffect(() => {
     const onHashChange = () => { setRoute(parseRoute(window.location.hash)); window.scrollTo(0, 0); };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
-
-  useEffect(() => {
-    const savedToken = localStorage.getItem('jwt_token');
-    const savedRole = localStorage.getItem('user_role');
-    const savedEmail = localStorage.getItem('user_email');
-    const savedExpiration = localStorage.getItem('token_expiration');
-
-    if (savedToken) {
-      // Token po terminie ważności - nie przywracamy sesji
-      if (savedExpiration && new Date(savedExpiration).getTime() <= Date.now()) {
-        handleLogout('Sesja wygasła. Zaloguj się ponownie.');
-        return;
-      }
-
-      setToken(savedToken);
-      setRole(savedRole);
-      setEmail(savedEmail);
-    }
   }, []);
 
   // Automatyczne wylogowanie w momencie wygaśnięcia tokenu JWT (API ustawia ważność na 3 godziny)
@@ -97,14 +109,14 @@ export default function App() {
     const timeLeft = new Date(savedExpiration).getTime() - Date.now();
     const timer = setTimeout(() => handleLogout('Sesja wygasła. Zaloguj się ponownie.'), Math.max(timeLeft, 0));
     return () => clearTimeout(timer);
-  }, [token]);
+  }, [token, handleLogout]);
 
   // API zwróciło 401 (token wygasł lub jest nieważny) - wylogowanie z komunikatem
   useEffect(() => {
     const onSessionExpired = () => handleLogout('Sesja wygasła. Zaloguj się ponownie.');
     window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
-  }, []);
+  }, [handleLogout]);
 
   const handleLoginSuccess = (newToken: string, newRole: string, newEmail: string, expiration: string) => {
     localStorage.setItem('jwt_token', newToken);
@@ -120,23 +132,6 @@ export default function App() {
     // Po logowaniu z przycisku "Zaloguj się" wracamy na stronę główną;
     // przy logowaniu w trakcie rezerwacji zostajemy na tej samej trasie (#/rezerwacja/2)
     if (route.view === 'login') navigate('/');
-  };
-
-  const handleLogout = (reason = '') => {
-    localStorage.removeItem('jwt_token');
-    localStorage.removeItem('user_role');
-    localStorage.removeItem('user_email'); // Usunięcie e-maila
-    localStorage.removeItem('token_expiration');
-
-    setToken(null);
-    setRole(null);
-    setEmail(null);
-    setSessionMessage(reason);
-
-    // Ręczne wylogowanie z tras dostępnych tylko po zalogowaniu - powrót na stronę główną.
-    // Przy wygaśnięciu sesji (reason) zostajemy na miejscu: pojawi się logowanie z komunikatem, a potem powrót do formularza
-    const currentView = parseRoute(window.location.hash).view;
-    if (!reason && (currentView === 'book' || currentView === 'reservations')) navigate('/');
   };
 
   const navButton = (active: boolean) => `flex-1 md:flex-none px-4 py-2 rounded-lg font-semibold transition-colors ${active ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;

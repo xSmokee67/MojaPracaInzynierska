@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import type { RoomTypePhotoDto } from '../types/room';
 import { getRoomTypeDetails, photoUrl } from '../api/roomApi';
 import { uploadRoomTypePhotos, deleteRoomTypePhoto, setMainRoomTypePhoto } from '../api/adminApi';
+import { errorMessage } from '../api/apiErrors';
 
 // Limity zgodne z API (FileStorageService i RoomTypeController)
 const MAX_PHOTOS = 10;
@@ -14,19 +15,19 @@ export default function RoomTypePhotoManager({ token, roomTypeId, roomTypeName, 
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-
-  const loadData = async () => {
-    try {
-      const data = await getRoomTypeDetails(roomTypeId);
-      setPhotos(data.photos);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    const loadData = async () => {
+      try {
+        const data = await getRoomTypeDetails(roomTypeId);
+        setPhotos(data.photos);
+      } catch (err) {
+        setError(errorMessage(err));
+      }
+    };
     loadData();
-  }, [roomTypeId]);
+  }, [roomTypeId, reloadKey]);
 
   // Wspólna obsługa akcji: komunikat, odświeżenie zdjęć i listy typów pokoi
   const runAction = async (action: () => Promise<void>, successMessage: string) => {
@@ -35,10 +36,10 @@ export default function RoomTypePhotoManager({ token, roomTypeId, roomTypeName, 
     try {
       await action();
       setMessage(successMessage);
-      await loadData();
+      setReloadKey(key => key + 1);
       onChanged();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     }
   };
 

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import type { ReservationDetailsDto, PaymentDto, ReviewDto } from '../types/reservation';
 import { reservationStatusLabels, reservationStatusStyles, paymentMethodLabels, paymentStatusLabels } from '../types/reservation';
 import { getReservationDetails, cancelReservation, registerPayment, issueInvoice, createReview } from '../api/reservationApi';
+import { errorMessage } from '../api/apiErrors';
 
 export default function ReservationDetails({ token, reservationId, isOwner, onClose, onChanged }: { token: string; reservationId: number; isOwner: boolean; onClose: () => void; onChanged: () => void }) {
   const [details, setDetails] = useState<ReservationDetailsDto | null>(null);
@@ -12,21 +13,21 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
   // Stany dla formularzy
   const [newPayment, setNewPayment] = useState<PaymentDto>({ amount: 0, method: 'card', status: 'completed' });
   const [newReview, setNewReview] = useState<ReviewDto>({ reservationId, rating: 5, comment: '' });
-
-  const loadData = async () => {
-    try {
-      const data = await getReservationDetails(reservationId, token);
-      setDetails(data);
-      setNewPayment(prev => ({ ...prev, amount: Math.max(data.totalPrice - data.paidAmount, 0) }));
-      setError('');
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    const loadData = async () => {
+      try {
+        const data = await getReservationDetails(reservationId, token);
+        setDetails(data);
+        setNewPayment(prev => ({ ...prev, amount: Math.max(data.totalPrice - data.paidAmount, 0) }));
+        setError('');
+      } catch (err) {
+        setError(errorMessage(err));
+      }
+    };
     loadData();
-  }, [reservationId]);
+  }, [token, reservationId, reloadKey]);
 
   // Wspólna obsługa akcji: komunikat, odświeżenie szczegółów i listy
   const runAction = async (action: () => Promise<void>, successMessage: string) => {
@@ -35,10 +36,10 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
     try {
       await action();
       setMessage(successMessage);
-      await loadData();
+      setReloadKey(key => key + 1);
       onChanged();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     }
   };
 

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import type { RoomTypeDetailsDto, RoomTypeAvailabilityDto, SearchCriteria } from '../types/room';
 import { getRoomTypeDetails, photoUrl, searchRoomTypes } from '../api/roomApi';
+import { errorMessage } from '../api/apiErrors';
 import { personsLabel, roomsLabel, reviewsLabel, nightsLabel, formatDate } from '../utils/format';
 import RoomPhotoPlaceholder from './RoomPhotoPlaceholder';
 
@@ -12,24 +13,23 @@ export default function RoomTypeProfile({ roomTypeId, search, onBook, onBack }: 
   const [activePhoto, setActivePhoto] = useState(0);
   const [error, setError] = useState('');
 
-  const loadData = async () => {
-    try {
-      const data = await getRoomTypeDetails(roomTypeId);
-      setRoom(data);
-      setActivePhoto(0);
-
-      // Termin wybrany w wyszukiwarce na stronie głównej - dostępność i cena całego pobytu
-      if (search) {
-        const results = await searchRoomTypes(search);
-        setStay(results.find(r => r.roomTypeId === roomTypeId) ?? null);
-      }
-      setError('');
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
   useEffect(() => {
+    const loadData = async () => {
+      try {
+        const data = await getRoomTypeDetails(roomTypeId);
+        setRoom(data);
+        setActivePhoto(0);
+
+        // Termin wybrany w wyszukiwarce na stronie głównej - dostępność i cena całego pobytu
+        if (search) {
+          const results = await searchRoomTypes(search);
+          setStay(results.find(r => r.roomTypeId === roomTypeId) ?? null);
+        }
+        setError('');
+      } catch (err) {
+        setError(errorMessage(err));
+      }
+    };
     loadData();
   }, [roomTypeId, search]);
 

@@ -1,6 +1,7 @@
 // Plik: Frontend/src/components/AuthForm.tsx
 import { useState } from 'react';
 import { loginUser, registerUser } from '../api/authApi';
+import { errorMessage } from '../api/apiErrors';
 import type { LoginDto, RegisterDto } from '../types/auth';
 
 export default function AuthForm({ onLoginSuccess, sessionMessage }: { onLoginSuccess: (token: string, role: string, email: string, expiration: string) => void; sessionMessage: string }) {  const [isLogin, setIsLogin] = useState(true);
@@ -30,8 +31,8 @@ export default function AuthForm({ onLoginSuccess, sessionMessage }: { onLoginSu
         setMessage('Rejestracja zakończona sukcesem! Możesz się teraz zalogować.');
         setIsLogin(true); // Przełącz na logowanie po udanej rejestracji
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     }
   };
 
