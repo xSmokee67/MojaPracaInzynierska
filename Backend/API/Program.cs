@@ -121,6 +121,7 @@ builder.Services.AddScoped<IAdditionalServiceService, Services.Services.Addition
 builder.Services.AddScoped<IPriceListEntryService, Services.Services.PriceListEntryService>();
 builder.Services.AddScoped<IRoomBlockService, Services.Services.RoomBlockService>();
 builder.Services.AddScoped<IReviewService, Services.Services.ReviewService>();
+builder.Services.AddScoped<IProfileService, Services.Services.ProfileService>();
 
 // Zdjęcia pokoi zapisywane w katalogu "uploads" obok projektu API i udostępniane pod adresem /uploads
 var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "uploads");

@@ -7,7 +7,8 @@ import { personsLabel, roomsLabel, reviewsLabel, nightsLabel, formatDate } from 
 import RoomPhotoPlaceholder from './RoomPhotoPlaceholder';
 
 // Profil typu pokoju: galeria zdjęć, opis, ceny, udogodnienia, opinie i przycisk rezerwacji
-export default function RoomTypeProfile({ roomTypeId, search, onBook, onBack }: { roomTypeId: number; search: SearchCriteria | null; onBook: (roomTypeId: number) => void; onBack: () => void }) {
+// canBook = false dla właściciela - przegląda stronę jak gość, ale rezerwacji dokonują tylko goście
+export default function RoomTypeProfile({ roomTypeId, search, canBook, onBook, onBack }: { roomTypeId: number; search: SearchCriteria | null; canBook: boolean; onBook: (roomTypeId: number) => void; onBack: () => void }) {
   const [room, setRoom] = useState<RoomTypeDetailsDto | null>(null);
   const [stay, setStay] = useState<RoomTypeAvailabilityDto | null>(null);
   const [activePhoto, setActivePhoto] = useState(0);
@@ -117,10 +118,14 @@ export default function RoomTypeProfile({ roomTypeId, search, onBook, onBack }: 
                 <p className="text-sm text-slate-500">Wybierz daty w wyszukiwarce na <button type="button" onClick={onBack} className="text-emerald-600 font-semibold hover:underline">stronie głównej</button>, aby zobaczyć cenę całego pobytu.</p>
               )}
 
-              <button type="button" onClick={() => onBook(room.roomTypeId)} disabled={stay !== null && (!stay.isAvailable || !stay.fitsGuests)}
-                className="w-full py-3 bg-emerald-600 text-white rounded-lg font-bold text-lg hover:bg-emerald-700 transition-colors shadow-md disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed">
-                {search && stay?.isAvailable ? 'Zarezerwuj ten termin' : 'Zarezerwuj ten pokój'}
-              </button>
+              {canBook ? (
+                <button type="button" onClick={() => onBook(room.roomTypeId)} disabled={stay !== null && (!stay.isAvailable || !stay.fitsGuests)}
+                  className="w-full py-3 bg-emerald-600 text-white rounded-lg font-bold text-lg hover:bg-emerald-700 transition-colors shadow-md disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed">
+                  {search && stay?.isAvailable ? 'Zarezerwuj ten termin' : 'Zarezerwuj ten pokój'}
+                </button>
+              ) : (
+                <p className="p-3 rounded-lg bg-slate-50 border text-sm text-slate-600 text-center">Podgląd jako właściciel - rezerwacji dokonują goście.</p>
+              )}
             </div>
           </div>
 

@@ -4,7 +4,8 @@ import { loginUser, registerUser } from '../api/authApi';
 import { errorMessage } from '../api/apiErrors';
 import type { LoginDto, RegisterDto } from '../types/auth';
 
-export default function AuthForm({ onLoginSuccess, sessionMessage }: { onLoginSuccess: (token: string, role: string, email: string, expiration: string) => void; sessionMessage: string }) {  const [isLogin, setIsLogin] = useState(true);
+export default function AuthForm({ onLoginSuccess, sessionMessage }: { onLoginSuccess: (token: string, role: string, email: string, expiration: string, firstName: string) => void; sessionMessage: string }) {
+  const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -24,7 +25,7 @@ export default function AuthForm({ onLoginSuccess, sessionMessage }: { onLoginSu
       if (isLogin) {
         const payload: LoginDto = { email, password };
         const data = await loginUser(payload);
-        onLoginSuccess(data.token, data.role, email, data.expiration);
+        onLoginSuccess(data.token, data.role, email, data.expiration, data.firstName);
       } else {
         const payload: RegisterDto = { email, password, firstName, lastName, phoneNumber };
         await registerUser(payload);

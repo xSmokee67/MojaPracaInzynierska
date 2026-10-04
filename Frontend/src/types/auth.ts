@@ -15,4 +15,5 @@ export interface AuthResponse{
     token: string;
     expiration: string;
     role: string;
+    firstName: string;
 }

@@ -100,3 +100,12 @@ export const createReview = async (dto: ReviewDto, token: string): Promise<void>
   });
   if (!response.ok) await throwApiError(response, 'Błąd dodawania opinii');
 };
+
+// Opinie zalogowanego gościa (strona "Mój profil")
+export const getMyReviews = async (token: string): Promise<ReviewDto[]> => {
+  const response = await fetch(`${API_BASE_URL}/Review/my`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (!response.ok) await throwApiError(response, 'Błąd pobierania Twoich opinii');
+  return response.json();
+};

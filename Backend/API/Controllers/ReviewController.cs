@@ -25,6 +25,18 @@ public class ReviewController : ControllerBase
         return Ok(reviews);
     }
 
+    [HttpGet("my")]
+    [Authorize]
+    public async Task<IActionResult> GetMyReviews()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(userId, out var guestId))
+            return Unauthorized(new { error = "Nie udało się zidentyfikować zalogowanego użytkownika."});
+
+        var reviews = await _reviewService.GetGuestReviewsAsync(guestId);
+        return Ok(reviews);
+    }
+
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> Create([FromBody] ReviewDto dto)

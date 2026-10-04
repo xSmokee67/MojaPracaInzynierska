@@ -2,9 +2,12 @@ using Microsoft.AspNetCore.Identity;
 
 namespace API.Identity;
 
-// Polskie komunikaty błędów ASP.NET Core Identity (rejestracja, polityka haseł)
+// Polskie komunikaty błędów ASP.NET Core Identity (rejestracja, polityka haseł, zmiana hasła)
 public class PolishIdentityErrorDescriber : IdentityErrorDescriber
 {
+    public override IdentityError PasswordMismatch() =>
+        new IdentityError { Code = nameof(PasswordMismatch), Description = "Obecne hasło jest nieprawidłowe." };
+
     public override IdentityError DuplicateEmail(string email) =>
         new IdentityError { Code = nameof(DuplicateEmail), Description = $"Adres e-mail {email} jest już zajęty." };
 

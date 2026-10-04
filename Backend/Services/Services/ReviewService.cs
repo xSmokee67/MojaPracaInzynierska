@@ -17,11 +17,23 @@ public class ReviewService : IReviewService
 
     public async Task<List<ReviewDto>> GetAllReviewsAsync()
     {
+        return await GetReviewsAsync(null);
+    }
+
+    // Opinie wystawione przez gościa (strona "Mój profil")
+    public async Task<List<ReviewDto>> GetGuestReviewsAsync(int guestId)
+    {
+        return await GetReviewsAsync(guestId);
+    }
+
+    private async Task<List<ReviewDto>> GetReviewsAsync(int? guestId)
+    {
         return await _context.Reviews
             .Include(r => r.Guest)
             .Include(r => r.Reservation)
                 .ThenInclude(res => res.Room)
                     .ThenInclude(room => room.RoomType)
+            .Where(r => guestId == null || r.GuestId == guestId)
             .OrderByDescending(r => r.Date)
             .Select(r => new ReviewDto
             {

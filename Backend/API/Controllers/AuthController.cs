@@ -118,7 +118,14 @@ public class AuthController : ControllerBase
         {
             token = new JwtSecurityTokenHandler().WriteToken(token),
             expiration = token.ValidTo,
-            role = userRoles.FirstOrDefault()
+            role = userRoles.FirstOrDefault(),
+            // Imię do powitania w pasku nawigacji ("Witaj, Anna")
+            firstName = user switch
+            {
+                Guest guest => guest.FirstName,
+                Owner owner => owner.FirstName,
+                _ => string.Empty
+            }
         });
     }
 
