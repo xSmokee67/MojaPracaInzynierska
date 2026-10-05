@@ -14,7 +14,7 @@ dotnet test
 
 W Visual Studio: **Test → Test Explorer → Run All**. Testy mają polskie nazwy (`DisplayName`), więc w Test Explorerze od razu widać, co sprawdzają.
 
-Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w pamięci (EF Core InMemory) z tymi samymi danymi co seed w `Program.cs` (`TestData.cs`).
+Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w pamięci (EF Core InMemory) z tymi samymi danymi co seed w `API/Data/DbSeeder.cs` (`TestData.cs`).
 
 ### Technologie
 
@@ -37,7 +37,7 @@ Testy pokrywają całą logikę biznesową z warstwy `Services`. Kontrolery API 
 
 ## 2. Scenariusze testów manualnych
 
-Dane startowe (seed w `Program.cs`):
+Dane startowe (seed w `API/Data/DbSeeder.cs`):
 
 - **Konto właściciela:** `admin@hotel.com` / `Admin123!`
 - **Pokoje:** Pokój Standardowy (200 zł/noc, pokoje 101 i 102), Apartament Premium (500 zł/noc, pokój 201)
