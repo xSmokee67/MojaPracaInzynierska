@@ -8,6 +8,8 @@ import RoomTypeProfile from './components/RoomTypeProfile';
 import UserProfile from './components/UserProfile';
 import ForgotPasswordForm from './components/ForgotPasswordForm';
 import ResetPasswordForm from './components/ResetPasswordForm';
+import Footer from './components/footer';
+import NotFound from './components/NotFound';
 import type { AdminTab } from './components/admin/adminTabs';
 import { adminTabBySlug } from './components/admin/adminTabs';
 import { SESSION_EXPIRED_EVENT } from './api/apiErrors';
@@ -23,7 +25,8 @@ type Route =
   | { view: 'panel'; tab: AdminTab; reservationId?: number }
   | { view: 'forgotPassword' }
   | { view: 'resetPassword'; email: string; token: string }
-  | { view: 'login' };
+  | { view: 'login' }
+  | { view: 'notFound' };
 
 const parseRoute = (hash: string): Route => {
   const [path, query] = hash.replace(/^#\/?/, '').split('?');
@@ -45,7 +48,8 @@ const parseRoute = (hash: string): Route => {
     return { view: 'resetPassword', email: params.get('email') ?? '', token: params.get('token') ?? '' };
   }
   if (section === 'logowanie') return { view: 'login' };
-  return { view: 'rooms' };
+  // Pusty adres (#/) to strona główna, każdy inny nieznany adres - strona 404
+  return section === '' ? { view: 'rooms' } : { view: 'notFound' };
 };
 
 const navigate = (path: string) => { window.location.hash = path; };
@@ -221,6 +225,9 @@ export default function App() {
       ) : route.view === 'forgotPassword' ? (
         // RESET HASŁA - krok 1: wysłanie linku na e-mail
         <ForgotPasswordForm onBackToLogin={() => navigate('/logowanie')} />
+      ) : route.view === 'notFound' ? (
+        // STRONA 404 - nieznany adres
+        <NotFound onHome={() => navigate('/')} />
       ) : route.view === 'resetPassword' ? (
         // RESET HASŁA - krok 2: nowe hasło (link z e-maila)
         <ResetPasswordForm key={route.token} email={route.email} token={route.token} onGoToLogin={() => navigate('/logowanie')} onRequestNewLink={() => navigate('/nie-pamietam-hasla')} />
@@ -256,6 +263,8 @@ export default function App() {
         // STRONA GŁÓWNA - galeria pokoi (publiczna, także dla właściciela)
         <RoomGallery search={search} onSearch={handleSearch} onClearSearch={() => handleSearch(null)} onSelect={id => navigate(`/pokoj/${id}`)} />
       )}
+
+      <Footer isLoggedIn={token !== null} isOwner={isOwner} onNavigate={navigate} />
     </div>
   );
 }

@@ -8,6 +8,29 @@ import { errorMessage } from '../api/apiErrors';
 import { personsLabel, reviewsLabel, nightsLabel, formatDate, toInputDate, addDaysToInputDate } from '../utils/format';
 import RoomPhotoPlaceholder from './RoomPhotoPlaceholder';
 
+// Sortowanie kafelków na stronie głównej
+type SortOption = 'recommended' | 'priceAsc' | 'priceDesc' | 'rating' | 'capacity';
+const sortLabels: Record<SortOption, string> = {
+  recommended: 'Polecane',
+  priceAsc: 'Cena: od najniższej',
+  priceDesc: 'Cena: od najwyższej',
+  rating: 'Ocena gości',
+  capacity: 'Liczba osób: od największej'
+};
+
+// Sortowanie i filtry pamiętane w sesji przeglądarki - zostają po powrocie z profilu pokoju
+interface GalleryFilters { sort: SortOption; amenities: string[]; onlyAvailable: boolean }
+const FILTERS_STORAGE_KEY = 'hotel_filters';
+const defaultFilters: GalleryFilters = { sort: 'recommended', amenities: [], onlyAvailable: false };
+const loadFilters = (): GalleryFilters => {
+  try {
+    const saved = sessionStorage.getItem(FILTERS_STORAGE_KEY);
+    return saved ? { ...defaultFilters, ...JSON.parse(saved) } : defaultFilters;
+  } catch {
+    return defaultFilters;
+  }
+};
+
 // Strona główna: wyszukiwarka z datami + kafelki typów pokoi (kliknięcie otwiera profil pokoju)
 export default function RoomGallery({ search, onSearch, onClearSearch, onSelect }: { search: SearchCriteria | null; onSearch: (criteria: SearchCriteria) => void; onClearSearch: () => void; onSelect: (roomTypeId: number) => void }) {
   const [roomTypes, setRoomTypes] = useState<RoomTypeDto[]>([]);
@@ -20,6 +43,17 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
   const [checkIn, setCheckIn] = useState(search?.checkIn ?? addDaysToInputDate(today, 1));
   const [checkOut, setCheckOut] = useState(search?.checkOut ?? addDaysToInputDate(today, 3));
   const [guests, setGuests] = useState(search?.guests ?? 2);
+
+  const [filters, setFilters] = useState<GalleryFilters>(loadFilters);
+  const updateFilters = (changes: Partial<GalleryFilters>) => {
+    const next = { ...filters, ...changes };
+    setFilters(next);
+    try {
+      sessionStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // brak dostępu do sessionStorage (np. tryb prywatny) - filtry działają bez zapamiętywania
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -63,16 +97,39 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
   const heroPhoto = roomTypes.find(rt => rt.mainPhotoUrl)?.mainPhotoUrl;
   const resultFor = (id: number) => results?.find(r => r.roomTypeId === id);
 
-  // Przy wyszukiwaniu: ukrywamy typy za małe dla tylu gości, dostępne pokoje na początku (najtańsze pierwsze)
-  const visibleRoomTypes = roomTypes
-    .filter(rt => !results || resultFor(rt.roomTypeId!)?.fitsGuests)
+  // Udogodnienia do filtra - wszystkie występujące w pokojach (zapamiętane, a już nieistniejące są pomijane)
+  const allAmenities = [...new Set(roomTypes.flatMap(rt => rt.amenities ?? []))].sort((a, b) => a.localeCompare(b, 'pl'));
+  const activeAmenities = filters.amenities.filter(a => allAmenities.includes(a));
+  const onlyAvailable = results !== null && filters.onlyAvailable;
+  const hasActiveFilters = filters.sort !== 'recommended' || activeAmenities.length > 0 || onlyAvailable;
+
+  const toggleAmenity = (amenity: string) => updateFilters({
+    amenities: activeAmenities.includes(amenity) ? activeAmenities.filter(a => a !== amenity) : [...activeAmenities, amenity]
+  });
+
+  // Cena do sortowania: przy wyszukiwaniu cena całego pobytu, bez wyszukiwania cena za noc
+  const priceOf = (rt: RoomTypeDto) => resultFor(rt.roomTypeId!)?.totalPrice ?? rt.basePrice;
+  const compareBySort = (a: RoomTypeDto, b: RoomTypeDto) => {
+    switch (filters.sort) {
+      case 'priceAsc': return priceOf(a) - priceOf(b);
+      case 'priceDesc': return priceOf(b) - priceOf(a);
+      case 'rating': return (b.averageRating ?? 0) - (a.averageRating ?? 0) || (b.reviewCount ?? 0) - (a.reviewCount ?? 0);
+      case 'capacity': return b.maxOccupancy - a.maxOccupancy;
+      default: return results ? priceOf(a) - priceOf(b) : 0;
+    }
+  };
+
+  // Przy wyszukiwaniu: ukrywamy typy za małe dla tylu gości, a dostępne pokoje są zawsze na początku listy
+  const fittingRoomTypes = roomTypes.filter(rt => !results || resultFor(rt.roomTypeId!)?.fitsGuests);
+  const visibleRoomTypes = fittingRoomTypes
+    .filter(rt => activeAmenities.every(a => (rt.amenities ?? []).includes(a)))
+    .filter(rt => !onlyAvailable || resultFor(rt.roomTypeId!)?.isAvailable)
     .sort((a, b) => {
       const ra = resultFor(a.roomTypeId!), rb = resultFor(b.roomTypeId!);
-      if (!ra || !rb) return 0;
-      if (ra.isAvailable !== rb.isAvailable) return ra.isAvailable ? -1 : 1;
-      return ra.totalPrice - rb.totalPrice;
+      if (ra && rb && ra.isAvailable !== rb.isAvailable) return ra.isAvailable ? -1 : 1;
+      return compareBySort(a, b);
     });
-  const hiddenCount = roomTypes.length - visibleRoomTypes.length;
+  const hiddenCount = roomTypes.length - fittingRoomTypes.length;
   const availableCount = results ? visibleRoomTypes.filter(rt => resultFor(rt.roomTypeId!)?.isAvailable).length : 0;
   const nights = search ? Math.round((new Date(search.checkOut).getTime() - new Date(search.checkIn).getTime()) / 86400000) : 0;
 
@@ -131,6 +188,47 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
         {search && <button type="button" onClick={onClearSearch} className="text-sm px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300">Pokaż wszystkie pokoje</button>}
       </div>
 
+      {/* --- SORTOWANIE I FILTRY --- */}
+      {fittingRoomTypes.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 bg-white p-4 rounded-xl shadow-sm">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
+            Sortuj:
+            <select value={filters.sort} onChange={e => updateFilters({ sort: e.target.value as SortOption })} className="px-3 py-1.5 border rounded-lg outline-none bg-white text-slate-800">
+              {Object.entries(sortLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+
+          {allAmenities.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-slate-600">Udogodnienia:</span>
+              {allAmenities.map(a => {
+                const active = activeAmenities.includes(a);
+                return (
+                  <button key={a} type="button" aria-pressed={active} onClick={() => toggleAmenity(a)}
+                    className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${active ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-slate-300 text-slate-700 hover:border-emerald-500'}`}>
+                    {active ? '✓ ' : ''}{a}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {results && (
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
+              <input type="checkbox" checked={filters.onlyAvailable} onChange={e => updateFilters({ onlyAvailable: e.target.checked })} className="accent-emerald-600" />
+              Tylko dostępne
+            </label>
+          )}
+
+          {hasActiveFilters && (
+            <div className="flex items-center gap-3 md:ml-auto text-sm">
+              {visibleRoomTypes.length < fittingRoomTypes.length && <span className="text-slate-500">Wyświetlono {visibleRoomTypes.length} z {fittingRoomTypes.length}</span>}
+              <button type="button" onClick={() => updateFilters(defaultFilters)} className="font-semibold text-emerald-600 hover:underline">Wyczyść filtry</button>
+            </div>
+          )}
+        </div>
+      )}
+
       {isLoading && <p className="text-slate-500">Ładowanie pokoi...</p>}
 
       {/* --- KAFELKI --- */}
@@ -185,7 +283,9 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
       </div>
 
       {!isLoading && !error && visibleRoomTypes.length === 0 && (
-        <p className="text-slate-500">{search ? 'Brak pokoi dla tylu osób. Zmień liczbę gości w wyszukiwarce.' : 'Brak pokoi w ofercie.'}</p>
+        fittingRoomTypes.length > 0
+          ? <p className="text-slate-500">Żaden pokój nie spełnia wybranych filtrów. <button type="button" onClick={() => updateFilters(defaultFilters)} className="font-semibold text-emerald-600 hover:underline">Wyczyść filtry</button></p>
+          : <p className="text-slate-500">{search ? 'Brak pokoi dla tylu osób. Zmień liczbę gości w wyszukiwarce.' : 'Brak pokoi w ofercie.'}</p>
       )}
     </div>
   );

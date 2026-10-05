@@ -5,6 +5,7 @@ import { getRoomTypeDetails, photoUrl, searchRoomTypes } from '../api/roomApi';
 import { errorMessage } from '../api/apiErrors';
 import { personsLabel, roomsLabel, reviewsLabel, nightsLabel, formatDate } from '../utils/format';
 import RoomPhotoPlaceholder from './RoomPhotoPlaceholder';
+import NotFound from './NotFound';
 
 // Profil typu pokoju: galeria zdjęć, opis, ceny, udogodnienia, opinie i przycisk rezerwacji
 // canBook = false dla właściciela - przegląda stronę jak gość, ale rezerwacji dokonują tylko goście
@@ -37,6 +38,11 @@ export default function RoomTypeProfile({ roomTypeId, search, canBook, onBook, o
   const photoCount = room?.photos.length ?? 0;
   const showPrevious = () => setActivePhoto(prev => (prev - 1 + photoCount) % photoCount);
   const showNext = () => setActivePhoto(prev => (prev + 1) % photoCount);
+
+  // Pokój nie istnieje (np. stary link #/pokoj/999) albo nie udało się go wczytać
+  if (!room && error) {
+    return <NotFound title="Nie znaleziono pokoju" message="Ten pokój nie istnieje albo został wycofany z oferty. Sprawdź pozostałe pokoje na stronie głównej." onHome={onBack} />;
+  }
 
   return (
     <div className="w-full max-w-6xl space-y-6">
