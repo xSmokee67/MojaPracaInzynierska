@@ -56,6 +56,8 @@ Frontend/src/
 
 Kontrolery nie odwołują się bezpośrednio do bazy danych – wywołują serwisy z warstwy `Services`, które korzystają z `ApplicationDbContext`. EF Core pełni rolę repozytorium (`DbSet<T>`) i jednostki pracy (`DbContext`).
 
+Rejestrację i logowanie obsługuje `AuthService` (konta przez ASP.NET Core Identity). Serwis zna tylko interfejs `ITokenService` – samo wystawienie tokenu JWT (`JwtTokenService`, `API/Identity`) należy do warstwy API, bo format tokenu to szczegół komunikacji HTTP, a nie logika biznesowa (odwrócenie zależności).
+
 ## Uruchomienie
 
 ### Wymagania

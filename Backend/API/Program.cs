@@ -51,11 +51,10 @@ emailSettings.PickupDirectory = Path.Combine(builder.Environment.ContentRootPath
 builder.Services.AddSingleton(emailSettings);
 
 // Klucz podpisu tokenów nie jest trzymany w repozytorium - ustawia się go w User Secrets (instrukcja w README.md)
-var jwtSettings = builder.Configuration.GetSection("Jwt");
-var jwtKey = jwtSettings["Key"];
-if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
+if (string.IsNullOrWhiteSpace(jwtSettings.Key) || jwtSettings.Key.Length < 32)
     throw new InvalidOperationException("Brak klucza JWT (min. 32 znaki). Ustaw go w katalogu Backend/API poleceniem: dotnet user-secrets set \"Jwt:Key\" \"<losowy ciąg min. 32 znaków>\"");
-var key = Encoding.UTF8.GetBytes(jwtKey);
+builder.Services.AddSingleton(jwtSettings);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -69,9 +68,9 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings["Issuer"],
-        ValidAudience = jwtSettings["Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(key)
+        ValidIssuer = jwtSettings.Issuer,
+        ValidAudience = jwtSettings.Audience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key))
     };
 });
 
@@ -137,6 +136,7 @@ builder.Services.AddScoped<IAdditionalServiceService, Services.Services.Addition
 builder.Services.AddScoped<IPriceListEntryService, Services.Services.PriceListEntryService>();
 builder.Services.AddScoped<IRoomBlockService, Services.Services.RoomBlockService>();
 builder.Services.AddScoped<IReviewService, Services.Services.ReviewService>();
+builder.Services.AddScoped<IAuthService, Services.Services.AuthService>();
 builder.Services.AddScoped<IProfileService, Services.Services.ProfileService>();
 builder.Services.AddScoped<IPasswordResetService, Services.Services.PasswordResetService>();
 builder.Services.AddScoped<IEmailService, Services.Services.EmailService>();
@@ -146,6 +146,9 @@ var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "uploads");
 Directory.CreateDirectory(uploadsPath);
 builder.Services.AddSingleton(new FileStorageSettings { RootPath = uploadsPath, RequestPath = "/uploads" });
 builder.Services.AddSingleton<IFileStorageService, Services.Services.FileStorageService>();
+
+// Generowanie tokenów JWT (implementacja ITokenService z warstwy serwisów)
+builder.Services.AddSingleton<ITokenService, JwtTokenService>();
 
 var app = builder.Build();
 
