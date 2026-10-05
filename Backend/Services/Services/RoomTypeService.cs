@@ -1,6 +1,7 @@
 using DAL;
 using Microsoft.EntityFrameworkCore;
 using Model;
+using Services.Constants;
 using Services.DTO;
 using Services.Interfaces;
 
@@ -42,7 +43,7 @@ public class RoomTypeService : IRoomTypeService
 
         // Udogodnienia pokoi w użytku, zebrane per typ pokoju
         var amenities = await _context.Rooms
-            .Where(r => r.Status != "disabled")
+            .Where(r => r.Status != RoomStatus.Disabled)
             .SelectMany(r => r.Amenities, (room, amenity) => new { room.RoomTypeId, amenity.Name })
             .Distinct()
             .ToListAsync();
@@ -86,7 +87,7 @@ public class RoomTypeService : IRoomTypeService
             Description = roomType.Description,
             BasePrice = roomType.BasePrice,
             MaxOccupancy = roomType.MaxOccupancy,
-            RoomCount = roomType.Rooms.Count(r => r.Status != "disabled"),
+            RoomCount = roomType.Rooms.Count(r => r.Status != RoomStatus.Disabled),
             Photos = roomType.Photos
                 .OrderBy(p => p.SortOrder)
                 .Select(p => new RoomTypePhotoDto { RoomTypePhotoId = p.RoomTypePhotoId, PhotoUrl = p.PhotoUrl, SortOrder = p.SortOrder })

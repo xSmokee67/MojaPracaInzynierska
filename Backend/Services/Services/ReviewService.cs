@@ -1,6 +1,7 @@
 using DAL;
 using Microsoft.EntityFrameworkCore;
 using Model;
+using Services.Constants;
 using Services.DTO;
 using Services.Interfaces;
 
@@ -65,7 +66,7 @@ public class ReviewService : IReviewService
             return false;
         }
 
-        if (reservation.Status != "completed")
+        if (reservation.Status != ReservationStatus.Completed)
         {
             throw new ArgumentException("Opinię można dodać dopiero po zakończonym pobycie.");
         }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Services.Constants;
 using Services.DTO;
 using Services.Interfaces;
 using System.Security.Claims;
@@ -63,7 +64,7 @@ public class ReviewController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Owner")]
+    [Authorize(Roles = UserRoles.Owner)]
     public async Task<IActionResult> Delete(int id)
     {
         var success = await _reviewService.DeleteReviewAsync(id);

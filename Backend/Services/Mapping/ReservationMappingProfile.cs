@@ -1,5 +1,6 @@
 using AutoMapper;
 using Model;
+using Services.Constants;
 using Services.DTO;
 
 namespace Services.Mapping;
@@ -9,7 +10,7 @@ public class ReservationMappingProfile : Profile
     public ReservationMappingProfile()
     {
         CreateMap<CreateReservationDto, Reservation>()
-            .ForMember(d => d.Status, o => o.MapFrom(s => "pending"))
+            .ForMember(d => d.Status, o => o.MapFrom(s => ReservationStatus.Pending))
             .ForMember(d => d.ReservationServices, o => o.Ignore())
             .ForMember(d => d.TotalPrice, o => o.Ignore())
             .ForMember(d => d.RoomId, o => o.Ignore());
@@ -30,6 +31,6 @@ public class ReservationMappingProfile : Profile
 
         CreateMap<Reservation, ReservationDetailsDto>()
             .IncludeBase<Reservation, ReservationDto>()
-            .ForMember(d => d.PaidAmount, o => o.MapFrom(s => s.Payments.Where(p => p.Status == "completed").Sum(p => p.Amount)));
+            .ForMember(d => d.PaidAmount, o => o.MapFrom(s => s.Payments.Where(p => p.Status == PaymentStatus.Completed).Sum(p => p.Amount)));
     }
 }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Model;
+using Services.Constants;
 using Services.DTO;
 using Services.Interfaces;
 
@@ -34,14 +35,14 @@ public class ProfileService : IProfileService
         switch (user)
         {
             case Guest guest:
-                profile.Role = "Guest";
+                profile.Role = UserRoles.Guest;
                 profile.FirstName = guest.FirstName;
                 profile.LastName = guest.LastName;
                 profile.PhoneNumber = guest.PhoneNumber;
                 profile.DocumentNumber = guest.DocumentNumber;
                 break;
             case Owner owner:
-                profile.Role = "Owner";
+                profile.Role = UserRoles.Owner;
                 profile.FirstName = owner.FirstName;
                 profile.LastName = owner.LastName;
                 break;

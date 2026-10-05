@@ -1,6 +1,7 @@
 using DAL;
 using Microsoft.EntityFrameworkCore;
 using Model;
+using Services.Constants;
 using Services.DTO;
 using Services.Interfaces;
 
@@ -37,7 +38,7 @@ public class RoomService : IRoomService
         {
             RoomTypeId = dto.RoomTypeId,
             RoomNumber = dto.RoomNumber,
-            Status = string.IsNullOrWhiteSpace(dto.Status) ? "available" : dto.Status
+            Status = string.IsNullOrWhiteSpace(dto.Status) ? RoomStatus.Available : dto.Status
         };
 
         var amenities = await _context.Amenities.Where(a => dto.AmenityIds.Contains(a.AmenityId)).ToListAsync();
@@ -62,7 +63,7 @@ public class RoomService : IRoomService
 
         room.RoomTypeId = dto.RoomTypeId;
         room.RoomNumber = dto.RoomNumber;
-        room.Status = string.IsNullOrWhiteSpace(dto.Status) ? "available" : dto.Status;
+        room.Status = string.IsNullOrWhiteSpace(dto.Status) ? RoomStatus.Available : dto.Status;
 
         var amenities = await _context.Amenities.Where(a => dto.AmenityIds.Contains(a.AmenityId)).ToListAsync();
         room.Amenities.Clear();

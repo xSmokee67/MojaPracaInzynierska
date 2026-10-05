@@ -2,6 +2,7 @@ using AutoMapper;
 using DAL;
 using Microsoft.EntityFrameworkCore;
 using Model;
+using Services.Constants;
 using Services.DTO;
 using Services.Interfaces;
 
@@ -34,13 +35,13 @@ public class ReservationService : IReservationService
         var rooms = await _context.Rooms
             .Include(r => r.Reservations)
             .Include(r => r.RoomBlocks)
-            .Where(r => r.RoomTypeId == roomTypeId && r.Status == "available")
+            .Where(r => r.RoomTypeId == roomTypeId && r.Status == RoomStatus.Available)
             .ToListAsync();
 
         foreach (var room in rooms)
         {
             bool isReserved = room.Reservations.Any(r =>
-                r.Status != "cancelled" &&
+                r.Status != ReservationStatus.Cancelled &&
                 r.CheckInDate < checkOut &&
                 r.CheckOutDate > checkIn);
 
@@ -145,7 +146,7 @@ public class ReservationService : IReservationService
         await _context.Reservations.AddAsync(reservation);
         await _context.SaveChangesAsync();
 
-        await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, "booked");
+        await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Booked);
 
         return true;
     }
@@ -181,8 +182,7 @@ public class ReservationService : IReservationService
 
     public async Task<bool> UpdateReservationStatusAsync(int reservationId, string status)
     {
-        var allowedStatuses = new[] { "pending", "confirmed", "cancelled", "completed", "no-show" };
-        if (!allowedStatuses.Contains(status))
+        if (!ReservationStatus.All.Contains(status))
         {
             throw new ArgumentException("Nieprawidłowy status rezerwacji.");
         }
@@ -193,19 +193,19 @@ public class ReservationService : IReservationService
             return false;
         }
 
-        if (reservation.Status == "cancelled" && status != "cancelled")
+        if (reservation.Status == ReservationStatus.Cancelled && status != ReservationStatus.Cancelled)
         {
             throw new ArgumentException("Nie można przywrócić anulowanej rezerwacji, termin mógł zostać już zajęty.");
         }
 
-        var wasCancelled = reservation.Status != "cancelled" && status == "cancelled";
+        var wasCancelled = reservation.Status != ReservationStatus.Cancelled && status == ReservationStatus.Cancelled;
 
         reservation.Status = status;
         await _context.SaveChangesAsync();
 
         if (wasCancelled)
         {
-            await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, "free");
+            await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Free);
         }
 
         return true;
@@ -243,7 +243,7 @@ public class ReservationService : IReservationService
             return false;
         }
 
-        if (reservation.Status != "pending" && reservation.Status != "confirmed")
+        if (reservation.Status != ReservationStatus.Pending && reservation.Status != ReservationStatus.Confirmed)
         {
             throw new ArgumentException("Można anulować tylko rezerwację oczekującą lub potwierdzoną.");
         }
@@ -253,25 +253,23 @@ public class ReservationService : IReservationService
             throw new ArgumentException("Rezerwację można anulować najpóźniej dzień przed zameldowaniem.");
         }
 
-        reservation.Status = "cancelled";
+        reservation.Status = ReservationStatus.Cancelled;
         await _context.SaveChangesAsync();
 
-        await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, "free");
+        await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Free);
 
         return true;
     }
 
     public async Task<bool> RegisterPaymentAsync(int reservationId, PaymentDto dto)
     {
-        var allowedMethods = new[] { "card", "transfer", "cash", "BLIK" };
-        if (!allowedMethods.Contains(dto.Method))
+        if (!PaymentMethod.All.Contains(dto.Method))
         {
             throw new ArgumentException("Nieprawidłowa metoda płatności.");
         }
 
-        var allowedStatuses = new[] { "pending", "completed", "failed", "refunded" };
-        var status = string.IsNullOrWhiteSpace(dto.Status) ? "completed" : dto.Status;
-        if (!allowedStatuses.Contains(status))
+        var status = string.IsNullOrWhiteSpace(dto.Status) ? PaymentStatus.Completed : dto.Status;
+        if (!PaymentStatus.All.Contains(status))
         {
             throw new ArgumentException("Nieprawidłowy status płatności.");
         }
@@ -287,7 +285,7 @@ public class ReservationService : IReservationService
             return false;
         }
 
-        if (reservation.Status == "cancelled" && status != "refunded")
+        if (reservation.Status == ReservationStatus.Cancelled && status != PaymentStatus.Refunded)
         {
             throw new ArgumentException("Do anulowanej rezerwacji można zarejestrować tylko zwrot.");
         }
@@ -318,7 +316,7 @@ public class ReservationService : IReservationService
             return false;
         }
 
-        if (reservation.Status != "completed")
+        if (reservation.Status != ReservationStatus.Completed)
         {
             throw new ArgumentException("Fakturę można wystawić tylko dla zrealizowanej rezerwacji.");
         }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Model;
+using Services.Constants;
 using Services.DTO;
 using Services.Interfaces;
 
@@ -8,7 +9,6 @@ namespace Services.Services;
 // Rejestracja gości i logowanie - konta są zarządzane przez ASP.NET Core Identity (UserManager)
 public class AuthService : IAuthService
 {
-    private const string GuestRole = "Guest";
     private const string InvalidCredentialsMessage = "Nieprawidłowy email lub hasło.";
 
     private readonly UserManager<User> _userManager;
@@ -37,7 +37,7 @@ public class AuthService : IAuthService
             FirstName = dto.FirstName,
             LastName = dto.LastName,
             PhoneNumber = dto.PhoneNumber,
-            AccountType = "guest",
+            AccountType = AccountTypes.Guest,
             RegistrationDate = DateTime.UtcNow
         };
 
@@ -47,12 +47,12 @@ public class AuthService : IAuthService
             throw new ArgumentException(string.Join(" ", result.Errors.Select(e => e.Description)));
         }
 
-        if (!await _roleManager.RoleExistsAsync(GuestRole))
+        if (!await _roleManager.RoleExistsAsync(UserRoles.Guest))
         {
-            await _roleManager.CreateAsync(new IdentityRole<int>(GuestRole));
+            await _roleManager.CreateAsync(new IdentityRole<int>(UserRoles.Guest));
         }
 
-        await _userManager.AddToRoleAsync(guest, GuestRole);
+        await _userManager.AddToRoleAsync(guest, UserRoles.Guest);
     }
 
     // Nieudane logowanie (złe dane albo blokada konta) kończy się wyjątkiem UnauthorizedAccessException - kontroler zwraca 401

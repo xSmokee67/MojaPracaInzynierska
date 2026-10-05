@@ -1,6 +1,7 @@
 using DAL;
 using Microsoft.EntityFrameworkCore;
 using Model;
+using Services.Constants;
 using Services.DTO;
 using Services.Interfaces;
 
@@ -58,7 +59,7 @@ public class RoomBlockService : IRoomBlockService
         // Te same warunki nakładania się terminów co w GetAvailableRoomIdsAsync (ReservationService)
         var hasReservations = await _context.Reservations.AnyAsync(r =>
             r.RoomId == dto.RoomId &&
-            r.Status != "cancelled" &&
+            r.Status != ReservationStatus.Cancelled &&
             r.CheckInDate < dto.EndDate &&
             r.CheckOutDate > dto.StartDate);
 
@@ -89,7 +90,7 @@ public class RoomBlockService : IRoomBlockService
         _context.RoomBlocks.Add(block);
         await _context.SaveChangesAsync();
 
-        await _availabilityService.UpdateAvailabilityAsync(block.RoomId, block.StartDate, block.EndDate, "blocked");
+        await _availabilityService.UpdateAvailabilityAsync(block.RoomId, block.StartDate, block.EndDate, AvailabilityStatus.Blocked);
     }
 
     public async Task<bool> DeleteRoomBlockAsync(int roomBlockId)
@@ -103,7 +104,7 @@ public class RoomBlockService : IRoomBlockService
         _context.RoomBlocks.Remove(block);
         await _context.SaveChangesAsync();
 
-        await _availabilityService.UpdateAvailabilityAsync(block.RoomId, block.StartDate, block.EndDate, "free");
+        await _availabilityService.UpdateAvailabilityAsync(block.RoomId, block.StartDate, block.EndDate, AvailabilityStatus.Free);
 
         return true;
     }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Services.Constants;
 using Services.DTO;
 using Services.Interfaces;
 using System.Globalization;
@@ -114,7 +115,7 @@ public class ReservationController : ControllerBase
     }
 
     [HttpGet("all")]
-    [Authorize(Roles = "Owner")]
+    [Authorize(Roles = UserRoles.Owner)]
     public async Task<IActionResult> GetAllReservations()
     {
         var reservations = await _reservationService.GetAllReservationsAsync();
@@ -122,7 +123,7 @@ public class ReservationController : ControllerBase
     }
 
     [HttpPut("{id}/status")]
-    [Authorize(Roles = "Owner")]
+    [Authorize(Roles = UserRoles.Owner)]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateReservationStatusDto dto)
     {
         try
@@ -150,7 +151,7 @@ public class ReservationController : ControllerBase
 
         // Gość widzi tylko swoje rezerwacje, Właściciel - wszystkie
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!User.IsInRole("Owner") && reservation.GuestId.ToString() != userId)
+        if (!User.IsInRole(UserRoles.Owner) && reservation.GuestId.ToString() != userId)
             return Forbid();
 
         return Ok(reservation);
@@ -180,7 +181,7 @@ public class ReservationController : ControllerBase
     }
 
     [HttpPost("{id}/payments")]
-    [Authorize(Roles = "Owner")]
+    [Authorize(Roles = UserRoles.Owner)]
     public async Task<IActionResult> RegisterPayment(int id, [FromBody] PaymentDto dto)
     {
         try
@@ -199,7 +200,7 @@ public class ReservationController : ControllerBase
     }
 
     [HttpPost("{id}/invoice")]
-    [Authorize(Roles = "Owner")]
+    [Authorize(Roles = UserRoles.Owner)]
     public async Task<IActionResult> IssueInvoice(int id)
     {
         try

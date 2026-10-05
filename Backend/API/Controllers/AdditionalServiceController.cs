@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Services.Constants;
 using Services.DTO;
 using Services.Interfaces;
 
@@ -7,7 +8,7 @@ namespace API.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize(Roles = "Owner")]
+[Authorize(Roles = UserRoles.Owner)]
 public class AdditionalServiceController : ControllerBase
 {
     private readonly IAdditionalServiceService _additionalServiceService;

@@ -10,7 +10,7 @@ namespace Tests;
 // Wspólne przygotowanie danych dla testów - każdy test dostaje osobną bazę w pamięci (EF Core InMemory)
 public static class TestData
 {
-    // Dane jak w seedzie z Program.cs: 2 typy pokoi, 3 pokoje, cennik wakacyjny dla pokoju standardowego, 2 usługi
+    // Dane jak w seedzie z API/Data/DbSeeder.cs: 2 typy pokoi, 3 pokoje, cennik wakacyjny dla pokoju standardowego, 2 usługi
     public const int StandardRoomTypeId = 1;
     public const int PremiumRoomTypeId = 2;
     public const int Room101Id = 1;
@@ -58,7 +58,7 @@ public static class TestData
         return context;
     }
 
-    // Mapper skonfigurowany tak samo jak w Program.cs
+    // Mapper skonfigurowany tak samo jak w API/Extensions/ServiceCollectionExtensions.cs
     public static IMapper CreateMapper()
     {
         var services = new ServiceCollection();
