@@ -6,14 +6,22 @@ Projekt realizowany w ramach pracy inżynierskiej. Aplikacja webowa do przegląd
 
 **Gość (bez logowania)**
 - strona główna z wyszukiwarką: termin pobytu i liczba gości, dostępność i cena całego pobytu dla każdego typu pokoju
+- sortowanie (cena, ocena, liczba osób) i filtrowanie pokoi po udogodnieniach i dostępności
+- stopka z danymi kontaktowymi hotelu, strona 404 dla nieistniejących adresów
 - profil typu pokoju: galeria zdjęć, opis, udogodnienia, ceny sezonowe i opinie gości
+
+**Każdy zalogowany użytkownik**
+- powitanie „Witaj, imię” w pasku nawigacji
+- „Mój profil”: podgląd i edycja danych (imię, nazwisko, telefon, numer dokumentu), zmiana hasła
+- reset zapomnianego hasła: link wysyłany e-mailem, ważny 2 godziny i jednorazowy
 
 **Gość (zalogowany)**
 - rezerwacja pokoju z usługami dodatkowymi i wyliczeniem ceny (z cennikiem sezonowym)
 - lista własnych rezerwacji, szczegóły (płatności, faktura), anulowanie rezerwacji
-- wystawienie opinii po zakończonym pobycie
+- wystawienie opinii po zakończonym pobycie, lista własnych opinii w profilu
 
 **Właściciel (administrator)**
+- ta sama strona główna co gość, a do zarządzania czerwony przycisk „Panel Właściciela”; każda zakładka panelu ma własny adres (`#/panel/pokoje`, `#/panel/rezerwacje/12`…)
 - typy pokoi (z opisem i zdjęciami), pokoje, udogodnienia, usługi dodatkowe, cennik sezonowy
 - blokady pokoi (remont, konserwacja)
 - wszystkie rezerwacje: zmiana statusu, rejestracja płatności, wystawianie faktur
@@ -70,6 +78,7 @@ dotnet run
 - Klucz podpisu tokenów JWT nie jest trzymany w repozytorium – przechowują go User Secrets na komputerze dewelopera.
 - `dotnet ef database update` tworzy bazę `HotelReservationDb` (connection string w `appsettings.json`).
 - Przy pierwszym uruchomieniu aplikacja dodaje dane startowe: role, konto właściciela, przykładowe typy pokoi, pokoje, cennik i usługi.
+- E-maile (reset hasła): bez serwera SMTP zapisują się jako pliki `.eml` w katalogu `Backend/API/Emails`. Żeby wysyłać prawdziwe wiadomości, uzupełnij sekcję `Email` w `appsettings.json` (`SmtpHost`, `SmtpPort`, `UserName`), a hasło do skrzynki ustaw poleceniem `dotnet user-secrets set "Email:Password" "<hasło>"`. Adres aplikacji React (linki w e-mailach, CORS) to `Frontend:BaseUrl`.
 - API działa pod adresem `http://localhost:5285`, dokumentacja Swagger: `http://localhost:5285/swagger` (przycisk **Authorize** przyjmuje token z `POST /api/Auth/login`).
 
 ### 2. Frontend
@@ -106,5 +115,6 @@ Opis testów jednostkowych i scenariusze testów manualnych: [Backend/Tests/READ
 - uwierzytelnianie tokenem JWT (ważny 3 godziny), autoryzacja oparta na rolach (`Owner`, `Guest`)
 - hasła hashowane przez ASP.NET Core Identity (min. 8 znaków, w tym cyfra)
 - blokada konta na 15 minut po 5 nieudanych próbach logowania
+- reset hasła tokenem ASP.NET Core Identity (ważny 2 godziny, jednorazowy); formularz nie zdradza, czy konto o danym adresie istnieje
 - walidacja danych wejściowych w DTO i serwisach, kontrola rozszerzenia i rozmiaru przesyłanych zdjęć
 - klucz JWT poza repozytorium (User Secrets)
