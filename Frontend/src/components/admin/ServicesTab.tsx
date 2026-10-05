@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import type { AdditionalServiceDto } from '../../types/admin';
 import { getAdditionalServices, createAdditionalService, updateAdditionalService, deleteAdditionalService } from '../../api/adminApi';
 import { errorMessage } from '../../api/apiErrors';
+import Alert from '../Alert';
 
 // Zakładka "Usługi Dodatkowe": usługi doliczane do rezerwacji (np. śniadanie, parking)
 export default function ServicesTab({ token }: { token: string }) {
@@ -46,8 +47,8 @@ export default function ServicesTab({ token }: { token: string }) {
 
   return (
     <>
-      {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
-      {message && !error && <div className="p-3 bg-green-100 text-green-700 rounded-lg text-sm font-medium">{message}</div>}
+      {error && <Alert type="error" message={error} />}
+      {message && !error && <Alert type="success" message={message} />}
 
       <div className="space-y-8">
         <form onSubmit={handleAddService} className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg border items-end">

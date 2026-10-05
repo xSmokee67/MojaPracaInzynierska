@@ -4,7 +4,9 @@ import type { ReservationDto } from '../types/reservation';
 import { reservationStatusLabels, reservationStatusStyles } from '../types/reservation';
 import { getMyReservations } from '../api/reservationApi';
 import { errorMessage } from '../api/apiErrors';
+import { formatDate } from '../utils/format';
 import ReservationDetails from './ReservationDetails';
+import Alert from './Alert';
 
 export default function MyReservations({ token, refreshKey }: { token: string; refreshKey: number }) {
   const [reservations, setReservations] = useState<ReservationDto[]>([]);
@@ -49,7 +51,7 @@ export default function MyReservations({ token, refreshKey }: { token: string; r
         </div>
       </div>
 
-      {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
+      {error && <Alert type="error" message={error} />}
 
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-left border-collapse">
@@ -65,7 +67,7 @@ export default function MyReservations({ token, refreshKey }: { token: string; r
               <tr key={r.reservationId} className="border-b hover:bg-slate-50">
                 <td className="p-4 text-slate-500">#{r.reservationId}</td>
                 <td className="p-4"><span className="font-bold text-slate-800">{r.roomNumber}</span> <span className="text-slate-600">({r.roomTypeName})</span></td>
-                <td className="p-4 text-slate-600">{new Date(r.checkInDate).toLocaleDateString()} - {new Date(r.checkOutDate).toLocaleDateString()}</td>
+                <td className="p-4 text-slate-600">{formatDate(r.checkInDate)} - {formatDate(r.checkOutDate)}</td>
                 <td className="p-4 text-slate-600">{r.additionalServices.length > 0 ? r.additionalServices.join(', ') : '—'}</td>
                 <td className="p-4 font-bold text-emerald-600">{r.totalPrice.toFixed(2)} PLN</td>
                 <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${reservationStatusStyles[r.status] ?? 'bg-slate-100 text-slate-600'}`}>{reservationStatusLabels[r.status] ?? r.status}</span></td>

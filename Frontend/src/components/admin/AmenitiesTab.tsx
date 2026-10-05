@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import type { RoomDto, AmenityDto } from '../../types/admin';
 import { getRooms, getAmenities, createAmenity, updateAmenity, deleteAmenity } from '../../api/adminApi';
 import { errorMessage } from '../../api/apiErrors';
+import Alert from '../Alert';
 
 // Zakładka "Udogodnienia": słownik udogodnień przypisywanych do pokoi
 export default function AmenitiesTab({ token }: { token: string }) {
@@ -49,8 +50,8 @@ export default function AmenitiesTab({ token }: { token: string }) {
 
   return (
     <>
-      {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
-      {message && !error && <div className="p-3 bg-green-100 text-green-700 rounded-lg text-sm font-medium">{message}</div>}
+      {error && <Alert type="error" message={error} />}
+      {message && !error && <Alert type="success" message={message} />}
 
       <div className="space-y-8">
         <form onSubmit={handleAddAmenity} className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg border items-end">

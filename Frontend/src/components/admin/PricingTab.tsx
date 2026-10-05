@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import type { RoomTypeDto, PriceListEntryDto } from '../../types/admin';
 import { getRoomTypes, getPriceListEntries, createPriceListEntry, updatePriceListEntry, deletePriceListEntry } from '../../api/adminApi';
 import { errorMessage } from '../../api/apiErrors';
+import { formatDate } from '../../utils/format';
+import Alert from '../Alert';
 
 // Zakładka "Cennik Sezonowy": ceny za noc dla typu pokoju w wybranym okresie
 export default function PricingTab({ token }: { token: string }) {
@@ -52,8 +54,8 @@ export default function PricingTab({ token }: { token: string }) {
 
   return (
     <>
-      {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
-      {message && !error && <div className="p-3 bg-green-100 text-green-700 rounded-lg text-sm font-medium">{message}</div>}
+      {error && <Alert type="error" message={error} />}
+      {message && !error && <Alert type="success" message={message} />}
 
       <div className="space-y-8">
         <form onSubmit={handleAddPricing} className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-lg border items-end">
@@ -93,7 +95,7 @@ export default function PricingTab({ token }: { token: string }) {
               {pricing.map(p => (
                 <tr key={p.priceListEntryId} className="border-b hover:bg-slate-50">
                   <td className="p-4 font-medium text-slate-800">{p.roomTypeName}</td>
-                  <td className="p-4 text-slate-600">{new Date(p.startDate).toLocaleDateString()} - {new Date(p.endDate).toLocaleDateString()}</td>
+                  <td className="p-4 text-slate-600">{formatDate(p.startDate)} - {formatDate(p.endDate)}</td>
                   <td className="p-4 font-bold text-emerald-600">{p.pricePerNight} PLN</td>
                   <td className="p-4 text-right space-x-3"><button onClick={() => handleEditPricing(p)} className="text-slate-600 hover:text-slate-900 font-medium text-sm">Edytuj</button><button onClick={() => handleDeletePricing(p.priceListEntryId!)} className="text-red-500 hover:text-red-700 font-medium text-sm">Usuń</button></td>
                 </tr>

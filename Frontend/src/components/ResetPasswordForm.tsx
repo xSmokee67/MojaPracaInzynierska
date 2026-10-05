@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { resetPassword } from '../api/authApi';
 import { errorMessage } from '../api/apiErrors';
+import Alert from './Alert';
 
 // Reset hasła - krok 2: nowe hasło; e-mail i token pochodzą z linku w wiadomości (#/reset-hasla?email=...&token=...)
 export default function ResetPasswordForm({ email, token, onGoToLogin, onRequestNewLink }: { email: string; token: string; onGoToLogin: () => void; onRequestNewLink: () => void }) {
@@ -27,11 +28,11 @@ export default function ResetPasswordForm({ email, token, onGoToLogin, onRequest
     <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
       <h2 className="text-2xl font-bold text-center text-slate-800">Ustaw nowe hasło</h2>
 
-      {error && <div className="p-3 text-sm text-red-700 bg-red-100 rounded-lg">{error}</div>}
+      {error && <Alert type="error" message={error} />}
 
       {message ? (
         <div className="space-y-4">
-          <div className="p-3 text-sm text-green-700 bg-green-100 rounded-lg">{message}</div>
+          <Alert type="success" message={message} />
           <button type="button" onClick={onGoToLogin} className="w-full px-4 py-2 text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 font-semibold transition-colors">Przejdź do logowania</button>
         </div>
       ) : !isLinkComplete ? (

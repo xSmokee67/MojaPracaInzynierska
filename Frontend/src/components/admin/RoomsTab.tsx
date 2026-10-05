@@ -4,6 +4,7 @@ import type { RoomTypeDto, RoomDto, AmenityDto } from '../../types/admin';
 import { roomStatusLabels, roomStatusStyles } from '../../types/admin';
 import { getRoomTypes, getRooms, getAmenities, createRoom, updateRoom, deleteRoom } from '../../api/adminApi';
 import { errorMessage } from '../../api/apiErrors';
+import Alert from '../Alert';
 
 // Zakładka "Fizyczne Pokoje": pokoje z typem, statusem i udogodnieniami
 export default function RoomsTab({ token }: { token: string }) {
@@ -70,8 +71,8 @@ export default function RoomsTab({ token }: { token: string }) {
 
   return (
     <>
-      {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
-      {message && !error && <div className="p-3 bg-green-100 text-green-700 rounded-lg text-sm font-medium">{message}</div>}
+      {error && <Alert type="error" message={error} />}
+      {message && !error && <Alert type="success" message={message} />}
 
       <div className="space-y-8">
         <form onSubmit={handleAddRoom} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border">

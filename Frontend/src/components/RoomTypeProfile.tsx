@@ -6,6 +6,8 @@ import { errorMessage } from '../api/apiErrors';
 import { personsLabel, roomsLabel, reviewsLabel, nightsLabel, formatDate } from '../utils/format';
 import RoomPhotoPlaceholder from './RoomPhotoPlaceholder';
 import NotFound from './NotFound';
+import Alert from './Alert';
+import StarRating from './StarRating';
 
 // Profil typu pokoju: galeria zdjęć, opis, ceny, udogodnienia, opinie i przycisk rezerwacji
 // canBook = false dla właściciela - przegląda stronę jak gość, ale rezerwacji dokonują tylko goście
@@ -48,7 +50,7 @@ export default function RoomTypeProfile({ roomTypeId, search, canBook, onBook, o
     <div className="w-full max-w-6xl space-y-6">
       <button type="button" onClick={onBack} className="text-sm font-semibold text-emerald-600 hover:underline">← Wszystkie pokoje</button>
 
-      {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
+      {error && <Alert type="error" message={error} />}
 
       {room && (
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -85,7 +87,7 @@ export default function RoomTypeProfile({ roomTypeId, search, canBook, onBook, o
                 <h2 className="text-3xl font-bold text-slate-800">{room.name}</h2>
                 {room.averageRating !== null && (
                   <div className="text-sm text-slate-600">
-                    <span className="text-amber-500">{'★'.repeat(Math.round(room.averageRating))}{'☆'.repeat(5 - Math.round(room.averageRating))}</span>
+                    <StarRating rating={room.averageRating} />
                     <span className="ml-2 font-semibold text-slate-800">{room.averageRating.toLocaleString('pl-PL', { minimumFractionDigits: 1 })}</span> ({reviewsLabel(room.reviewCount)})
                   </div>
                 )}
@@ -102,7 +104,7 @@ export default function RoomTypeProfile({ roomTypeId, search, canBook, onBook, o
                   <div className="font-semibold text-amber-800">Ceny sezonowe</div>
                   {room.seasonalPrices.map(p => (
                     <div key={p.priceListEntryId} className="flex justify-between gap-4 text-amber-900">
-                      <span>{new Date(p.startDate).toLocaleDateString('pl-PL')} - {new Date(p.endDate).toLocaleDateString('pl-PL')}</span>
+                      <span>{formatDate(p.startDate)} - {formatDate(p.endDate)}</span>
                       <span className="font-semibold">{p.pricePerNight} PLN / noc</span>
                     </div>
                   ))}
@@ -159,10 +161,10 @@ export default function RoomTypeProfile({ roomTypeId, search, canBook, onBook, o
                 <div key={r.reviewId} className="p-3 rounded-lg bg-slate-50 border space-y-1">
                   <div className="flex justify-between gap-2 text-sm">
                     <span className="font-semibold text-slate-800">{r.guestName}</span>
-                    <span className="text-amber-500">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                    <StarRating rating={r.rating} />
                   </div>
                   {r.comment && <p className="text-sm text-slate-600">{r.comment}</p>}
-                  <div className="text-xs text-slate-500">{new Date(r.date!).toLocaleDateString('pl-PL')}</div>
+                  <div className="text-xs text-slate-500">{formatDate(r.date!)}</div>
                 </div>
               ))}
               {room.reviewCount === 0 && <p className="text-sm text-slate-500">Ten pokój nie ma jeszcze opinii.</p>}

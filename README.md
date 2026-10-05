@@ -48,8 +48,8 @@ Backend/
 └── Tests      – testy jednostkowe serwisów (opis w Tests/README.md)
 
 Frontend/src/
-├── api        – komunikacja z API (fetch), adres serwera w config.ts
-├── components – widoki aplikacji (strona główna, profil pokoju, rezerwacje, panel administratora)
+├── api        – komunikacja z API: wspólna funkcja apiRequest (apiClient.ts), adres serwera w config.ts
+├── components – widoki aplikacji (strona główna, profil pokoju, rezerwacje, panel administratora) i wspólne elementy (Alert, StarRating)
 ├── types      – typy TypeScript odpowiadające DTO z API
 └── utils      – formatowanie dat i odmiana liczebników
 ```
@@ -59,6 +59,8 @@ Kontrolery nie odwołują się bezpośrednio do bazy danych – wywołują serwi
 Rejestrację i logowanie obsługuje `AuthService` (konta przez ASP.NET Core Identity). Serwis zna tylko interfejs `ITokenService` – samo wystawienie tokenu JWT (`JwtTokenService`, `API/Identity`) należy do warstwy API, bo format tokenu to szczegół komunikacji HTTP, a nie logika biznesowa (odwrócenie zależności).
 
 Statusy i role zapisywane w bazie jako tekst są zdefiniowane w jednym miejscu, w klasach stałych w `Services/Constants` (`ReservationStatus`, `RoomStatus`, `AvailabilityStatus`, `PaymentStatus`, `PaymentMethod`, `UserRoles`, `AccountTypes`), np. `ReservationStatus.Cancelled` zamiast napisu `"cancelled"`. Należą do warstwy logiki biznesowej, bo to serwisy decydują, które statusy są dozwolone i jakie przejścia między nimi są możliwe. `Program.cs` zawiera tylko kolejność konfiguracji – szczegóły rejestracji usług są w `API/Extensions/ServiceCollectionExtensions.cs`, a dane startowe w `API/Data/DbSeeder.cs` (uruchamiane przy starcie API, które widzi wszystkie warstwy).
+
+Frontend: wszystkie wywołania API (poza logowaniem i rejestracją) przechodzą przez `apiRequest` w `api/apiClient.ts`: funkcja dokleja adres serwera, nagłówek z tokenem JWT i zamienia błędną odpowiedź na komunikat dla użytkownika (`api/apiErrors.ts` – 401 wylogowuje, 403 to brak uprawnień, inne błędy pokazują `{ error }` z API). Logowanie ma własną obsługę, bo tam 401 oznacza złe hasło, a nie wygasłą sesję. Daty są wyświetlane przez `formatDate` / `formatDateTime` z `utils/format.ts`, zawsze w formacie polskim.
 
 ## Uruchomienie
 

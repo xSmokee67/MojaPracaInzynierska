@@ -5,6 +5,7 @@ import { getRoomTypes, createRoomType, updateRoomType, deleteRoomType } from '..
 import { photoUrl } from '../../api/roomApi';
 import { errorMessage } from '../../api/apiErrors';
 import RoomTypePhotoManager from '../RoomTypePhotoManager';
+import Alert from '../Alert';
 
 const emptyRoomType: RoomTypeDto = { name: '', description: '', basePrice: 0, maxOccupancy: 1 };
 
@@ -51,8 +52,8 @@ export default function RoomTypesTab({ token }: { token: string }) {
 
   return (
     <>
-      {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
-      {message && !error && <div className="p-3 bg-green-100 text-green-700 rounded-lg text-sm font-medium">{message}</div>}
+      {error && <Alert type="error" message={error} />}
+      {message && !error && <Alert type="success" message={message} />}
 
       <div className="space-y-8">
         <form onSubmit={handleAddRoomType} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border">

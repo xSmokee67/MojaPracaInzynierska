@@ -14,3 +14,5 @@ export const formatDate = (value: string) => new Date(value.length === 10 ? `${v
 // Data w formacie yyyy-MM-dd w czasie lokalnym (toISOString przesuwa datę o strefę czasową)
 export const toInputDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 export const addDaysToInputDate = (value: string, days: number) => { const d = new Date(`${value}T00:00:00`); d.setDate(d.getDate() + days); return toInputDate(d); };
+// Data z godziną (np. data płatności) - zawsze w polskim formacie, niezależnie od języka przeglądarki
+export const formatDateTime = (value: string) => new Date(value).toLocaleString('pl-PL');

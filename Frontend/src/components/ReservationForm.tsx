@@ -5,6 +5,7 @@ import type { RoomTypeDto, AdditionalServiceDto } from '../types/admin';
 import { checkAvailability, calculatePrice, createReservation } from '../api/reservationApi';
 import { getRoomTypes, getAdditionalServices } from '../api/adminApi';
 import { errorMessage } from '../api/apiErrors';
+import { formatDate } from '../utils/format';
 
 export default function ReservationForm({ token, onReservationCreated, initialRoomTypeId, initialCheckIn, initialCheckOut }: { token: string; onReservationCreated: () => void; initialRoomTypeId?: number; initialCheckIn?: string; initialCheckOut?: string }) {
   const [roomTypes, setRoomTypes] = useState<RoomTypeDto[]>([]);
@@ -190,7 +191,7 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
           <h3 className="font-bold text-slate-700 text-lg border-b pb-2">Podsumowanie kosztów</h3>
           <div className="text-sm text-slate-600 space-y-1">
             <div>Pokój: <span className="font-medium text-slate-800">{roomTypes.find(rt => rt.roomTypeId === roomTypeId)?.name}</span></div>
-            <div>Termin: <span className="font-medium text-slate-800">{new Date(checkInDate).toLocaleDateString()} - {new Date(checkOutDate).toLocaleDateString()}</span></div>
+            <div>Termin: <span className="font-medium text-slate-800">{formatDate(checkInDate)} - {formatDate(checkOutDate)}</span></div>
             <div>Usługi: <span className="font-medium text-slate-800">{additionalServiceIds.length > 0 ? services.filter(s => additionalServiceIds.includes(s.serviceId!)).map(s => s.name).join(', ') : 'brak'}</span></div>
           </div>
           <div className="flex justify-between items-center text-xl font-bold text-emerald-600">

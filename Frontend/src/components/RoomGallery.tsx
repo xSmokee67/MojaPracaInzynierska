@@ -7,6 +7,7 @@ import { photoUrl, searchRoomTypes } from '../api/roomApi';
 import { errorMessage } from '../api/apiErrors';
 import { personsLabel, reviewsLabel, nightsLabel, formatDate, toInputDate, addDaysToInputDate } from '../utils/format';
 import RoomPhotoPlaceholder from './RoomPhotoPlaceholder';
+import Alert from './Alert';
 
 // Sortowanie kafelków na stronie głównej
 type SortOption = 'recommended' | 'priceAsc' | 'priceDesc' | 'rating' | 'capacity';
@@ -169,7 +170,7 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
         </div>
       </div>
 
-      {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
+      {error && <Alert type="error" message={error} />}
 
       {/* --- NAGŁÓWEK LISTY --- */}
       <div className="flex flex-wrap justify-between items-end gap-4">

@@ -4,6 +4,9 @@ import type { ReservationDetailsDto, PaymentDto, ReviewDto } from '../types/rese
 import { reservationStatusLabels, reservationStatusStyles, paymentMethodLabels, paymentStatusLabels } from '../types/reservation';
 import { getReservationDetails, cancelReservation, registerPayment, issueInvoice, createReview } from '../api/reservationApi';
 import { errorMessage } from '../api/apiErrors';
+import { formatDate, formatDateTime, nightsLabel } from '../utils/format';
+import Alert from './Alert';
+import StarRating from './StarRating';
 
 export default function ReservationDetails({ token, reservationId, isOwner, onClose, onChanged }: { token: string; reservationId: number; isOwner: boolean; onClose: () => void; onChanged: () => void }) {
   const [details, setDetails] = useState<ReservationDetailsDto | null>(null);
@@ -78,8 +81,8 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
           <button onClick={onClose} className="text-sm px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300">Zamknij</button>
         </div>
 
-        {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
-        {message && <div className="p-3 bg-green-100 text-green-700 rounded-lg text-sm font-medium">{message}</div>}
+        {error && <Alert type="error" message={error} />}
+        {message && <Alert type="success" message={message} />}
 
         {details && (
           <>
@@ -97,7 +100,7 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
               </div>
               <div>
                 <span className="block text-xs font-semibold text-slate-500 uppercase">Termin pobytu</span>
-                <span className="text-slate-800">{new Date(details.checkInDate).toLocaleDateString()} - {new Date(details.checkOutDate).toLocaleDateString()} ({nights} nocy)</span>
+                <span className="text-slate-800">{formatDate(details.checkInDate)} - {formatDate(details.checkOutDate)} ({nightsLabel(nights)})</span>
               </div>
               <div>
                 <span className="block text-xs font-semibold text-slate-500 uppercase">Usługi dodatkowe</span>
@@ -154,7 +157,7 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
                   <tbody>
                     {details.payments.map(p => (
                       <tr key={p.paymentId} className="border-b hover:bg-slate-50">
-                        <td className="p-4 text-slate-600">{new Date(p.paymentDate!).toLocaleString()}</td>
+                        <td className="p-4 text-slate-600">{formatDateTime(p.paymentDate!)}</td>
                         <td className="p-4 font-bold text-slate-800">{p.amount.toFixed(2)} PLN</td>
                         <td className="p-4 text-slate-600">{paymentMethodLabels[p.method] ?? p.method}</td>
                         <td className="p-4 text-slate-600">{paymentStatusLabels[p.status] ?? p.status}</td>
@@ -172,7 +175,7 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
               {details.invoice ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg border">
                   <div><span className="block text-xs font-semibold text-slate-500 uppercase">Numer</span><span className="font-bold text-slate-800">{details.invoice.invoiceNumber}</span></div>
-                  <div><span className="block text-xs font-semibold text-slate-500 uppercase">Data wystawienia</span><span className="text-slate-800">{new Date(details.invoice.issueDate).toLocaleDateString()}</span></div>
+                  <div><span className="block text-xs font-semibold text-slate-500 uppercase">Data wystawienia</span><span className="text-slate-800">{formatDate(details.invoice.issueDate)}</span></div>
                   <div><span className="block text-xs font-semibold text-slate-500 uppercase">Kwota brutto</span><span className="font-bold text-emerald-600">{details.invoice.grossAmount.toFixed(2)} PLN</span></div>
                 </div>
               ) : isOwner ? (
@@ -190,7 +193,7 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
               <h3 className="font-bold text-slate-700 text-lg">Opinia o pobycie</h3>
               {details.review ? (
                 <div className="bg-slate-50 p-4 rounded-lg border space-y-1">
-                  <div className="text-amber-500 text-lg">{'★'.repeat(details.review.rating)}{'☆'.repeat(5 - details.review.rating)}</div>
+                  <div className="text-lg"><StarRating rating={details.review.rating} /></div>
                   <p className="text-slate-700">{details.review.comment || 'Brak komentarza.'}</p>
                 </div>
               ) : !isOwner && details.status === 'completed' ? (

@@ -6,6 +6,8 @@ import { getProfile, updateProfile, changePassword } from '../api/profileApi';
 import { getMyReviews } from '../api/reservationApi';
 import { errorMessage } from '../api/apiErrors';
 import { formatDate } from '../utils/format';
+import Alert from './Alert';
+import StarRating from './StarRating';
 
 // Strona "Mój profil": dane konta, ich edycja, zmiana hasła i (dla gościa) wystawione opinie
 export default function UserProfile({ token, onProfileUpdated, onNavigate }: { token: string; onProfileUpdated: (firstName: string) => void; onNavigate: (path: string) => void }) {
@@ -87,8 +89,8 @@ export default function UserProfile({ token, onProfileUpdated, onNavigate }: { t
         )}
       </div>
 
-      {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
-      {message && !error && <div className="p-3 bg-green-100 text-green-700 rounded-lg text-sm font-medium">{message}</div>}
+      {error && <Alert type="error" message={error} />}
+      {message && !error && <Alert type="success" message={message} />}
 
       {profile && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -145,8 +147,8 @@ export default function UserProfile({ token, onProfileUpdated, onNavigate }: { t
           {/* --- ZMIANA HASŁA --- */}
           <form onSubmit={handleChangePassword} className="p-5 rounded-lg border space-y-4">
             <h3 className="font-bold text-slate-700 text-lg">Zmiana hasła</h3>
-            {passwordError && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{passwordError}</div>}
-            {passwordMessage && !passwordError && <div className="p-3 bg-green-100 text-green-700 rounded-lg text-sm font-medium">{passwordMessage}</div>}
+            {passwordError && <Alert type="error" message={passwordError} />}
+            {passwordMessage && !passwordError && <Alert type="success" message={passwordMessage} />}
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase">Obecne hasło</label>
               <input type="password" required autoComplete="current-password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
@@ -183,7 +185,7 @@ export default function UserProfile({ token, onProfileUpdated, onNavigate }: { t
             <div key={r.reviewId} className="p-4 rounded-lg bg-slate-50 border space-y-1">
               <div className="flex flex-wrap justify-between gap-2 text-sm">
                 <span className="font-semibold text-slate-800">{r.roomTypeName} <span className="font-normal text-slate-500">· rezerwacja #{r.reservationId}</span></span>
-                <span className="text-amber-500 whitespace-nowrap">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                <StarRating rating={r.rating} />
               </div>
               {r.comment && <p className="text-sm text-slate-600">{r.comment}</p>}
               <div className="text-xs text-slate-500">{formatDate(r.date!)}</div>

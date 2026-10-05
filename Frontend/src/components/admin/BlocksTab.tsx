@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import type { RoomDto, RoomBlockDto } from '../../types/admin';
 import { getRooms, getRoomBlocks, createRoomBlock, deleteRoomBlock } from '../../api/adminApi';
 import { errorMessage } from '../../api/apiErrors';
+import { formatDate } from '../../utils/format';
+import Alert from '../Alert';
 
 // Zakładka "Blokady": wyłączenie pokoju z rezerwacji na okres remontu lub konserwacji
 export default function BlocksTab({ token }: { token: string }) {
@@ -48,8 +50,8 @@ export default function BlocksTab({ token }: { token: string }) {
 
   return (
     <>
-      {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
-      {message && !error && <div className="p-3 bg-green-100 text-green-700 rounded-lg text-sm font-medium">{message}</div>}
+      {error && <Alert type="error" message={error} />}
+      {message && !error && <Alert type="success" message={message} />}
 
       <div className="space-y-8">
         <form onSubmit={handleAddBlock} className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-lg border items-end">
@@ -96,7 +98,7 @@ export default function BlocksTab({ token }: { token: string }) {
               {visibleBlocks.map(b => (
                 <tr key={b.roomBlockId} className="border-b hover:bg-slate-50">
                   <td className="p-4 font-bold text-slate-800">{b.roomNumber}</td>
-                  <td className="p-4 text-slate-600">{new Date(b.startDate).toLocaleDateString()} - {new Date(b.endDate).toLocaleDateString()}</td>
+                  <td className="p-4 text-slate-600">{formatDate(b.startDate)} - {formatDate(b.endDate)}</td>
                   <td className="p-4 text-slate-600">{b.reason}</td>
                   <td className="p-4 text-slate-600">{b.ownerName}</td>
                   <td className="p-4 text-right"><button onClick={() => handleDeleteBlock(b.roomBlockId!)} className="text-red-500 hover:text-red-700 font-medium text-sm">Usuń</button></td>

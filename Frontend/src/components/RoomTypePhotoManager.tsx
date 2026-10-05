@@ -4,6 +4,7 @@ import type { RoomTypePhotoDto } from '../types/room';
 import { getRoomTypeDetails, photoUrl } from '../api/roomApi';
 import { uploadRoomTypePhotos, deleteRoomTypePhoto, setMainRoomTypePhoto } from '../api/adminApi';
 import { errorMessage } from '../api/apiErrors';
+import Alert from './Alert';
 
 // Limity zgodne z API (FileStorageService i RoomTypeController)
 const MAX_PHOTOS = 10;
@@ -77,8 +78,8 @@ export default function RoomTypePhotoManager({ token, roomTypeId, roomTypeName, 
           <button onClick={onClose} className="text-sm px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300">Zamknij</button>
         </div>
 
-        {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
-        {message && !error && <div className="p-3 bg-green-100 text-green-700 rounded-lg text-sm font-medium">{message}</div>}
+        {error && <Alert type="error" message={error} />}
+        {message && !error && <Alert type="success" message={message} />}
 
         <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-50 p-4 rounded-lg border">
           <span className="text-sm text-slate-600">JPG, PNG lub WEBP do 5 MB, maksymalnie {MAX_PHOTOS} zdjęć ({photos.length}/{MAX_PHOTOS}). Pierwsze zdjęcie jest wyświetlane na stronie głównej.</span>

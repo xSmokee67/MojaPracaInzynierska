@@ -3,6 +3,9 @@ import { API_BASE_URL } from './config';
 
 const API_URL = `${API_BASE_URL}/Auth`;
 
+// Logowanie i rejestracja nie korzystają z apiRequest (apiClient.ts): tam odpowiedź 401 oznacza wygasłą sesję
+// i wylogowuje użytkownika, a tutaj 401 przy logowaniu oznacza po prostu złe hasło (komunikat z API).
+
 export const loginUser = async (data: LoginDto): Promise<AuthResponse> => {
   const response = await fetch(`${API_URL}/login`, {
     method: 'POST',

@@ -4,7 +4,9 @@ import type { ReservationDto } from '../../types/reservation';
 import { reservationStatusLabels, reservationStatusStyles } from '../../types/reservation';
 import { getAllReservations, updateReservationStatus } from '../../api/reservationApi';
 import { errorMessage } from '../../api/apiErrors';
+import { formatDate } from '../../utils/format';
 import ReservationDetails from '../ReservationDetails';
+import Alert from '../Alert';
 
 // Zakładka "Rezerwacje": wszystkie rezerwacje z filtrami, zmianą statusu i szczegółami (płatności, faktura)
 export default function ReservationsTab({ token, selectedReservationId, onSelectReservation }: { token: string; selectedReservationId: number | null; onSelectReservation: (id: number | null) => void }) {
@@ -47,8 +49,8 @@ export default function ReservationsTab({ token, selectedReservationId, onSelect
 
   return (
     <>
-      {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
-      {message && !error && <div className="p-3 bg-green-100 text-green-700 rounded-lg text-sm font-medium">{message}</div>}
+      {error && <Alert type="error" message={error} />}
+      {message && !error && <Alert type="success" message={message} />}
 
       <div className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border items-end">
@@ -87,7 +89,7 @@ export default function ReservationsTab({ token, selectedReservationId, onSelect
                   <td className="p-4 text-slate-500">#{r.reservationId}</td>
                   <td className="p-4"><div className="font-medium text-slate-800">{r.guestName}</div><div className="text-xs text-slate-500">{r.guestEmail}</div></td>
                   <td className="p-4"><span className="font-bold text-slate-800">{r.roomNumber}</span> <span className="text-slate-600">({r.roomTypeName})</span></td>
-                  <td className="p-4 text-slate-600">{new Date(r.checkInDate).toLocaleDateString()} - {new Date(r.checkOutDate).toLocaleDateString()}</td>
+                  <td className="p-4 text-slate-600">{formatDate(r.checkInDate)} - {formatDate(r.checkOutDate)}</td>
                   <td className="p-4 font-bold text-emerald-600">{r.totalPrice.toFixed(2)} PLN</td>
                   <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${reservationStatusStyles[r.status] ?? 'bg-slate-100 text-slate-600'}`}>{reservationStatusLabels[r.status] ?? r.status}</span></td>
                   <td className="p-4 text-right">

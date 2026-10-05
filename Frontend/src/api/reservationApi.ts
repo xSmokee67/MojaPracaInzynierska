@@ -1,111 +1,40 @@
 import type { CreateReservationDto, AvailabilityResponse, PriceResponse, ReservationDto, UpdateReservationStatusDto, ReservationDetailsDto, PaymentDto, ReviewDto } from "../types/reservation";
-import { throwApiError } from './apiErrors';
-import { API_BASE_URL } from './config';
+import { apiRequest } from './apiClient';
 
-const API_URL = `${API_BASE_URL}/Reservation`;
+export const checkAvailability = (roomTypeId: number, checkIn: string, checkOut: string): Promise<AvailabilityResponse> =>
+  apiRequest(`/Reservation/availability?roomTypeId=${roomTypeId}&checkIn=${checkIn}&checkOut=${checkOut}`, {}, 'Błąd sprawdzania dostępności');
 
-export const checkAvailability = async (roomTypeId: number, checkIn: string, checkOut: string): Promise<AvailabilityResponse> => {
-  const response = await fetch(`${API_URL}/availability?roomTypeId=${roomTypeId}&checkIn=${checkIn}&checkOut=${checkOut}`);
-  if (!response.ok) await throwApiError(response, 'Błąd sprawdzania dostępności');
-  return response.json();
-};
+export const calculatePrice = (dto: CreateReservationDto): Promise<PriceResponse> =>
+  apiRequest('/Reservation/price', { method: 'POST', body: dto }, 'Błąd kalkulacji ceny');
 
-export const calculatePrice = async (dto: CreateReservationDto): Promise<PriceResponse> => {
-  const response = await fetch(`${API_URL}/price`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(dto),
-  });
-  if (!response.ok) await throwApiError(response, 'Błąd kalkulacji ceny');
-  return response.json();
-};
+export const createReservation = (dto: CreateReservationDto, token: string): Promise<void> =>
+  apiRequest('/Reservation/create', { method: 'POST', token, body: dto }, 'Nie udało się utworzyć rezerwacji');
 
-export const createReservation = async (dto: CreateReservationDto, token: string): Promise<void> => {
-  const response = await fetch(`${API_URL}/create`, {
-    method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}` // Wstrzyknięcie tokenu JWT
-    },
-    body: JSON.stringify(dto),
-  });
+export const getMyReservations = (token: string): Promise<ReservationDto[]> =>
+  apiRequest('/Reservation/my', { token }, 'Błąd pobierania Twoich rezerwacji');
 
-  if (!response.ok) await throwApiError(response, 'Nie udało się utworzyć rezerwacji');
-};
+export const getAllReservations = (token: string): Promise<ReservationDto[]> =>
+  apiRequest('/Reservation/all', { token }, 'Błąd pobierania rezerwacji');
 
-export const getMyReservations = async (token: string): Promise<ReservationDto[]> => {
-  const response = await fetch(`${API_URL}/my`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  if (!response.ok) await throwApiError(response, 'Błąd pobierania Twoich rezerwacji');
-  return response.json();
-};
+export const updateReservationStatus = (id: number, dto: UpdateReservationStatusDto, token: string): Promise<void> =>
+  apiRequest(`/Reservation/${id}/status`, { method: 'PUT', token, body: dto }, 'Błąd zmiany statusu rezerwacji');
 
-export const getAllReservations = async (token: string): Promise<ReservationDto[]> => {
-  const response = await fetch(`${API_URL}/all`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  if (!response.ok) await throwApiError(response, 'Błąd pobierania rezerwacji');
-  return response.json();
-};
+export const getReservationDetails = (id: number, token: string): Promise<ReservationDetailsDto> =>
+  apiRequest(`/Reservation/${id}`, { token }, 'Błąd pobierania szczegółów rezerwacji');
 
-export const updateReservationStatus = async (id: number, dto: UpdateReservationStatusDto, token: string): Promise<void> => {
-  const response = await fetch(`${API_URL}/${id}/status`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify(dto),
-  });
-  if (!response.ok) await throwApiError(response, 'Błąd zmiany statusu rezerwacji');
-};
+export const cancelReservation = (id: number, token: string): Promise<void> =>
+  apiRequest(`/Reservation/${id}/cancel`, { method: 'PUT', token }, 'Nie udało się anulować rezerwacji');
 
-export const getReservationDetails = async (id: number, token: string): Promise<ReservationDetailsDto> => {
-  const response = await fetch(`${API_URL}/${id}`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  if (!response.ok) await throwApiError(response, 'Błąd pobierania szczegółów rezerwacji');
-  return response.json();
-};
+export const registerPayment = (id: number, dto: PaymentDto, token: string): Promise<void> =>
+  apiRequest(`/Reservation/${id}/payments`, { method: 'POST', token, body: dto }, 'Błąd rejestracji płatności');
 
-export const cancelReservation = async (id: number, token: string): Promise<void> => {
-  const response = await fetch(`${API_URL}/${id}/cancel`, {
-    method: 'PUT',
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  if (!response.ok) await throwApiError(response, 'Nie udało się anulować rezerwacji');
-};
-
-export const registerPayment = async (id: number, dto: PaymentDto, token: string): Promise<void> => {
-  const response = await fetch(`${API_URL}/${id}/payments`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify(dto),
-  });
-  if (!response.ok) await throwApiError(response, 'Błąd rejestracji płatności');
-};
-
-export const issueInvoice = async (id: number, token: string): Promise<void> => {
-  const response = await fetch(`${API_URL}/${id}/invoice`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  if (!response.ok) await throwApiError(response, 'Błąd wystawiania faktury');
-};
+export const issueInvoice = (id: number, token: string): Promise<void> =>
+  apiRequest(`/Reservation/${id}/invoice`, { method: 'POST', token }, 'Błąd wystawiania faktury');
 
 // --- OPINIE ---
-export const createReview = async (dto: ReviewDto, token: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/Review`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify(dto),
-  });
-  if (!response.ok) await throwApiError(response, 'Błąd dodawania opinii');
-};
+export const createReview = (dto: ReviewDto, token: string): Promise<void> =>
+  apiRequest('/Review', { method: 'POST', token, body: dto }, 'Błąd dodawania opinii');
 
 // Opinie zalogowanego gościa (strona "Mój profil")
-export const getMyReviews = async (token: string): Promise<ReviewDto[]> => {
-  const response = await fetch(`${API_BASE_URL}/Review/my`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  if (!response.ok) await throwApiError(response, 'Błąd pobierania Twoich opinii');
-  return response.json();
-};
+export const getMyReviews = (token: string): Promise<ReviewDto[]> =>
+  apiRequest('/Review/my', { token }, 'Błąd pobierania Twoich opinii');

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { loginUser, registerUser } from '../api/authApi';
 import { errorMessage } from '../api/apiErrors';
 import type { LoginDto, RegisterDto } from '../types/auth';
+import Alert from './Alert';
 
 export default function AuthForm({ onLoginSuccess, onForgotPassword, sessionMessage }: { onLoginSuccess: (token: string, role: string, email: string, expiration: string, firstName: string) => void; onForgotPassword: () => void; sessionMessage: string }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -44,8 +45,8 @@ export default function AuthForm({ onLoginSuccess, onForgotPassword, sessionMess
       </h2>
       
       {sessionMessage && !error && !message && <div className="p-3 text-sm text-amber-800 bg-amber-100 rounded-lg">{sessionMessage}</div>}
-      {error && <div className="p-3 text-sm text-red-700 bg-red-100 rounded-lg">{error}</div>}
-      {message && <div className="p-3 text-sm text-green-700 bg-green-100 rounded-lg">{message}</div>}
+      {error && <Alert type="error" message={error} />}
+      {message && <Alert type="success" message={message} />}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

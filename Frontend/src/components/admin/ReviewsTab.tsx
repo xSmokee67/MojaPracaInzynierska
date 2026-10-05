@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react';
 import type { ReviewDto } from '../../types/reservation';
 import { getReviews, deleteReview } from '../../api/adminApi';
 import { errorMessage } from '../../api/apiErrors';
+import { formatDate } from '../../utils/format';
+import Alert from '../Alert';
+import StarRating from '../StarRating';
 
 // Zakładka "Opinie": moderacja opinii gości
 export default function ReviewsTab({ token }: { token: string }) {
@@ -31,8 +34,8 @@ export default function ReviewsTab({ token }: { token: string }) {
 
   return (
     <>
-      {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm font-medium">{error}</div>}
-      {message && !error && <div className="p-3 bg-green-100 text-green-700 rounded-lg text-sm font-medium">{message}</div>}
+      {error && <Alert type="error" message={error} />}
+      {message && !error && <Alert type="success" message={message} />}
 
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-left border-collapse">
@@ -46,10 +49,10 @@ export default function ReviewsTab({ token }: { token: string }) {
           <tbody>
             {reviews.map(rv => (
               <tr key={rv.reviewId} className="border-b hover:bg-slate-50">
-                <td className="p-4 text-slate-500">{new Date(rv.date!).toLocaleDateString()}</td>
+                <td className="p-4 text-slate-500">{formatDate(rv.date!)}</td>
                 <td className="p-4 font-medium text-slate-800">{rv.guestName}</td>
                 <td className="p-4 text-slate-600">#{rv.reservationId} ({rv.roomTypeName})</td>
-                <td className="p-4 text-amber-500 whitespace-nowrap">{'★'.repeat(rv.rating)}{'☆'.repeat(5 - rv.rating)}</td>
+                <td className="p-4"><StarRating rating={rv.rating} /></td>
                 <td className="p-4 text-slate-600">{rv.comment || '—'}</td>
                 <td className="p-4 text-right"><button onClick={() => handleDeleteReview(rv.reviewId!)} className="text-red-500 hover:text-red-700 font-medium text-sm">Usuń</button></td>
               </tr>
