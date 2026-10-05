@@ -8,7 +8,7 @@ import RoomTypeProfile from './components/RoomTypeProfile';
 import UserProfile from './components/UserProfile';
 import ForgotPasswordForm from './components/ForgotPasswordForm';
 import ResetPasswordForm from './components/ResetPasswordForm';
-import Footer from './components/footer';
+import Footer from './components/Footer';
 import NotFound from './components/NotFound';
 import type { AdminTab } from './components/admin/adminTabs';
 import { adminTabBySlug } from './components/admin/adminTabs';

@@ -53,11 +53,11 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | A1 | Zarejestruj gościa z hasłem `abc` | Formularz nie wysyła się, komunikat o min. 8 znakach i cyfrze | |
 | A2 | Zarejestruj gościa z poprawnymi danymi (np. `anna@test.pl` / `Haslo1234`) | „Rejestracja zakończona sukcesem! Możesz się teraz zalogować.” | |
 | A3 | Zarejestruj drugi raz ten sam e-mail | Błąd „Użytkownik o podanym emailu już istnieje.” | |
-| A4 | Zaloguj się jako gość | Widok „Zarezerwuj pobyt”, w pasku e-mail gościa | |
-| A5 | Pokój Standardowy, 10.03.2027 – 13.03.2027, zaznacz Śniadanie, „Sprawdź cenę i dostępność” | „Pokój dostępny!”, do zapłaty **650,00 PLN** (3 × 200 + 50) | |
+| A4 | Zaloguj się jako gość | Strona główna, w prawym górnym rogu „Witaj, Anna” i przycisk „Mój profil” | |
+| A5 | Zakładka „Zarezerwuj pobyt”: Pokój Standardowy, 10.03.2027 – 13.03.2027, zaznacz Śniadanie, „Sprawdź cenę i dostępność” | „Pokój dostępny!”, do zapłaty **650,00 PLN** (3 × 200 + 50) | |
 | A6 | „Potwierdź i Rezerwuj” | Ekran „Udało się!” | |
 | A7 | Zakładka „Moje rezerwacje” | Rezerwacja z pokojem 101, statusem „Oczekująca”, ceną 650 PLN | |
-| A8 | Wyloguj, zaloguj jako właściciel, zakładka „Rezerwacje” | Rezerwacja gościa na liście | |
+| A8 | Wyloguj, zaloguj jako właściciel, czerwony przycisk „Panel Właściciela” → zakładka „Rezerwacje” | Rezerwacja gościa na liście | |
 | A9 | Zmień status na „Potwierdzona” | Komunikat sukcesu, nowy status na liście | |
 | A10 | „Szczegóły” → zarejestruj płatność 300 zł kartą | Płatność na liście, „wpłacono 300,00 PLN” | |
 | A11 | Zarejestruj drugą płatność (kwota podpowiada się jako 350 zł) | „wpłacono 650,00 PLN” | |
@@ -65,7 +65,7 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | A13 | Zmień status na „Zrealizowana”, w szczegółach „Wystaw fakturę” | Faktura `FV/rrrr/mm/000nn` na 650 zł, przycisk znika | |
 | A14 | Zaloguj jako gość, szczegóły rezerwacji | Widoczne płatności i faktura, formularz opinii | |
 | A15 | Dodaj opinię 5★ z komentarzem | „Dziękujemy za wystawienie opinii!”, formularz zastąpiony opinią | |
-| A16 | Zaloguj jako właściciel, zakładka „Opinie” | Opinia gościa na liście, „Usuń” działa po potwierdzeniu | |
+| A16 | Zaloguj jako właściciel, „Panel Właściciela” → zakładka „Opinie” | Opinia gościa na liście, „Usuń” działa po potwierdzeniu | |
 
 ### Scenariusz B: ceny sezonowe
 
@@ -104,7 +104,7 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 
 | # | Krok | Oczekiwany wynik | Wynik |
 |---|------|------------------|-------|
-| E1 | Właściciel → „Typy Pokoi” → „Edytuj” przy typie pokoju, uzupełnij opis, zapisz | Komunikat sukcesu, opis widoczny na stronie pokoju | |
+| E1 | Właściciel → „Panel Właściciela” → „Typy Pokoi” → „Edytuj” przy typie pokoju, uzupełnij opis, zapisz | Komunikat sukcesu, opis widoczny na stronie pokoju | |
 | E2 | „Zdjęcia” → „Dodaj zdjęcia”, wybierz 3 pliki JPG/PNG | Miniatury w oknie, pierwsze oznaczone jako „Główne”, w tabeli liczba zdjęć 3 | |
 | E3 | Dodaj plik GIF albo większy niż 5 MB | Komunikat o nieobsługiwanym formacie / za dużym pliku, nic nie zostaje zapisane | |
 | E4 | „Ustaw jako główne” przy drugim zdjęciu | To zdjęcie wyświetla się na kafelku na stronie głównej | |
@@ -116,3 +116,48 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | E10 | Zaloguj się jako gość | Od razu formularz rezerwacji z typem pokoju i datami z wyszukiwarki | |
 | E11 | Przycisk „Wstecz” w przeglądarce, potem odśwież stronę główną | Powrót do profilu; wyniki wyszukiwania zostają po odświeżeniu | |
 | E12 | „Pokaż wszystkie pokoje” | Pełna lista typów pokoi z ceną za noc | |
+
+### Scenariusz F: widok właściciela i profil użytkownika
+
+| # | Krok | Oczekiwany wynik | Wynik |
+|---|------|------------------|-------|
+| F1 | Zaloguj się jako właściciel | Strona główna jak dla gościa, w pasku czerwony przycisk „Panel Właściciela” i „Witaj, Jan” | |
+| F2 | Otwórz profil dowolnego pokoju | Zamiast przycisku rezerwacji: „Podgląd jako właściciel - rezerwacji dokonują goście.” | |
+| F3 | „Panel Właściciela” | Adres `#/panel`, zakładki panelu (typy pokoi, pokoje, cennik, rezerwacje…) | |
+| F3a | Kliknij zakładkę „Udogodnienia”, odśwież stronę (F5), potem „Cennik Sezonowy” i przycisk „Wstecz” przeglądarki | Adres `#/panel/udogodnienia`, po odświeżeniu ta sama zakładka; „Wstecz” wraca z `#/panel/cennik` do Udogodnień | |
+| F3b | „Rezerwacje” → „Szczegóły” przy rezerwacji | Adres `#/panel/rezerwacje/{id}`, w okruszkach „Rezerwacja #id”; po zamknięciu okna `#/panel/rezerwacje` | |
+| F4 | „Mój profil” → „Edytuj dane”, zmień imię na „Janusz”, „Zapisz Zmiany” | „Dane profilu zostały zapisane.”, w pasku od razu „Witaj, Janusz” (także po odświeżeniu strony) | |
+| F5 | Zmiana hasła: różne hasła w polach „Nowe hasło” i „Powtórz nowe hasło” | „Nowe hasła nie są takie same.” | |
+| F6 | Zmiana hasła ze złym obecnym hasłem | „Obecne hasło jest nieprawidłowe.” | |
+| F7 | Zmiana hasła z poprawnym obecnym hasłem, wyloguj i zaloguj nowym hasłem | „Hasło zostało zmienione.”, logowanie nowym hasłem działa, starym nie | |
+| F8 | Zaloguj jako gość, „Mój profil” | Dane z telefonem i numerem dokumentu („nie podano”), lista „Moje opinie” | |
+| F9 | „Edytuj dane”: telefon `12` | Formularz się nie wysyła (walidacja numeru telefonu) | |
+| F10 | Telefon `+48 600 100 300`, numer dokumentu `ABC123456`, zapisz | Nowe dane widoczne w profilu | |
+| F11 | Gość wpisuje w adresie `#/panel` | Strona główna (panel tylko dla właściciela; API i tak zwraca 403) | |
+
+### Scenariusz G: reset hasła
+
+Bez skonfigurowanego serwera SMTP e-maile zapisują się jako pliki `.eml` w katalogu `Backend/API/Emails` (otwierają się w Outlooku / Thunderbirdzie albo w Notatniku).
+
+| # | Krok | Oczekiwany wynik | Wynik |
+|---|------|------------------|-------|
+| G1 | Logowanie → „Nie pamiętasz hasła?”, adres nieistniejącego konta | Komunikat „Jeśli konto o podanym adresie istnieje, wysłaliśmy…”, w `Emails` nie pojawia się nowy plik | |
+| G2 | To samo dla `anna@test.pl` | Ten sam komunikat, w `Emails` nowy plik z wiadomością „Reset hasła - Hotel Resort” i przyciskiem „Ustaw nowe hasło” | |
+| G3 | Otwórz link z wiadomości | Strona „Ustaw nowe hasło” z adresem konta | |
+| G4 | Różne hasła w obu polach | „Hasła nie są takie same.” | |
+| G5 | Nowe hasło `Odzyskane1` w obu polach | „Hasło zostało zmienione. Możesz się teraz zalogować.” | |
+| G6 | Otwórz ten sam link drugi raz i ustaw hasło | „Link do resetu hasła jest nieprawidłowy lub wygasł. Poproś o nowy link.” (link jest jednorazowy) | |
+| G7 | Zablokuj konto 5 błędnymi hasłami (D1), potem zresetuj hasło | Po resecie logowanie nowym hasłem działa od razu (blokada zdjęta) | |
+
+### Scenariusz H: sortowanie i filtry na stronie głównej, stopka, strona 404
+
+| # | Krok | Oczekiwany wynik | Wynik |
+|---|------|------------------|-------|
+| H1 | Strona główna, „Sortuj: Cena: od najniższej”, potem „od najwyższej” | Kafelki ułożone według ceny za noc | |
+| H2 | „Sortuj: Ocena gości” | Najwyżej oceniane na początku, pokoje bez opinii na końcu | |
+| H3 | Zaznacz udogodnienie (np. „Klimatyzacja”), potem drugie | Widoczne tylko pokoje mające wszystkie zaznaczone udogodnienia, „Wyświetlono X z Y” | |
+| H4 | Otwórz profil pokoju i wróć przyciskiem „Wstecz” | Sortowanie i zaznaczone udogodnienia zostają | |
+| H5 | Wyszukaj termin, zaznacz „Tylko dostępne” | Znikają pokoje z etykietą „Brak wolnych pokoi”; przy każdym sortowaniu dostępne pokoje są przed niedostępnymi | |
+| H6 | Filtry, przy których nic nie pasuje | „Żaden pokój nie spełnia wybranych filtrów.” z przyciskiem „Wyczyść filtry” | |
+| H7 | Stopka na dowolnej stronie | Adres, telefon, e-mail, godziny zameldowania; skróty zależne od roli (gość: „Moje rezerwacje”, właściciel: „Panel Właściciela”) | |
+| H8 | Adres `#/cokolwiek` oraz `#/pokoj/999` | Strona 404 z przyciskiem „Wróć na stronę główną” | |

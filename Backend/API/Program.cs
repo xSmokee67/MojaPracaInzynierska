@@ -23,6 +23,9 @@ builder.Services.AddIdentity<User, IdentityRole<int>>(options =>
     options.Password.RequireDigit = true;
     options.Password.RequiredLength = 8;
     options.Password.RequireNonAlphanumeric = false;
+    // Polityka haseł zgodna z podpowiedziami w formularzach: min. 8 znaków, w tym cyfra (wielkość liter dowolna)
+    options.Password.RequireUppercase = false;
+    options.Password.RequireLowercase = false;
     options.User.RequireUniqueEmail = true;
 
     // Blokada konta na 15 minut po 5 nieudanych próbach logowania (ochrona przed zgadywaniem hasła)

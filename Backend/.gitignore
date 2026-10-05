@@ -11,3 +11,6 @@ obj/
 
 # Wyniki testów
 TestResults/
+
+# E-maile zapisywane lokalnie zamiast wysyłki SMTP (EmailSettings.PickupDirectory)
+Emails/
