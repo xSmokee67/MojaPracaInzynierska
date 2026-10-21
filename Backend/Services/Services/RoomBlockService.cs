@@ -56,22 +56,15 @@ public class RoomBlockService : IRoomBlockService
             throw new ArgumentException("Wskazany pokój nie istnieje!");
         }
 
-        // Te same warunki nakładania się terminów co w GetAvailableRoomIdsAsync (ReservationService)
-        var hasReservations = await _context.Reservations.AnyAsync(r =>
-            r.RoomId == dto.RoomId &&
-            r.Status != ReservationStatus.Cancelled &&
-            r.CheckInDate < dto.EndDate &&
-            r.CheckOutDate > dto.StartDate);
+        // Reguła kolizji terminów jest w module dostępności (AvailabilityService)
+        var hasReservations = await _availabilityService.HasActiveReservationsAsync(dto.RoomId, dto.StartDate, dto.EndDate);
 
         if (hasReservations)
         {
             throw new ArgumentException("W tym terminie pokój ma aktywne rezerwacje. Najpierw je anuluj lub wybierz inny termin.");
         }
 
-        var hasBlocks = await _context.RoomBlocks.AnyAsync(b =>
-            b.RoomId == dto.RoomId &&
-            b.StartDate < dto.EndDate &&
-            b.EndDate > dto.StartDate);
+        var hasBlocks = await _availabilityService.HasBlocksAsync(dto.RoomId, dto.StartDate, dto.EndDate);
 
         if (hasBlocks)
         {

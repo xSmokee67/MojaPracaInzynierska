@@ -94,7 +94,7 @@ public class ReservationServiceSearchTests
     public async Task GetAvailableRoomIds_ReturnsAllFreeRooms()
     {
         using var context = TestData.CreateContext();
-        var service = TestData.CreateReservationService(context);
+        var service = new Services.Services.AvailabilityService(context);
 
         var before = await service.GetAvailableRoomIdsAsync(TestData.StandardRoomTypeId, CheckIn, CheckOut);
         TestData.AddReservation(context, TestData.Room102Id, CheckIn, CheckOut);

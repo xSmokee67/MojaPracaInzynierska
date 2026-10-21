@@ -26,7 +26,7 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 
 | Plik | Co jest testowane | Przypadki |
 |------|-------------------|-----------|
-| `ReservationServiceAvailabilityTests.cs` | Sprawdzanie dostępności pokoju (`GetAvailableRoomIdAsync`): nakładające się terminy, terminy stykające się, anulowane rezerwacje, blokady pokoi, status pokoju | 19 |
+| `ReservationServiceAvailabilityTests.cs` | Sprawdzanie dostępności pokoju w module dostępności (`AvailabilityService.GetAvailableRoomIdAsync`): nakładające się terminy, terminy stykające się, anulowane rezerwacje, blokady pokoi, status pokoju | 19 |
 | `ReservationServicePriceTests.cs` | Wyliczanie ceny (`CalculateTotalPriceAsync`): cena bazowa, sezonowa, pobyt na przełomie sezonu, usługi dodatkowe | 9 |
 | `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji, zmiana statusu, anulowanie przez gościa, płatności, faktury | 29 |
 | `AvailabilityServiceTests.cs` | Aktualizacja kalendarza dostępności (`Availability`) | 4 |

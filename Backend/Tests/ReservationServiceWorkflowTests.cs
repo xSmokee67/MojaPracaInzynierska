@@ -153,7 +153,7 @@ public class ReservationServiceWorkflowTests
         var entries = await context.Availabilities.Where(a => a.RoomId == TestData.Room201Id).ToListAsync();
         Assert.Equal(3, entries.Count);
         Assert.All(entries, a => Assert.Equal("free", a.Status));
-        Assert.Equal(TestData.Room201Id, await service.GetAvailableRoomIdAsync(TestData.PremiumRoomTypeId, CheckIn, CheckOut));
+        Assert.Equal(TestData.Room201Id, await new Services.Services.AvailabilityService(context).GetAvailableRoomIdAsync(TestData.PremiumRoomTypeId, CheckIn, CheckOut));
     }
 
     // --- ANULOWANIE PRZEZ GOŚCIA ---

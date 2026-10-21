@@ -13,10 +13,12 @@ namespace API.Controllers;
 public class ReservationController : ControllerBase
 {
     private readonly IReservationService _reservationService;
+    private readonly IAvailabilityService _availabilityService;
 
-    public ReservationController(IReservationService reservationService)
+    public ReservationController(IReservationService reservationService, IAvailabilityService availabilityService)
     {
         _reservationService = reservationService;
+        _availabilityService = availabilityService;
     }
 
     [HttpGet("availability")]
@@ -31,7 +33,7 @@ public class ReservationController : ControllerBase
         if (ci >= co || ci.Date < DateTime.Today)
             return BadRequest(new { error = "Nieprawidłowy termin pobytu - data zameldowania nie może być w przeszłości i musi poprzedzać datę wymeldowania." });
 
-        var roomId = await _reservationService.GetAvailableRoomIdAsync(roomTypeId, ci, co);
+        var roomId = await _availabilityService.GetAvailableRoomIdAsync(roomTypeId, ci, co);
 
         if (roomId == null)
             return Ok(new { isAvailable = false, message = "Brak wolnych pokoi w wybranym terminie." });

@@ -2,7 +2,7 @@ using Model;
 
 namespace Tests;
 
-// Testy sprawdzania dostępności pokoju - ReservationService.GetAvailableRoomIdAsync
+// Testy sprawdzania dostępności pokoju - AvailabilityService.GetAvailableRoomIdAsync (moduł dostępności)
 public class ReservationServiceAvailabilityTests
 {
     private static readonly DateTime CheckIn = new DateTime(2027, 3, 10);
@@ -12,7 +12,7 @@ public class ReservationServiceAvailabilityTests
     public async Task ReturnsFirstRoom_WhenNoReservations()
     {
         using var context = TestData.CreateContext();
-        var service = TestData.CreateReservationService(context);
+        var service = new Services.Services.AvailabilityService(context);
 
         var roomId = await service.GetAvailableRoomIdAsync(TestData.StandardRoomTypeId, CheckIn, CheckOut);
 
@@ -29,7 +29,7 @@ public class ReservationServiceAvailabilityTests
     {
         using var context = TestData.CreateContext();
         TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut);
-        var service = TestData.CreateReservationService(context);
+        var service = new Services.Services.AvailabilityService(context);
 
         var roomId = await service.GetAvailableRoomIdAsync(TestData.StandardRoomTypeId, DateTime.Parse(checkIn), DateTime.Parse(checkOut));
 
@@ -43,7 +43,7 @@ public class ReservationServiceAvailabilityTests
     {
         using var context = TestData.CreateContext();
         TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut);
-        var service = TestData.CreateReservationService(context);
+        var service = new Services.Services.AvailabilityService(context);
 
         var roomId = await service.GetAvailableRoomIdAsync(TestData.StandardRoomTypeId, DateTime.Parse(checkIn), DateTime.Parse(checkOut));
 
@@ -56,7 +56,7 @@ public class ReservationServiceAvailabilityTests
         using var context = TestData.CreateContext();
         TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut);
         TestData.AddReservation(context, TestData.Room102Id, CheckIn, CheckOut, guestId: 11);
-        var service = TestData.CreateReservationService(context);
+        var service = new Services.Services.AvailabilityService(context);
 
         var roomId = await service.GetAvailableRoomIdAsync(TestData.StandardRoomTypeId, CheckIn, CheckOut);
 
@@ -68,7 +68,7 @@ public class ReservationServiceAvailabilityTests
     {
         using var context = TestData.CreateContext();
         TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut, status: "cancelled");
-        var service = TestData.CreateReservationService(context);
+        var service = new Services.Services.AvailabilityService(context);
 
         var roomId = await service.GetAvailableRoomIdAsync(TestData.StandardRoomTypeId, CheckIn, CheckOut);
 
@@ -83,7 +83,7 @@ public class ReservationServiceAvailabilityTests
     {
         using var context = TestData.CreateContext();
         TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut, status: status);
-        var service = TestData.CreateReservationService(context);
+        var service = new Services.Services.AvailabilityService(context);
 
         var roomId = await service.GetAvailableRoomIdAsync(TestData.StandardRoomTypeId, CheckIn, CheckOut);
 
@@ -103,7 +103,7 @@ public class ReservationServiceAvailabilityTests
             Reason = "remont"
         });
         context.SaveChanges();
-        var service = TestData.CreateReservationService(context);
+        var service = new Services.Services.AvailabilityService(context);
 
         var roomId = await service.GetAvailableRoomIdAsync(TestData.StandardRoomTypeId, CheckIn, CheckOut);
 
@@ -120,7 +120,7 @@ public class ReservationServiceAvailabilityTests
         var room = context.Rooms.Single(r => r.RoomId == TestData.Room101Id);
         room.Status = status;
         context.SaveChanges();
-        var service = TestData.CreateReservationService(context);
+        var service = new Services.Services.AvailabilityService(context);
 
         var roomId = await service.GetAvailableRoomIdAsync(TestData.StandardRoomTypeId, CheckIn, CheckOut);
 
@@ -132,7 +132,7 @@ public class ReservationServiceAvailabilityTests
     {
         using var context = TestData.CreateContext();
         TestData.AddReservation(context, TestData.Room201Id, CheckIn, CheckOut);
-        var service = TestData.CreateReservationService(context);
+        var service = new Services.Services.AvailabilityService(context);
 
         var standardRoomId = await service.GetAvailableRoomIdAsync(TestData.StandardRoomTypeId, CheckIn, CheckOut);
         var premiumRoomId = await service.GetAvailableRoomIdAsync(TestData.PremiumRoomTypeId, CheckIn, CheckOut);
@@ -145,7 +145,7 @@ public class ReservationServiceAvailabilityTests
     public async Task ReturnsNull_ForUnknownRoomType()
     {
         using var context = TestData.CreateContext();
-        var service = TestData.CreateReservationService(context);
+        var service = new Services.Services.AvailabilityService(context);
 
         var roomId = await service.GetAvailableRoomIdAsync(999, CheckIn, CheckOut);
 

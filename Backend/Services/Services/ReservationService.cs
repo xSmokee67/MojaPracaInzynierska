@@ -21,42 +21,6 @@ public class ReservationService : IReservationService
         _availabilityService = availabilityService;
     }
 
-    public async Task<int?> GetAvailableRoomIdAsync(int roomTypeId, DateTime checkIn, DateTime checkOut)
-    {
-        var roomIds = await GetAvailableRoomIdsAsync(roomTypeId, checkIn, checkOut);
-        return roomIds.Count > 0 ? roomIds[0] : null;
-    }
-
-    // Wszystkie pokoje danego typu wolne w terminie (bez nakładających się rezerwacji i blokad)
-    public async Task<List<int>> GetAvailableRoomIdsAsync(int roomTypeId, DateTime checkIn, DateTime checkOut)
-    {
-        var availableRoomIds = new List<int>();
-
-        var rooms = await _context.Rooms
-            .Include(r => r.Reservations)
-            .Include(r => r.RoomBlocks)
-            .Where(r => r.RoomTypeId == roomTypeId && r.Status == RoomStatus.Available)
-            .ToListAsync();
-
-        foreach (var room in rooms)
-        {
-            bool isReserved = room.Reservations.Any(r =>
-                r.Status != ReservationStatus.Cancelled &&
-                r.CheckInDate < checkOut &&
-                r.CheckOutDate > checkIn);
-
-            bool isBlocked = room.RoomBlocks.Any(b =>
-                b.StartDate < checkOut &&
-                b.EndDate > checkIn);
-
-            if (!isReserved && !isBlocked)
-            {
-                availableRoomIds.Add(room.RoomId);
-            }
-        }
-        return availableRoomIds;
-    }
-
     // Wyszukiwarka na stronie głównej: dostępność i cena całego pobytu dla każdego typu pokoju
     public async Task<List<RoomTypeAvailabilityDto>> SearchRoomTypesAsync(DateTime checkIn, DateTime checkOut, int guests)
     {
@@ -65,7 +29,7 @@ public class ReservationService : IReservationService
 
         foreach (var roomType in roomTypes)
         {
-            var availableRoomIds = await GetAvailableRoomIdsAsync(roomType.RoomTypeId, checkIn, checkOut);
+            var availableRoomIds = await _availabilityService.GetAvailableRoomIdsAsync(roomType.RoomTypeId, checkIn, checkOut);
 
             results.Add(new RoomTypeAvailabilityDto
             {
@@ -117,7 +81,7 @@ public class ReservationService : IReservationService
 
     public async Task<bool> CreateReservationAsync(CreateReservationDto dto)
     {
-        var availableRoomId = await GetAvailableRoomIdAsync(dto.RoomTypeId, dto.CheckInDate, dto.CheckOutDate);
+        var availableRoomId = await _availabilityService.GetAvailableRoomIdAsync(dto.RoomTypeId, dto.CheckInDate, dto.CheckOutDate);
         if (availableRoomId == null)
         {
             return false;
