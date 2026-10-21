@@ -1,6 +1,7 @@
 // Plik: Frontend/src/components/AdminDashboard.tsx
 import type { AdminTab } from './admin/adminTabs';
 import { adminTabs, adminTabPath } from './admin/adminTabs';
+import AvailabilityTab from './admin/AvailabilityTab';
 import RoomTypesTab from './admin/RoomTypesTab';
 import RoomsTab from './admin/RoomsTab';
 import AmenitiesTab from './admin/AmenitiesTab';
@@ -34,6 +35,7 @@ export default function AdminDashboard({ token, tab, reservationId, onNavigate }
       </nav>
 
       {/* Zmiana zakładki odmontowuje poprzednią, więc jej komunikaty i formularz są czyszczone */}
+      {tab === 'availability' && <AvailabilityTab token={token} onNavigate={onNavigate} />}
       {tab === 'roomTypes' && <RoomTypesTab token={token} />}
       {tab === 'rooms' && <RoomsTab token={token} />}
       {tab === 'amenities' && <AmenitiesTab token={token} />}

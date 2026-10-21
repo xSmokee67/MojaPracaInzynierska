@@ -1,3 +1,5 @@
+using Services.DTO;
+
 namespace Services.Interfaces;
 
 // Moduł zarządzania dostępnością - jedno miejsce, które decyduje, czy pokój jest wolny w danym terminie
@@ -17,4 +19,7 @@ public interface IAvailabilityService
 
     // Kalendarz dostępności: status (free / booked / blocked) dla każdej nocy z zakresu
     Task UpdateAvailabilityAsync(int roomId, DateTime startDate, DateTime endDate, string status);
+
+    // Kalendarz w panelu właściciela: każdy pokój i każda noc z zakresu [from, to) - wolna, zarezerwowana lub zablokowana
+    Task<List<RoomAvailabilityDto>> GetCalendarAsync(DateTime from, DateTime to);
 }

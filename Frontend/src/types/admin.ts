@@ -51,6 +51,25 @@ export interface RoomBlockDto {
     reason: string;
 }
 
+// Kalendarz dostępności (panel właściciela): pokój i jego kolejne noce
+// status nocy: free / booked / blocked; przy rezerwacji jej numer, status i gość, przy blokadzie powód
+export interface AvailabilityDayDto {
+    date: string;
+    status: string;
+    reservationId: number | null;
+    reservationStatus: string | null;
+    guestName: string | null;
+    blockReason: string | null;
+}
+
+export interface RoomAvailabilityDto {
+    roomId: number;
+    roomNumber: string;
+    roomTypeName: string;
+    roomStatus: string;
+    days: AvailabilityDayDto[];
+}
+
 // Statusy pokoju zgodne ze słownikiem danych (available / cleaning / maintenance / disabled)
 export const roomStatusLabels: Record<string, string> = {
     'available': 'Dostępny',

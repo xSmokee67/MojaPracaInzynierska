@@ -1,5 +1,5 @@
 // Plik: Frontend/src/api/adminApi.ts
-import type { RoomTypeDto, RoomDto, AdditionalServiceDto, PriceListEntryDto, AmenityDto, RoomBlockDto } from '../types/admin';
+import type { RoomTypeDto, RoomDto, AdditionalServiceDto, PriceListEntryDto, AmenityDto, RoomBlockDto, RoomAvailabilityDto } from '../types/admin';
 import type { ReviewDto } from '../types/reservation';
 import { apiRequest } from './apiClient';
 
@@ -77,6 +77,11 @@ export const createRoomBlock = (dto: RoomBlockDto, token: string): Promise<void>
 
 export const deleteRoomBlock = (id: number, token: string): Promise<void> =>
   apiRequest(`/RoomBlock/${id}`, { method: 'DELETE', token }, 'Błąd usuwania blokady');
+
+// --- KALENDARZ DOSTĘPNOŚCI ---
+// Noce z zakresu [from, to) dla wszystkich pokoi (daty w formacie YYYY-MM-DD)
+export const getAvailabilityCalendar = (from: string, to: string, token: string): Promise<RoomAvailabilityDto[]> =>
+  apiRequest(`/Availability/calendar?from=${from}&to=${to}`, { token }, 'Błąd pobierania kalendarza dostępności');
 
 // --- OPINIE (MODERACJA) ---
 export const getReviews = (): Promise<ReviewDto[]> =>

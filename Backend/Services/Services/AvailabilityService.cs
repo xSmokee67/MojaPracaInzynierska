@@ -2,6 +2,7 @@ using DAL;
 using Microsoft.EntityFrameworkCore;
 using Model;
 using Services.Constants;
+using Services.DTO;
 using Services.Interfaces;
 using System.Linq.Expressions;
 
@@ -14,6 +15,9 @@ namespace Services.Services;
 // Terminy to przedziały [początek, koniec) - dzień wymeldowania / koniec blokady jest już wolny dla kolejnego gościa.
 public class AvailabilityService : IAvailabilityService
 {
+    // Najdłuższy zakres kalendarza w panelu (ok. dwa miesiące) - siatka pokoje × dni pozostaje czytelna
+    private const int MaxCalendarDays = 62;
+
     private readonly ApplicationDbContext _context;
 
     public AvailabilityService(ApplicationDbContext context)
@@ -93,5 +97,78 @@ public class AvailabilityService : IAvailabilityService
         }
 
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<List<RoomAvailabilityDto>> GetCalendarAsync(DateTime from, DateTime to)
+    {
+        var start = from.Date;
+        var end = to.Date;
+
+        if (start >= end)
+        {
+            throw new ArgumentException("Data początkowa musi być wcześniejsza niż data końcowa.");
+        }
+
+        if ((end - start).Days > MaxCalendarDays)
+        {
+            throw new ArgumentException($"Kalendarz można wyświetlić maksymalnie dla {MaxCalendarDays} dni.");
+        }
+
+        var rooms = await _context.Rooms
+            .Include(r => r.RoomType)
+            .OrderBy(r => r.RoomNumber)
+            .ToListAsync();
+
+        // Rezerwacje i blokady nachodzące na zakres - ta sama reguła kolizji co przy wyszukiwaniu wolnych pokoi
+        var reservations = await _context.Reservations
+            .Include(r => r.Guest)
+            .Where(ActiveReservationOverlaps(start, end))
+            .ToListAsync();
+
+        var blocks = await _context.RoomBlocks
+            .Where(BlockOverlaps(start, end))
+            .ToListAsync();
+
+        var calendar = new List<RoomAvailabilityDto>();
+
+        foreach (var room in rooms)
+        {
+            var row = new RoomAvailabilityDto
+            {
+                RoomId = room.RoomId,
+                RoomNumber = room.RoomNumber,
+                RoomTypeName = room.RoomType.Name,
+                RoomStatus = room.Status
+            };
+
+            for (var date = start; date < end; date = date.AddDays(1))
+            {
+                // Noc [date, nextDay) jest zajęta, gdy nachodzi na nią rezerwacja albo blokada
+                var nextDay = date.AddDays(1);
+                var reservation = reservations.FirstOrDefault(r => r.RoomId == room.RoomId && r.CheckInDate < nextDay && r.CheckOutDate > date);
+                var block = blocks.FirstOrDefault(b => b.RoomId == room.RoomId && b.StartDate < nextDay && b.EndDate > date);
+
+                var day = new AvailabilityDayDto { Date = date, Status = AvailabilityStatus.Free };
+
+                if (reservation != null)
+                {
+                    day.Status = AvailabilityStatus.Booked;
+                    day.ReservationId = reservation.ReservationId;
+                    day.ReservationStatus = reservation.Status;
+                    day.GuestName = reservation.Guest.FirstName + " " + reservation.Guest.LastName;
+                }
+                else if (block != null)
+                {
+                    day.Status = AvailabilityStatus.Blocked;
+                    day.BlockReason = block.Reason;
+                }
+
+                row.Days.Add(day);
+            }
+
+            calendar.Add(row);
+        }
+
+        return calendar;
     }
 }
