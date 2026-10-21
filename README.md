@@ -33,7 +33,7 @@ Projekt realizowany w ramach pracy inżynierskiej. Aplikacja webowa do przegląd
 | Warstwa | Technologie |
 |---------|-------------|
 | Backend | ASP.NET Core Web API (.NET 10), Entity Framework Core, SQL Server, ASP.NET Core Identity, JWT, AutoMapper, Swagger |
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS |
+| Frontend | React 19 (JavaScript, JSX), Vite, Tailwind CSS |
 | Testy | xUnit, EF Core InMemory |
 
 ## Architektura
@@ -49,10 +49,9 @@ Backend/
 └── Tests      – testy jednostkowe serwisów (opis w Tests/README.md)
 
 Frontend/src/
-├── api        – komunikacja z API: wspólna funkcja apiRequest (apiClient.ts), adres serwera w config.ts
+├── api        – komunikacja z API: wspólna funkcja apiRequest (apiClient.js), adres serwera w config.js
 ├── components – widoki aplikacji (strona główna, profil pokoju, rezerwacje, panel administratora) i wspólne elementy (Alert, StarRating)
-├── types      – typy TypeScript odpowiadające DTO z API
-└── utils      – formatowanie dat i odmiana liczebników
+└── utils      – formatowanie dat, odmiana liczebników, polskie nazwy i kolory statusów (statuses.js)
 ```
 
 Kontrolery nie odwołują się bezpośrednio do bazy danych – wywołują serwisy z warstwy `Services`, które korzystają z `ApplicationDbContext`. EF Core pełni rolę repozytorium (`DbSet<T>`) i jednostki pracy (`DbContext`).
@@ -65,7 +64,7 @@ Rejestrację i logowanie obsługuje `AuthService` (konta przez ASP.NET Core Iden
 
 Statusy i role zapisywane w bazie jako tekst są zdefiniowane w jednym miejscu, w klasach stałych w `Services/Constants` (`ReservationStatus`, `RoomStatus`, `AvailabilityStatus`, `PaymentStatus`, `PaymentMethod`, `UserRoles`, `AccountTypes`), np. `ReservationStatus.Cancelled` zamiast napisu `"cancelled"`. Należą do warstwy logiki biznesowej, bo to serwisy decydują, które statusy są dozwolone i jakie przejścia między nimi są możliwe. `Program.cs` zawiera tylko kolejność konfiguracji – szczegóły rejestracji usług są w `API/Extensions/ServiceCollectionExtensions.cs`, a dane startowe w `API/Data/DbSeeder.cs` (uruchamiane przy starcie API, które widzi wszystkie warstwy).
 
-Frontend: wszystkie wywołania API (poza logowaniem i rejestracją) przechodzą przez `apiRequest` w `api/apiClient.ts`: funkcja dokleja adres serwera, nagłówek z tokenem JWT i zamienia błędną odpowiedź na komunikat dla użytkownika (`api/apiErrors.ts` – 401 wylogowuje, 403 to brak uprawnień, inne błędy pokazują `{ error }` z API). Logowanie ma własną obsługę, bo tam 401 oznacza złe hasło, a nie wygasłą sesję. Daty są wyświetlane przez `formatDate` / `formatDateTime` z `utils/format.ts`, zawsze w formacie polskim.
+Frontend: wszystkie wywołania API (poza logowaniem i rejestracją) przechodzą przez `apiRequest` w `api/apiClient.js`: funkcja dokleja adres serwera, nagłówek z tokenem JWT i zamienia błędną odpowiedź na komunikat dla użytkownika (`api/apiErrors.js` – 401 wylogowuje, 403 to brak uprawnień, inne błędy pokazują `{ error }` z API). Logowanie ma własną obsługę, bo tam 401 oznacza złe hasło, a nie wygasłą sesję. Daty są wyświetlane przez `formatDate` / `formatDateTime` z `utils/format.js`, zawsze w formacie polskim.
 
 ## Uruchomienie
 
