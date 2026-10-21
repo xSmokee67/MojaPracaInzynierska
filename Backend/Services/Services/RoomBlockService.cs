@@ -56,6 +56,10 @@ public class RoomBlockService : IRoomBlockService
             throw new ArgumentException("Wskazany pokój nie istnieje!");
         }
 
+        // Sprawdzenie kolizji i zapis blokady w jednej transakcji - w tym czasie nikt nie zarezerwuje tego pokoju
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _availabilityService.LockRoomAsync(dto.RoomId);
+
         // Reguła kolizji terminów jest w module dostępności (AvailabilityService)
         var hasReservations = await _availabilityService.HasActiveReservationsAsync(dto.RoomId, dto.StartDate, dto.EndDate);
 
@@ -84,6 +88,8 @@ public class RoomBlockService : IRoomBlockService
         await _context.SaveChangesAsync();
 
         await _availabilityService.UpdateAvailabilityAsync(block.RoomId, block.StartDate, block.EndDate, AvailabilityStatus.Blocked);
+
+        await transaction.CommitAsync();
     }
 
     public async Task<bool> DeleteRoomBlockAsync(int roomBlockId)

@@ -17,6 +17,11 @@ public interface IAvailabilityService
     // Czy pokój ma w terminie blokadę (remont, konserwacja)
     Task<bool> HasBlocksAsync(int roomId, DateTime startDate, DateTime endDate);
 
+    // Ochrona przed równoczesnym zajęciem pokoju - wywoływane na początku transakcji, blokada trwa do jej końca:
+    // pokoje danego typu (przed przydziałem pokoju do rezerwacji) albo jeden pokój (przed założeniem blokady)
+    Task LockRoomTypeAsync(int roomTypeId);
+    Task LockRoomAsync(int roomId);
+
     // Kalendarz dostępności: status (free / booked / blocked) dla każdej nocy z zakresu
     Task UpdateAvailabilityAsync(int roomId, DateTime startDate, DateTime endDate, string status);
 

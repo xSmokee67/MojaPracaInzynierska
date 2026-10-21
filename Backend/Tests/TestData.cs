@@ -1,6 +1,7 @@
 using AutoMapper;
 using DAL;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Model;
 using Services.Mapping;
@@ -24,6 +25,8 @@ public static class TestData
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            // Baza w pamięci nie obsługuje transakcji - serwisy je otwierają (ochrona przed równoczesną rezerwacją), a w testach są pomijane
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         var context = new ApplicationDbContext(options);

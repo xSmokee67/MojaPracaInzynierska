@@ -81,6 +81,11 @@ public class ReservationService : IReservationService
 
     public async Task<bool> CreateReservationAsync(CreateReservationDto dto)
     {
+        // Sprawdzenie dostępności i zapis rezerwacji w jednej transakcji: dwóch gości nie dostanie tego samego pokoju,
+        // a rezerwacja i kalendarz dostępności zapisują się razem albo wcale (bez commita transakcja jest wycofywana)
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _availabilityService.LockRoomTypeAsync(dto.RoomTypeId);
+
         var availableRoomId = await _availabilityService.GetAvailableRoomIdAsync(dto.RoomTypeId, dto.CheckInDate, dto.CheckOutDate);
         if (availableRoomId == null)
         {
@@ -112,6 +117,7 @@ public class ReservationService : IReservationService
 
         await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Booked);
 
+        await transaction.CommitAsync();
         return true;
     }
 

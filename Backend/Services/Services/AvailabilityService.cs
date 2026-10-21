@@ -66,6 +66,31 @@ public class AvailabilityService : IAvailabilityService
             .AnyAsync(BlockOverlaps(startDate, endDate));
     }
 
+    // Blokada pesymistyczna (SQL Server): SELECT z UPDLOCK zakłada na wiersze pokoi blokadę aktualizacji,
+    // która trwa do końca transakcji. Drugie równoczesne żądanie dla tych pokoi czeka przy tym zapytaniu,
+    // aż pierwsze zapisze rezerwację lub blokadę, i dopiero potem sprawdza dostępność - na aktualnych danych.
+    // Rezerwacja blokuje wszystkie pokoje typu, a blokada pokoju jeden z nich, więc te dwie operacje też na siebie czekają.
+    public async Task LockRoomTypeAsync(int roomTypeId)
+    {
+        // Baza w pamięci (testy jednostkowe) nie wykonuje SQL i nie ma blokad wierszy
+        if (!_context.Database.IsRelational())
+        {
+            return;
+        }
+
+        await _context.Database.ExecuteSqlAsync($"SELECT RoomId FROM Rooms WITH (UPDLOCK) WHERE RoomTypeId = {roomTypeId}");
+    }
+
+    public async Task LockRoomAsync(int roomId)
+    {
+        if (!_context.Database.IsRelational())
+        {
+            return;
+        }
+
+        await _context.Database.ExecuteSqlAsync($"SELECT RoomId FROM Rooms WITH (UPDLOCK) WHERE RoomId = {roomId}");
+    }
+
     // Ustawia status (free / booked / blocked) dla każdej nocy z zakresu [startDate, endDate)
     // - tak samo jak przy rezerwacji: dzień wymeldowania / koniec blokady jest już wolny.
     public async Task UpdateAvailabilityAsync(int roomId, DateTime startDate, DateTime endDate, string status)
