@@ -3,7 +3,24 @@ import { useState, useEffect } from 'react';
 import { checkAvailability, calculatePrice, createReservation } from '../api/reservationApi';
 import { getRoomTypes, getAdditionalServices } from '../api/adminApi';
 import { errorMessage } from '../api/apiErrors';
-import { formatDate } from '../utils/format';
+import { formatDate, toInputDate } from '../utils/format';
+
+// Sprawdzenie dostępności i ceny pobytu - wspólne dla przycisku "Sprawdź cenę i dostępność"
+// i dla automatycznego sprawdzenia, gdy gość przychodzi z wyszukiwarki z wybranym terminem
+const checkStay = async (roomTypeId, checkInDate, checkOutDate, additionalServiceIds) => {
+  const avail = await checkAvailability(roomTypeId, checkInDate, checkOutDate);
+  if (!avail.isAvailable) return { isAvailable: false, totalPrice: null, message: avail.message };
+
+  const payload = {
+    guestId: 0, // Ustawiane po stronie API na podstawie tokenu JWT
+    roomTypeId,
+    checkInDate,
+    checkOutDate,
+    additionalServiceIds
+  };
+  const priceData = await calculatePrice(payload);
+  return { isAvailable: true, totalPrice: priceData.totalPrice, message: 'Pokój dostępny! Możesz dokończyć rezerwację.' };
+};
 
 export default function ReservationForm({ token, onReservationCreated, initialRoomTypeId, initialCheckIn, initialCheckOut }) {
   const [roomTypes, setRoomTypes] = useState([]);
@@ -31,13 +48,22 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
 
         const servicesData = await getAdditionalServices();
         setServices(servicesData);
+
+        // Pokój i termin wybrane w wyszukiwarce - od razu pokazujemy dostępność i cenę, gość tylko potwierdza
+        if (preselected && initialCheckIn && initialCheckOut && initialCheckIn < initialCheckOut) {
+          setStatusMessage('Sprawdzanie dostępności...');
+          const result = await checkStay(preselected.roomTypeId, initialCheckIn, initialCheckOut, []);
+          setIsAvailable(result.isAvailable);
+          setTotalPrice(result.totalPrice);
+          setStatusMessage(result.message);
+        }
       } catch (err) {
         setIsError(true);
         setStatusMessage(errorMessage(err));
       }
     };
     loadData();
-  }, [initialRoomTypeId]);
+  }, [initialRoomTypeId, initialCheckIn, initialCheckOut]);
 
   // Zmiana parametrów unieważnia poprzednio wyliczoną cenę - trzeba sprawdzić ponownie
   const resetCheck = () => {
@@ -47,12 +73,31 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
     setStatusMessage('');
   };
 
-  const handleToggleService = (serviceId) => {
-    setAdditionalServiceIds(prev => prev.includes(serviceId) ? prev.filter(id => id !== serviceId) : [...prev, serviceId]);
-    resetCheck();
+  const showCheckResult = (result) => {
+    setIsAvailable(result.isAvailable);
+    setTotalPrice(result.totalPrice);
+    setStatusMessage(result.message);
   };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const handleToggleService = async (serviceId) => {
+    const newServiceIds = additionalServiceIds.includes(serviceId) ? additionalServiceIds.filter(id => id !== serviceId) : [...additionalServiceIds, serviceId];
+    setAdditionalServiceIds(newServiceIds);
+
+    // Termin i pokój już sprawdzone - zmiana usług tylko przelicza cenę, bez ponownego klikania "Sprawdź"
+    if (isAvailable && totalPrice !== null) {
+      try {
+        showCheckResult(await checkStay(roomTypeId, checkInDate, checkOutDate, newServiceIds));
+      } catch (err) {
+        setIsError(true);
+        setStatusMessage(errorMessage(err));
+      }
+    } else {
+      resetCheck();
+    }
+  };
+
+  // Dzisiejsza data według czasu lokalnego (toISOString liczyłby ją w UTC - po północy byłby to jeszcze poprzedni dzień)
+  const today = toInputDate(new Date());
 
   // Krok 1: Weryfikacja i kalkulacja
   const handleCheck = async () => {
@@ -69,24 +114,7 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
     try {
       setIsError(false);
       setStatusMessage('Sprawdzanie dostępności...');
-      const avail = await checkAvailability(roomTypeId, checkInDate, checkOutDate);
-      setIsAvailable(avail.isAvailable);
-      
-      if (avail.isAvailable) {
-        const payload = {
-          guestId: 0, // Ustawiane po stronie API na podstawie tokenu JWT
-          roomTypeId,
-          checkInDate,
-          checkOutDate,
-          additionalServiceIds
-        };
-        const priceData = await calculatePrice(payload);
-        setTotalPrice(priceData.totalPrice);
-        setStatusMessage('Pokój dostępny! Możesz dokończyć rezerwację.');
-      } else {
-        setTotalPrice(null);
-        setStatusMessage(avail.message);
-      }
+      showCheckResult(await checkStay(roomTypeId, checkInDate, checkOutDate, additionalServiceIds));
     } catch (err) {
       setIsError(true);
       setStatusMessage(errorMessage(err));
