@@ -7,10 +7,12 @@ import RoomPhotoPlaceholder from '../common/RoomPhotoPlaceholder';
 import NotFound from '../common/NotFound';
 import Alert from '../common/Alert';
 import StarRating from '../common/StarRating';
+import RoomAvailabilityCalendar from './RoomAvailabilityCalendar';
 
-// Profil typu pokoju: galeria zdjęć, opis, ceny, udogodnienia, opinie i przycisk rezerwacji
+// Profil typu pokoju: galeria zdjęć, opis, ceny, kalendarz dostępności, udogodnienia, opinie i przycisk rezerwacji
 // canBook = false dla właściciela - przegląda stronę jak gość, ale rezerwacji dokonują tylko goście
-export default function RoomTypeProfile({ roomTypeId, search, canBook, onBook, onBack }) {
+// onSearch - termin wybrany w kalendarzu staje się wyszukiwaniem (to samo co na stronie głównej)
+export default function RoomTypeProfile({ roomTypeId, search, canBook, onBook, onSearch, onBack }) {
   const [room, setRoom] = useState(null);
   const [stay, setStay] = useState(null);
   const [activePhoto, setActivePhoto] = useState(0);
@@ -22,19 +24,30 @@ export default function RoomTypeProfile({ roomTypeId, search, canBook, onBook, o
         const data = await getRoomTypeDetails(roomTypeId);
         setRoom(data);
         setActivePhoto(0);
-
-        // Termin wybrany w wyszukiwarce na stronie głównej - dostępność i cena całego pobytu
-        if (search) {
-          const results = await searchRoomTypes(search);
-          setStay(results.find(r => r.roomTypeId === roomTypeId) ?? null);
-        }
         setError('');
       } catch (err) {
         setError(errorMessage(err));
       }
     };
     loadData();
+  }, [roomTypeId]);
+
+  // Termin z wyszukiwarki albo z kalendarza - dostępność i cena całego pobytu (osobno, żeby wybór terminu nie przeładowywał galerii)
+  useEffect(() => {
+    if (!search) return;
+    const loadStay = async () => {
+      try {
+        const results = await searchRoomTypes(search);
+        setStay(results.find(r => r.roomTypeId === roomTypeId) ?? null);
+      } catch (err) {
+        setError(errorMessage(err));
+      }
+    };
+    loadStay();
   }, [roomTypeId, search]);
+
+  // Liczba gości z wyszukiwarki, a bez niej 2 osoby (albo mniej, jeśli pokój jest mniejszy)
+  const handleSelectStay = (checkIn, checkOut) => onSearch({ checkIn, checkOut, guests: search?.guests ?? Math.min(2, room.maxOccupancy) });
 
   const photoCount = room?.photos.length ?? 0;
   const showPrevious = () => setActivePhoto(prev => (prev - 1 + photoCount) % photoCount);
@@ -110,7 +123,10 @@ export default function RoomTypeProfile({ roomTypeId, search, canBook, onBook, o
                 </div>
               )}
 
-              {/* Termin z wyszukiwarki na stronie głównej */}
+              {/* Kalendarz dostępności - wybór terminu */}
+              <RoomAvailabilityCalendar key={roomTypeId} roomTypeId={roomTypeId} checkIn={search?.checkIn} checkOut={search?.checkOut} onSelectStay={handleSelectStay} />
+
+              {/* Wybrany termin (z kalendarza albo z wyszukiwarki na stronie głównej) */}
               {search && stay ? (
                 <div className={`p-3 rounded-lg border text-sm space-y-1 ${stay.isAvailable && stay.fitsGuests ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50'}`}>
                   <div className="font-semibold text-slate-800">Twój termin: {formatDate(search.checkIn)} - {formatDate(search.checkOut)}</div>
@@ -119,10 +135,10 @@ export default function RoomTypeProfile({ roomTypeId, search, canBook, onBook, o
                     ? <div className="font-semibold text-amber-700">Ten pokój mieści maksymalnie {personsLabel(room.maxOccupancy)}.</div>
                     : stay.isAvailable
                       ? <div className="flex justify-between items-baseline gap-2"><span className="font-semibold text-emerald-700">Dostępny{stay.availableRooms === 1 ? ' - ostatni wolny pokój!' : ''}</span><span className="text-lg font-bold text-slate-800">{stay.totalPrice} PLN</span></div>
-                      : <div className="font-semibold text-slate-700">Brak wolnych pokoi w tym terminie. Wybierz inne daty na stronie głównej.</div>}
+                      : <div className="font-semibold text-slate-700">Brak jednego wolnego pokoju na cały ten termin. Wybierz inne daty w kalendarzu.</div>}
                 </div>
               ) : (
-                <p className="text-sm text-slate-500">Wybierz daty w wyszukiwarce na <button type="button" onClick={onBack} className="text-emerald-600 font-semibold hover:underline">stronie głównej</button>, aby zobaczyć cenę całego pobytu.</p>
+                <p className="text-sm text-slate-500">Wybierz w kalendarzu dzień przyjazdu i wyjazdu, aby zobaczyć cenę całego pobytu.</p>
               )}
 
               {canBook ? (

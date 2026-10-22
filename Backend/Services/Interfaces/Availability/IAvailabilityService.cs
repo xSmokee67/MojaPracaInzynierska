@@ -27,4 +27,7 @@ public interface IAvailabilityService
 
     // Kalendarz w panelu właściciela: każdy pokój i każda noc z zakresu [from, to) - wolna, zarezerwowana lub zablokowana
     Task<List<RoomAvailabilityDto>> GetCalendarAsync(DateTime from, DateTime to);
+
+    // Kalendarz typu pokoju dla gościa: liczba wolnych pokoi w każdej nocy z zakresu [from, to); null, gdy typ nie istnieje
+    Task<List<RoomTypeNightDto>?> GetRoomTypeCalendarAsync(int roomTypeId, DateTime from, DateTime to);
 }

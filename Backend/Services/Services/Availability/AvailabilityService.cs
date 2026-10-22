@@ -32,6 +32,25 @@ public class AvailabilityService : IAvailabilityService
     private static Expression<Func<RoomBlock, bool>> BlockOverlaps(DateTime startDate, DateTime endDate) =>
         b => b.StartDate < endDate && b.EndDate > startDate;
 
+    // Ta sama reguła zastosowana do jednej nocy [date, date + 1 dzień) - kalendarze sprawdzają noc po nocy
+    private static bool CoversNight(Reservation r, DateTime date) => r.CheckInDate < date.AddDays(1) && r.CheckOutDate > date;
+
+    private static bool CoversNight(RoomBlock b, DateTime date) => b.StartDate < date.AddDays(1) && b.EndDate > date;
+
+    // Zakres kalendarza: od < do i najwyżej MaxCalendarDays nocy
+    private static void ValidateCalendarRange(DateTime start, DateTime end)
+    {
+        if (start >= end)
+        {
+            throw new ArgumentException("Data początkowa musi być wcześniejsza niż data końcowa.");
+        }
+
+        if ((end - start).Days > MaxCalendarDays)
+        {
+            throw new ArgumentException($"Kalendarz można wyświetlić maksymalnie dla {MaxCalendarDays} dni.");
+        }
+    }
+
     public async Task<List<int>> GetAvailableRoomIdsAsync(int roomTypeId, DateTime checkIn, DateTime checkOut)
     {
         // Pokoje zajęte lub zablokowane w terminie - jako podzapytania (jedno zapytanie SQL z NOT IN / NOT EXISTS)
@@ -128,16 +147,7 @@ public class AvailabilityService : IAvailabilityService
     {
         var start = from.Date;
         var end = to.Date;
-
-        if (start >= end)
-        {
-            throw new ArgumentException("Data początkowa musi być wcześniejsza niż data końcowa.");
-        }
-
-        if ((end - start).Days > MaxCalendarDays)
-        {
-            throw new ArgumentException($"Kalendarz można wyświetlić maksymalnie dla {MaxCalendarDays} dni.");
-        }
+        ValidateCalendarRange(start, end);
 
         var rooms = await _context.Rooms
             .Include(r => r.RoomType)
@@ -168,10 +178,9 @@ public class AvailabilityService : IAvailabilityService
 
             for (var date = start; date < end; date = date.AddDays(1))
             {
-                // Noc [date, nextDay) jest zajęta, gdy nachodzi na nią rezerwacja albo blokada
-                var nextDay = date.AddDays(1);
-                var reservation = reservations.FirstOrDefault(r => r.RoomId == room.RoomId && r.CheckInDate < nextDay && r.CheckOutDate > date);
-                var block = blocks.FirstOrDefault(b => b.RoomId == room.RoomId && b.StartDate < nextDay && b.EndDate > date);
+                // Noc jest zajęta, gdy nachodzi na nią rezerwacja albo blokada
+                var reservation = reservations.FirstOrDefault(r => r.RoomId == room.RoomId && CoversNight(r, date));
+                var block = blocks.FirstOrDefault(b => b.RoomId == room.RoomId && CoversNight(b, date));
 
                 var day = new AvailabilityDayDto { Date = date, Status = AvailabilityStatus.Free };
 
@@ -195,5 +204,50 @@ public class AvailabilityService : IAvailabilityService
         }
 
         return calendar;
+    }
+
+    // Liczba wolnych pokoi liczona noc po nocy. Wolna każda noc nie oznacza jeszcze, że jeden pokój jest wolny przez cały pobyt
+    // (gość musiałby zmieniać pokoje) - dlatego wybrany w kalendarzu termin jest na końcu sprawdzany tak jak każda rezerwacja.
+    public async Task<List<RoomTypeNightDto>?> GetRoomTypeCalendarAsync(int roomTypeId, DateTime from, DateTime to)
+    {
+        var start = from.Date;
+        var end = to.Date;
+        ValidateCalendarRange(start, end);
+
+        var roomTypeExists = await _context.RoomTypes.AnyAsync(rt => rt.RoomTypeId == roomTypeId);
+        if (!roomTypeExists)
+        {
+            return null;
+        }
+
+        // Tylko pokoje, które można rezerwować (status "available") - tak samo jak przy wyszukiwaniu wolnych pokoi
+        var roomIds = await _context.Rooms
+            .Where(r => r.RoomTypeId == roomTypeId && r.Status == RoomStatus.Available)
+            .Select(r => r.RoomId)
+            .ToListAsync();
+
+        var reservations = await _context.Reservations
+            .Where(r => roomIds.Contains(r.RoomId))
+            .Where(ActiveReservationOverlaps(start, end))
+            .ToListAsync();
+
+        var blocks = await _context.RoomBlocks
+            .Where(b => roomIds.Contains(b.RoomId))
+            .Where(BlockOverlaps(start, end))
+            .ToListAsync();
+
+        var nights = new List<RoomTypeNightDto>();
+
+        for (var date = start; date < end; date = date.AddDays(1))
+        {
+            var occupiedRooms = reservations.Where(r => CoversNight(r, date)).Select(r => r.RoomId)
+                .Concat(blocks.Where(b => CoversNight(b, date)).Select(b => b.RoomId))
+                .Distinct()
+                .Count();
+
+            nights.Add(new RoomTypeNightDto { Date = date, AvailableRooms = roomIds.Count - occupiedRooms });
+        }
+
+        return nights;
     }
 }

@@ -205,7 +205,7 @@ export default function App() {
         <UserProfile token={token} onNavigate={navigate} />
       ) : route.view === 'room' ? (
         // PROFIL POKOJU (publiczny; właściciel widzi go bez przycisku rezerwacji)
-        <RoomTypeProfile roomTypeId={route.roomTypeId} search={search} canBook={!isOwner} onBook={id => navigate(`/rezerwacja/${id}`)} onBack={() => navigate('/')} />
+        <RoomTypeProfile roomTypeId={route.roomTypeId} search={search} canBook={!isOwner} onBook={id => navigate(`/rezerwacja/${id}`)} onSearch={handleSearch} onBack={() => navigate('/')} />
       ) : token && !isOwner && route.view === 'book' ? (
         // WIDOK GOŚCIA - rezerwacja
         <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
