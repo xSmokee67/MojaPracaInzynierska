@@ -1,22 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
-import AuthForm from './components/AuthForm';
-import ReservationForm from './components/ReservationForm';
-import AdminDashboard from './components/AdminDashboard';
-import MyReservations from './components/MyReservations';
-import RoomGallery from './components/RoomGallery';
-import RoomTypeProfile from './components/RoomTypeProfile';
-import UserProfile from './components/UserProfile';
-import ForgotPasswordForm from './components/ForgotPasswordForm';
-import ResetPasswordForm from './components/ResetPasswordForm';
-import Footer from './components/Footer';
-import NotFound from './components/NotFound';
+import AuthForm from './components/account/AuthForm';
+import ReservationForm from './components/reservations/ReservationForm';
+import AdminDashboard from './components/admin/AdminDashboard';
+import MyReservations from './components/reservations/MyReservations';
+import RoomGallery from './components/rooms/RoomGallery';
+import RoomTypeProfile from './components/rooms/RoomTypeProfile';
+import UserProfile from './components/account/UserProfile';
+import Footer from './components/common/Footer';
+import NotFound from './components/common/NotFound';
 import { adminTabBySlug } from './components/admin/adminTabs';
 import { SESSION_EXPIRED_EVENT } from './api/apiErrors';
 
 // Proste trasy oparte o hash w adresie (#/pokoj/2, #/panel/pokoje) - działa przycisk "Wstecz" i można wysłać link do pokoju
-
 const parseRoute = (hash) => {
-  const [path, query] = hash.replace(/^#\/?/, '').split('?');
+  const [path] = hash.replace(/^#\/?/, '').split('?');
   const [section, id, subId] = path.split('/');
   const numericId = Number(id);
   if (section === 'pokoj' && numericId > 0) return { view: 'room', roomTypeId: numericId };
@@ -27,12 +24,6 @@ const parseRoute = (hash) => {
     const tab = adminTabBySlug(id);
     const reservationId = Number(subId);
     return { view: 'panel', tab, reservationId: tab === 'reservations' && reservationId > 0 ? reservationId : undefined };
-  }
-  if (section === 'nie-pamietam-hasla') return { view: 'forgotPassword' };
-  if (section === 'reset-hasla') {
-    // Link z e-maila: #/reset-hasla?email=...&token=...
-    const params = new URLSearchParams(query ?? '');
-    return { view: 'resetPassword', email: params.get('email') ?? '', token: params.get('token') ?? '' };
   }
   if (section === 'logowanie') return { view: 'login' };
   // Pusty adres (#/) to strona główna, każdy inny nieznany adres - strona 404
@@ -159,12 +150,6 @@ export default function App() {
     if (route.view === 'login') navigate('/');
   };
 
-  // Zmiana imienia na stronie "Mój profil" - od razu widoczna w powitaniu
-  const handleProfileUpdated = (newFirstName) => {
-    localStorage.setItem('user_first_name', newFirstName);
-    setFirstName(newFirstName);
-  };
-
   const isOwner = role === 'Owner';
   const navButton = (active) => `flex-1 md:flex-none px-4 py-2 rounded-lg font-semibold transition-colors ${active ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
   const ownerButton = (active) => `flex-1 md:flex-none px-4 py-2 rounded-lg font-semibold text-white transition-colors ${active ? 'bg-red-700 ring-2 ring-red-300' : 'bg-red-600 hover:bg-red-700'}`;
@@ -208,22 +193,16 @@ export default function App() {
       {/* Główny routing aplikacji */}
       {!token && requiresLogin ? (
         // Rezerwacja, "Moje rezerwacje", profil i panel wymagają zalogowania - po zalogowaniu zostajemy na tej samej trasie
-        <AuthForm onLoginSuccess={handleLoginSuccess} onForgotPassword={() => navigate('/nie-pamietam-hasla')} sessionMessage={sessionMessage || (route.view === 'book' ? 'Zaloguj się lub załóż konto, aby zarezerwować pokój.' : '')} />
-      ) : route.view === 'forgotPassword' ? (
-        // RESET HASŁA - krok 1: wysłanie linku na e-mail
-        <ForgotPasswordForm onBackToLogin={() => navigate('/logowanie')} />
+        <AuthForm onLoginSuccess={handleLoginSuccess} sessionMessage={sessionMessage || (route.view === 'book' ? 'Zaloguj się lub załóż konto, aby zarezerwować pokój.' : '')} />
       ) : route.view === 'notFound' ? (
         // STRONA 404 - nieznany adres
         <NotFound onHome={() => navigate('/')} />
-      ) : route.view === 'resetPassword' ? (
-        // RESET HASŁA - krok 2: nowe hasło (link z e-maila)
-        <ResetPasswordForm key={route.token} email={route.email} token={route.token} onGoToLogin={() => navigate('/logowanie')} onRequestNewLink={() => navigate('/nie-pamietam-hasla')} />
       ) : token && isOwner && route.view === 'panel' ? (
         // PANEL WŁAŚCICIELA (czerwony przycisk w pasku nawigacji) - każda zakładka pod własnym adresem
         <AdminDashboard token={token} tab={route.tab} reservationId={route.reservationId} onNavigate={navigate} />
       ) : token && route.view === 'profile' ? (
         // MÓJ PROFIL (gość i właściciel)
-        <UserProfile token={token} onProfileUpdated={handleProfileUpdated} onNavigate={navigate} />
+        <UserProfile token={token} onNavigate={navigate} />
       ) : route.view === 'room' ? (
         // PROFIL POKOJU (publiczny; właściciel widzi go bez przycisku rezerwacji)
         <RoomTypeProfile roomTypeId={route.roomTypeId} search={search} canBook={!isOwner} onBook={id => navigate(`/rezerwacja/${id}`)} onBack={() => navigate('/')} />

@@ -34,12 +34,7 @@ public static class ServiceCollectionExtensions
             options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
         })
         .AddEntityFrameworkStores<ApplicationDbContext>()
-        .AddDefaultTokenProviders()
         .AddErrorDescriber<PolishIdentityErrorDescriber>();
-
-        // Link do resetu hasła (token Identity) jest ważny 2 godziny
-        services.Configure<DataProtectionTokenProviderOptions>(options =>
-            options.TokenLifespan = TimeSpan.FromHours(Services.Services.PasswordResetService.TokenValidHours));
 
         return services;
     }
@@ -134,8 +129,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IReviewService, Services.Services.ReviewService>();
         services.AddScoped<IAuthService, Services.Services.AuthService>();
         services.AddScoped<IProfileService, Services.Services.ProfileService>();
-        services.AddScoped<IPasswordResetService, Services.Services.PasswordResetService>();
-        services.AddScoped<IEmailService, Services.Services.EmailService>();
         services.AddSingleton<IFileStorageService, Services.Services.FileStorageService>();
 
         // Generowanie tokenów JWT (implementacja ITokenService z warstwy serwisów)

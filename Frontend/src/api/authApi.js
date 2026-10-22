@@ -32,29 +32,3 @@ export const registerUser = async (data) => {
     throw new Error(errorData?.error || 'Wystąpił błąd podczas rejestracji użytkownika.');
   }
 };
-
-// Reset hasła - krok 1: wysłanie linku na e-mail
-export const forgotPassword = async (email) => {
-  const response = await fetch(`${API_URL}/forgot-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
-  });
-
-  const data = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(data?.error || 'Nie udało się wysłać linku do resetu hasła.');
-  return data.message;
-};
-
-// Reset hasła - krok 2: nowe hasło z tokenem z linku
-export const resetPassword = async (dto) => {
-  const response = await fetch(`${API_URL}/reset-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(dto),
-  });
-
-  const data = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(data?.error || 'Nie udało się zmienić hasła.');
-  return data.message;
-};

@@ -12,8 +12,7 @@ Projekt realizowany w ramach pracy inżynierskiej. Aplikacja webowa do przegląd
 
 **Każdy zalogowany użytkownik**
 - powitanie „Witaj, imię” w pasku nawigacji
-- „Mój profil”: podgląd i edycja danych (imię, nazwisko, telefon, numer dokumentu), zmiana hasła
-- reset zapomnianego hasła: link wysyłany e-mailem, ważny 2 godziny i jednorazowy
+- „Mój profil”: podgląd danych konta (gość: także lista własnych opinii)
 
 **Gość (zalogowany)**
 - rezerwacja pokoju z usługami dodatkowymi i wyliczeniem ceny (z cennikiem sezonowym)
@@ -50,9 +49,24 @@ Backend/
 
 Frontend/src/
 ├── api        – komunikacja z API: wspólna funkcja apiRequest (apiClient.js), adres serwera w config.js
-├── components – widoki aplikacji (strona główna, profil pokoju, rezerwacje, panel administratora) i wspólne elementy (Alert, StarRating)
+├── components – widoki aplikacji pogrupowane w katalogi (opis niżej)
 └── utils      – formatowanie dat, odmiana liczebników, polskie nazwy i kolory statusów (statuses.js)
 ```
+
+Pliki są pogrupowane według obszaru systemu – te same nazwy katalogów w każdej warstwie, więc np. cały moduł dostępności leży w katalogach `Availability`:
+
+| Katalog | Co zawiera (w `Services/DTO`, `Services/Interfaces`, `Services/Services` i `API/Controllers`) |
+|---------|------------------------------------------------------------------------------------------------|
+| `Availability` | moduł zarządzania dostępnością: `AvailabilityService` (reguła dostępności, kalendarz, blokady wierszy), `RoomBlockService` (blokady pokoi) |
+| `Reservations` | proces rezerwacji: wyszukiwarka, cena pobytu, tworzenie i anulowanie, statusy, płatności i faktury (`ReservationService`) |
+| `Rooms` | typy pokoi, pokoje fizyczne, udogodnienia, zdjęcia typów pokoi |
+| `Pricing` | cennik sezonowy i usługi dodatkowe |
+| `Reviews` | opinie gości |
+| `Accounts` | rejestracja, logowanie (JWT) i profil użytkownika |
+
+Wspólne dla wszystkich obszarów zostają w katalogach `Services/Constants` (statusy i role), `Services/Mapping` (AutoMapper) i `Services/Settings`. Przestrzenie nazw się nie zmieniają (`Services.DTO`, `Services.Interfaces`, `Services.Services`, `API.Controllers`) – katalogi służą tylko porządkowi plików.
+
+Frontend (`components`): `rooms` – strona główna z wyszukiwarką i profil typu pokoju; `reservations` – formularz rezerwacji, „Moje rezerwacje”, szczegóły rezerwacji; `account` – logowanie, rejestracja, profil; `admin` – Panel Właściciela i jego zakładki; `common` – elementy wspólne (Alert, StarRating, stopka, strona 404).
 
 Kontrolery nie odwołują się bezpośrednio do bazy danych – wywołują serwisy z warstwy `Services`, które korzystają z `ApplicationDbContext`. EF Core pełni rolę repozytorium (`DbSet<T>`) i jednostki pracy (`DbContext`).
 
@@ -88,7 +102,7 @@ dotnet run
 - Klucz podpisu tokenów JWT nie jest trzymany w repozytorium – przechowują go User Secrets na komputerze dewelopera.
 - `dotnet ef database update` tworzy bazę `HotelReservationDb` (connection string w `appsettings.json`).
 - Przy pierwszym uruchomieniu aplikacja dodaje dane startowe (`API/Data/DbSeeder.cs`): role, konto właściciela, przykładowe typy pokoi, pokoje, cennik, usługi i udogodnienia.
-- E-maile (reset hasła): bez serwera SMTP zapisują się jako pliki `.eml` w katalogu `Backend/API/Emails`. Żeby wysyłać prawdziwe wiadomości, uzupełnij sekcję `Email` w `appsettings.json` (`SmtpHost`, `SmtpPort`, `UserName`), a hasło do skrzynki ustaw poleceniem `dotnet user-secrets set "Email:Password" "<hasło>"`. Adres aplikacji React (linki w e-mailach, CORS) to `Frontend:BaseUrl`.
+- Adres aplikacji React, z którego API przyjmuje zapytania (CORS), to `Frontend:BaseUrl` w `appsettings.json`.
 - API działa pod adresem `http://localhost:5285`, dokumentacja Swagger: `http://localhost:5285/swagger` (przycisk **Authorize** przyjmuje token z `POST /api/Auth/login`).
 
 ### 2. Frontend
@@ -125,6 +139,5 @@ Opis testów jednostkowych i scenariusze testów manualnych: [Backend/Tests/READ
 - uwierzytelnianie tokenem JWT (ważny 3 godziny), autoryzacja oparta na rolach (`Owner`, `Guest`)
 - hasła hashowane przez ASP.NET Core Identity (min. 8 znaków, w tym cyfra)
 - blokada konta na 15 minut po 5 nieudanych próbach logowania
-- reset hasła tokenem ASP.NET Core Identity (ważny 2 godziny, jednorazowy); formularz nie zdradza, czy konto o danym adresie istnieje
 - walidacja danych wejściowych w DTO i serwisach, kontrola rozszerzenia i rozmiaru przesyłanych zdjęć
 - klucz JWT poza repozytorium (User Secrets)

@@ -14,14 +14,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Konta, role, polityka haseł i blokada konta (szczegóły w Extensions/ServiceCollectionExtensions.cs)
 builder.Services.AddIdentityWithPolicies();
 
-// Adres aplikacji React (linki w e-mailach, CORS) i wysyłka e-maili - sekcje "Frontend" i "Email" w appsettings.json
+// Adres aplikacji React (polityka CORS) - sekcja "Frontend" w appsettings.json
 var frontendSettings = builder.Configuration.GetSection("Frontend").Get<FrontendSettings>() ?? new FrontendSettings();
-builder.Services.AddSingleton(frontendSettings);
-
-// Bez serwera SMTP e-maile są zapisywane jako pliki .eml w katalogu Backend/API/Emails
-var emailSettings = builder.Configuration.GetSection("Email").Get<EmailSettings>() ?? new EmailSettings();
-emailSettings.PickupDirectory = Path.Combine(builder.Environment.ContentRootPath, emailSettings.PickupDirectory);
-builder.Services.AddSingleton(emailSettings);
 
 // Klucz podpisu tokenów nie jest trzymany w repozytorium - ustawia się go w User Secrets (instrukcja w README.md)
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
