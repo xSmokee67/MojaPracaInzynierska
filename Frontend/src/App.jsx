@@ -151,15 +151,22 @@ export default function App() {
   };
 
   const isOwner = role === 'Owner';
-  const navButton = (active) => `flex-1 md:flex-none px-4 py-2 rounded-lg font-semibold transition-colors ${active ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
+  const navButton = (active) => `flex-1 md:flex-none px-4 py-2 rounded-lg font-semibold transition-colors ${active ? 'bg-emerald-600 text-white' : 'bg-white/10 text-slate-100 hover:bg-white/20'}`;
   const ownerButton = (active) => `flex-1 md:flex-none px-4 py-2 rounded-lg font-semibold text-white transition-colors ${active ? 'bg-red-700 ring-2 ring-red-300' : 'bg-red-600 hover:bg-red-700'}`;
+  const headerButton = 'text-sm px-4 py-2 rounded-lg font-semibold transition-colors';
   const requiresLogin = route.view === 'book' || route.view === 'reservations' || route.view === 'profile' || route.view === 'panel' || route.view === 'login';
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col items-center py-6 md:py-10 px-4 space-y-8">
+    <div className="relative isolate min-h-screen bg-mist flex flex-col items-center py-6 md:py-10 px-4 space-y-8">
+      {/* Tło strony głównej - zdjęcie hotelu za paskiem nawigacji i wyszukiwarką (index.css) */}
+      {route.view === 'rooms' && <div className="home-backdrop" aria-hidden="true" />}
+
       {/* Pasek nawigacji */}
-      <div className="w-full max-w-6xl flex flex-wrap justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm">
-        <button onClick={() => navigate('/')} className="text-xl font-bold text-emerald-600">Hotel Resort</button>
+      <div className="w-full max-w-6xl flex flex-wrap justify-between items-center gap-4 bg-navy-900 p-4 rounded-xl shadow-lg">
+        <button onClick={() => navigate('/')} className="flex items-center gap-2 text-xl font-display font-semibold text-white">
+          <span className="w-8 h-8 rounded-full border-2 border-brass-400 text-brass-400 text-base flex items-center justify-center" aria-hidden="true">H</span>
+          Hotel Resort
+        </button>
 
         {/* Menu nawigacji - gość (także niezalogowany) i właściciel widzą tę samą stronę główną */}
         <nav className="flex gap-2 order-3 w-full md:order-none md:w-auto">
@@ -170,20 +177,20 @@ export default function App() {
         </nav>
 
         {!token && route.view !== 'login' && (
-          <button onClick={() => navigate('/logowanie')} className="text-sm px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700">
+          <button onClick={() => navigate('/logowanie')} className={`${headerButton} bg-brass-400 text-navy-950 hover:bg-brass-300`}>
             Zaloguj się
           </button>
         )}
 
         {token && (
           <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-600 max-w-[12rem] truncate">
-              Witaj, <span className="font-semibold text-slate-800">{firstName || email}</span>
+            <span className="text-sm text-slate-300 max-w-[12rem] truncate">
+              Witaj, <span className="font-semibold text-white">{firstName || email}</span>
             </span>
-            <button onClick={() => navigate('/profil')} className={`text-sm px-4 py-2 rounded-lg font-semibold transition-colors ${route.view === 'profile' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+            <button onClick={() => navigate('/profil')} className={`${headerButton} ${route.view === 'profile' ? 'bg-emerald-600 text-white' : 'bg-white/10 text-slate-100 hover:bg-white/20'}`}>
               Mój profil
             </button>
-            <button onClick={() => handleLogout()} className="text-sm px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300">
+            <button onClick={() => handleLogout()} className={`${headerButton} border border-white/25 text-slate-100 hover:bg-white/10`}>
               Wyloguj się
             </button>
           </div>

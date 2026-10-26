@@ -18,6 +18,7 @@ Projekt realizowany w ramach pracy inżynierskiej. Aplikacja webowa do przegląd
 **Gość (zalogowany)**
 - rezerwacja pokoju z usługami dodatkowymi i wyliczeniem ceny (z cennikiem sezonowym)
 - lista własnych rezerwacji, szczegóły (płatności, faktura), anulowanie rezerwacji
+- zmiana terminu rezerwacji (najpóźniej dzień przed zameldowaniem): sprawdzenie dostępności nowego terminu i przeliczenie ceny
 - wystawienie opinii po zakończonym pobycie, lista własnych opinii w profilu
 
 **Właściciel (administrator)**
@@ -25,7 +26,7 @@ Projekt realizowany w ramach pracy inżynierskiej. Aplikacja webowa do przegląd
 - kalendarz dostępności (pierwsza zakładka panelu): siatka pokoje × noce z wolnymi, zarezerwowanymi i zablokowanymi nocami, obłożenie hotelu w wybranym okresie, liczba wolnych pokoi na każdą noc; kliknięcie rezerwacji otwiera jej szczegóły
 - typy pokoi (z opisem i zdjęciami), pokoje, udogodnienia, usługi dodatkowe, cennik sezonowy
 - blokady pokoi (remont, konserwacja)
-- wszystkie rezerwacje: zmiana statusu, rejestracja płatności, wystawianie faktur
+- wszystkie rezerwacje: zmiana statusu, zmiana terminu (także przedłużenie trwającego pobytu), rejestracja płatności, wystawianie faktur
 - moderacja opinii
 
 ## Technologie
@@ -33,7 +34,7 @@ Projekt realizowany w ramach pracy inżynierskiej. Aplikacja webowa do przegląd
 | Warstwa | Technologie |
 |---------|-------------|
 | Backend | ASP.NET Core Web API (.NET 10), Entity Framework Core, SQL Server, ASP.NET Core Identity, JWT, AutoMapper, Swagger |
-| Frontend | React 19 (JavaScript, JSX), Vite, Tailwind CSS |
+| Frontend | React 19 (JavaScript, JSX), Vite, Tailwind CSS (kolory i krój nagłówków hotelu w `index.css`) |
 | Testy | xUnit, EF Core InMemory |
 
 ## Architektura
@@ -50,6 +51,7 @@ Backend/
 
 Frontend/src/
 ├── api        – komunikacja z API: wspólna funkcja apiRequest (apiClient.js), adres serwera w config.js
+├── assets     – zdjęcie w tle strony głównej
 ├── components – widoki aplikacji pogrupowane w katalogi (opis niżej)
 └── utils      – formatowanie dat, odmiana liczebników, polskie nazwy i kolory statusów (statuses.js)
 ```
@@ -74,6 +76,8 @@ Kontrolery nie odwołują się bezpośrednio do bazy danych – wywołują serwi
 Moduł zarządzania dostępnością to `AvailabilityService` (`IAvailabilityService`) – jedyne miejsce, które decyduje, czy pokój jest wolny w danym terminie. Pokój jest wolny, gdy ma status `available` i w terminie nie ma nieanulowanej rezerwacji ani blokady. Terminy to przedziały [początek, koniec), więc dzień wymeldowania jest już wolny dla kolejnego gościa; reguła kolizji (`A.początek < B.koniec i A.koniec > B.początek`) jest zapisana raz i używana zarówno dla rezerwacji, jak i blokad. Z modułu korzystają: wyszukiwarka i tworzenie rezerwacji (`ReservationService` – przydział pierwszego wolnego pokoju), zakładanie blokad (`RoomBlockService` – blokada nie może nachodzić na rezerwację ani inną blokadę) oraz endpoint `GET /api/Reservation/availability`. Moduł prowadzi też kalendarz dostępności (tabela `Availability`: status `free` / `booked` / `blocked` dla każdej nocy) i udostępnia właścicielowi widok kalendarza (`GET /api/Availability/calendar?from=&to=`, maks. 62 noce): dla każdego pokoju i każdej nocy status wraz z numerem rezerwacji i gościem albo powodem blokady. Widok jest liczony z rezerwacji i blokad tą samą regułą kolizji co wyszukiwarka, więc zawsze pokazuje to samo, co zobaczy gość przy rezerwacji. Dla gości moduł udostępnia kalendarz typu pokoju (`GET /api/Availability/room-type/{id}?from=&to=`, bez logowania): liczbę wolnych pokoi w każdej nocy, bez danych o rezerwacjach. Wolny pokój w każdej nocy nie oznacza jeszcze, że jeden pokój jest wolny przez cały pobyt (gość musiałby zmieniać pokoje) – dlatego termin wybrany w kalendarzu jest na końcu sprawdzany tak samo jak w wyszukiwarce.
 
 Ochrona przed równoczesną rezerwacją: utworzenie rezerwacji (`ReservationService`) i blokady (`RoomBlockService`) odbywa się w jednej transakcji bazy danych. Na jej początku moduł dostępności zakłada blokadę pesymistyczną na wiersze pokoi (`SELECT … WITH (UPDLOCK)` – przy rezerwacji wszystkie pokoje danego typu, przy blokadzie jeden pokój), trwającą do końca transakcji. Gdy dwóch gości rezerwuje w tej samej chwili ostatni wolny pokój, drugie żądanie czeka na zakończenie pierwszego, a potem sprawdza dostępność na aktualnych danych i dostaje komunikat, że pokój został przed chwilą zarezerwowany. Transakcja zapewnia też, że rezerwacja i kalendarz dostępności zapisują się razem albo wcale.
+
+Zmiana terminu rezerwacji (`PUT /api/Reservation/{id}/dates`, `ReservationService.ChangeReservationDatesAsync`) przebiega w tej samej transakcji z blokadą pokoi danego typu. Moduł dostępności szuka wolnych pokoi w nowym terminie z pominięciem zmienianej rezerwacji (jej obecne noce nie blokują nowego terminu, np. przy przedłużeniu pobytu). Gość zostaje w swoim pokoju, jeśli jest on wolny w nowym terminie; w przeciwnym razie rezerwacja trafia do innego wolnego pokoju tego samego typu, a gdy takiego nie ma – zmiana jest odrzucana. Cena noclegów jest przeliczana według cennika dla nowego terminu, usługi dodatkowe zostają w cenach z chwili rezerwacji, a kalendarz dostępności zwalnia stare noce i zajmuje nowe. Gość może zmienić termin najpóźniej dzień przed zameldowaniem, właściciel – także w trakcie pobytu (bez zmiany daty zameldowania).
 
 Rejestrację i logowanie obsługuje `AuthService` (konta przez ASP.NET Core Identity). Serwis zna tylko interfejs `ITokenService` – samo wystawienie tokenu JWT (`JwtTokenService`, `API/Identity`) należy do warstwy API, bo format tokenu to szczegół komunikacji HTTP, a nie logika biznesowa (odwrócenie zależności).
 

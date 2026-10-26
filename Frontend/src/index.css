@@ -1,1 +1,47 @@
 @import "tailwindcss";
+
+/* Kolory i krój marki hotelu - dostępne jako klasy Tailwinda, np. bg-navy-900, text-brass-400, font-display, bg-mist */
+@theme {
+  --font-display: "Fraunces Variable", Georgia, serif;
+
+  --color-navy-950: #0c1628;
+  --color-navy-900: #14213d;
+  --color-navy-800: #1f3157;
+  --color-navy-700: #2c4270;
+
+  --color-brass-300: #e3c98a;
+  --color-brass-400: #d4b064;
+  --color-brass-500: #c49a3c;
+
+  --color-mist: #eef3f7;
+}
+
+@layer base {
+  /* Tailwind 4 rysuje obramowania kolorem tekstu - jaśniejsze obramowania pól, tabel i kart porządkują widok */
+  *, ::before, ::after {
+    border-color: var(--color-slate-300);
+  }
+
+  /* Nagłówki stron i sekcji krojem szeryfowym, tekst - bezszeryfowym */
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Tło strony głównej: zdjęcie hotelu z granatowym przyciemnieniem, przechodzące w kolor strony */
+.home-backdrop {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 40rem;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgb(20 33 61 / 0.7) 0%, rgb(20 33 61 / 0.5) 45%, rgb(238 243 247 / 0.9) 88%, var(--color-mist) 100%),
+    url('./assets/tlo-hotel.jpg') center 55% / cover no-repeat;
+}
+
+/* Widoczny fokus przy obsłudze klawiaturą (pola mają klasę outline-none) - poza warstwami, więc ma pierwszeństwo */
+:where(input, select, textarea, button, a):focus-visible {
+  outline: 2px solid var(--color-brass-500);
+  outline-offset: 2px;
+}

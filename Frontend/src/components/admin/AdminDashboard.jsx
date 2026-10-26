@@ -21,7 +21,7 @@ export default function AdminDashboard({ token, tab, reservationId, onNavigate }
         <h2 className="text-3xl font-bold text-slate-800">Panel Właściciela</h2>
         <div className="flex flex-wrap md:justify-end gap-2">
           {adminTabs.map(t => (
-            <button key={t.id} onClick={() => onNavigate(adminTabPath(t.id))} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${tab === t.id ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{t.label}</button>
+            <button key={t.id} onClick={() => onNavigate(adminTabPath(t.id))} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${tab === t.id ? 'bg-navy-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{t.label}</button>
           ))}
         </div>
       </div>

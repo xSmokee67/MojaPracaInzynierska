@@ -91,7 +91,6 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
   };
 
   const maxGuests = Math.max(4, ...roomTypes.map(rt => rt.maxOccupancy));
-  const heroPhoto = roomTypes.find(rt => rt.mainPhotoUrl)?.mainPhotoUrl;
   const resultFor = (id) => results?.find(r => r.roomTypeId === id);
 
   // Udogodnienia do filtra - wszystkie występujące w pokojach (zapamiętane, a już nieistniejące są pomijane)
@@ -132,38 +131,34 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
 
   return (
     <div className="w-full max-w-6xl space-y-8">
-      {/* --- SEKCJA POWITALNA Z WYSZUKIWARKĄ --- */}
-      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-800 to-slate-900">
-        {heroPhoto && <img src={photoUrl(heroPhoto)} alt="" className="absolute inset-0 w-full h-full object-cover" />}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/50 to-slate-900/20" />
-        <div className="relative px-6 pt-16 pb-6 md:px-10 md:pt-24 md:pb-10 space-y-6">
-          <div className="space-y-2 max-w-2xl">
-            <h2 className="text-4xl md:text-5xl font-bold text-white">Hotel Resort</h2>
-            <p className="text-lg text-slate-100">Komfortowe pokoje i apartamenty. Sprawdź dostępność w wybranym terminie i zarezerwuj pobyt online.</p>
-          </div>
-
-          <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-white p-4 rounded-xl shadow-lg">
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase">Przyjazd</label>
-              <input type="date" required min={today} value={checkIn}
-                onChange={e => { setCheckIn(e.target.value); if (e.target.value >= checkOut) setCheckOut(addDaysToInputDate(e.target.value, 1)); }}
-                className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase">Wyjazd</label>
-              <input type="date" required min={addDaysToInputDate(checkIn || today, 1)} value={checkOut} onChange={e => setCheckOut(e.target.value)} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase">Goście</label>
-              <select value={guests} onChange={e => setGuests(Number(e.target.value))} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white">
-                {Array.from({ length: maxGuests }, (_, i) => i + 1).map(n => <option key={n} value={n}>{personsLabel(n)}</option>)}
-              </select>
-            </div>
-            <div className="flex items-end">
-              <button type="submit" className="w-full py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors">Szukaj pokoi</button>
-            </div>
-          </form>
+      {/* --- SEKCJA POWITALNA Z WYSZUKIWARKĄ (na zdjęciu hotelu w tle strony - App.jsx, index.css) --- */}
+      <div className="pt-8 md:pt-20 space-y-6">
+        <div className="space-y-3 max-w-3xl">
+          <h2 className="text-4xl md:text-6xl font-semibold text-white [text-shadow:0_2px_16px_rgb(12_22_40_/_0.5)]">Pokoje i apartamenty w{'\u00a0'}Częstochowie</h2>
+          <p className="text-lg text-slate-100 [text-shadow:0_1px_8px_rgb(12_22_40_/_0.6)]">Wybierz termin i liczbę gości - od razu zobaczysz wolne pokoje i cenę całego pobytu.</p>
         </div>
+
+        <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-white p-4 md:p-5 rounded-2xl shadow-xl">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase">Przyjazd</label>
+            <input type="date" required min={today} value={checkIn}
+              onChange={e => { setCheckIn(e.target.value); if (e.target.value >= checkOut) setCheckOut(addDaysToInputDate(e.target.value, 1)); }}
+              className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase">Wyjazd</label>
+            <input type="date" required min={addDaysToInputDate(checkIn || today, 1)} value={checkOut} onChange={e => setCheckOut(e.target.value)} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase">Goście</label>
+            <select value={guests} onChange={e => setGuests(Number(e.target.value))} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white">
+              {Array.from({ length: maxGuests }, (_, i) => i + 1).map(n => <option key={n} value={n}>{personsLabel(n)}</option>)}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button type="submit" className="w-full py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors">Szukaj pokoi</button>
+          </div>
+        </form>
       </div>
 
       {error && <Alert type="error" message={error} />}
@@ -187,7 +182,7 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
 
       {/* --- SORTOWANIE I FILTRY --- */}
       {fittingRoomTypes.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 bg-white p-4 rounded-xl shadow-sm">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 bg-white p-4 rounded-xl shadow-sm ring-1 ring-slate-200">
           <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
             Sortuj:
             <select value={filters.sort} onChange={e => updateFilters({ sort: e.target.value })} className="px-3 py-1.5 border rounded-lg outline-none bg-white text-slate-800">
@@ -237,7 +232,7 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
 
           return (
             <button key={rt.roomTypeId} type="button" onClick={() => onSelect(rt.roomTypeId)}
-              className="group flex flex-col text-left bg-white rounded-xl shadow-sm overflow-hidden transition-shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              className="group flex flex-col text-left bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden transition-shadow hover:shadow-lg">
               <div className="relative w-full aspect-[4/3] overflow-hidden bg-slate-200">
                 {rt.mainPhotoUrl
                   ? <img src={photoUrl(rt.mainPhotoUrl)} alt={rt.name} loading="lazy" className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${unavailable ? 'grayscale opacity-70' : ''}`} />
@@ -253,7 +248,7 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
 
                 <div className="text-sm text-slate-600">
                   {rt.averageRating !== null && rt.averageRating !== undefined && (rt.reviewCount ?? 0) > 0
-                    ? <><span className="text-amber-500">★</span> <span className="font-semibold text-slate-800">{rt.averageRating.toLocaleString('pl-PL', { minimumFractionDigits: 1 })}</span> · {reviewsLabel(rt.reviewCount)}</>
+                    ? <><span className="text-brass-500">★</span> <span className="font-semibold text-slate-800">{rt.averageRating.toLocaleString('pl-PL', { minimumFractionDigits: 1 })}</span> · {reviewsLabel(rt.reviewCount)}</>
                     : <span className="text-slate-500">Brak opinii</span>}
                   <span className="mx-2 text-slate-300">|</span>do {personsLabel(rt.maxOccupancy)}
                 </div>
@@ -269,8 +264,8 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
 
                 <div className="mt-auto pt-2 flex justify-between items-end gap-2">
                   {result
-                    ? <div><span className={`text-xl font-bold ${unavailable ? 'text-slate-400' : 'text-emerald-600'}`}>{result.totalPrice} PLN</span> <span className="text-sm text-slate-500">za {nightsLabel(result.nights)}</span></div>
-                    : <div><span className="text-xl font-bold text-emerald-600">{rt.basePrice} PLN</span> <span className="text-sm text-slate-500">/ noc</span></div>}
+                    ? <div><span className={`text-xl font-bold ${unavailable ? 'text-slate-400' : 'text-navy-900'}`}>{result.totalPrice} PLN</span> <span className="text-sm text-slate-500">za {nightsLabel(result.nights)}</span></div>
+                    : <div><span className="text-xl font-bold text-navy-900">{rt.basePrice} PLN</span> <span className="text-sm text-slate-500">/ noc</span></div>}
                   <span className="text-sm font-semibold text-emerald-600 group-hover:underline whitespace-nowrap">Zobacz pokój →</span>
                 </div>
               </div>
