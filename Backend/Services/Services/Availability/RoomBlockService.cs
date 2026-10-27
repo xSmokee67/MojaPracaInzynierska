@@ -11,11 +11,22 @@ public class RoomBlockService : IRoomBlockService
 {
     private readonly ApplicationDbContext _context;
     private readonly IAvailabilityService _availabilityService;
+    private readonly INotificationService _notificationService;
 
-    public RoomBlockService(ApplicationDbContext context, IAvailabilityService availabilityService)
+    public RoomBlockService(ApplicationDbContext context, IAvailabilityService availabilityService, INotificationService notificationService)
     {
         _context = context;
         _availabilityService = availabilityService;
+        _notificationService = notificationService;
+    }
+
+    // Każdy przeniesiony gość dostaje powiadomienie o nowym pokoju
+    private async Task NotifyRelocatedGuestsAsync(List<RelocatedReservationDto> relocated)
+    {
+        foreach (var r in relocated)
+        {
+            await _notificationService.NotifyUserAsync(r.GuestId, $"Rezerwacja #{r.ReservationId} ({r.CheckInDate:dd.MM.yyyy} - {r.CheckOutDate:dd.MM.yyyy}) została przeniesiona z pokoju {r.FromRoomNumber} do pokoju {r.ToRoomNumber} tego samego typu. Termin i cena się nie zmieniają.", r.ReservationId);
+        }
     }
 
     public async Task<List<RoomBlockDto>> GetAllRoomBlocksAsync(int? roomId)
@@ -38,7 +49,7 @@ public class RoomBlockService : IRoomBlockService
             }).ToListAsync();
     }
 
-    public async Task CreateRoomBlockAsync(RoomBlockDto dto)
+    public async Task<List<RelocatedReservationDto>> CreateRoomBlockAsync(RoomBlockDto dto)
     {
         if (dto.StartDate >= dto.EndDate)
         {
@@ -50,30 +61,26 @@ public class RoomBlockService : IRoomBlockService
             throw new ArgumentException("Podaj powód blokady (np. remont, konserwacja).");
         }
 
-        var roomExists = await _context.Rooms.AnyAsync(r => r.RoomId == dto.RoomId);
-        if (!roomExists)
+        var room = await _context.Rooms.FindAsync(dto.RoomId);
+        if (room == null)
         {
             throw new ArgumentException("Wskazany pokój nie istnieje!");
         }
 
-        // Sprawdzenie kolizji i zapis blokady w jednej transakcji - w tym czasie nikt nie zarezerwuje tego pokoju
+        // Sprawdzenie kolizji, przeniesienie gości i zapis blokady w jednej transakcji - w tym czasie nikt nie zarezerwuje pokoi tego typu
         await using var transaction = await _context.Database.BeginTransactionAsync();
-        await _availabilityService.LockRoomAsync(dto.RoomId);
+        await _availabilityService.LockRoomTypeAsync(room.RoomTypeId);
 
         // Reguła kolizji terminów jest w module dostępności (AvailabilityService)
-        var hasReservations = await _availabilityService.HasActiveReservationsAsync(dto.RoomId, dto.StartDate, dto.EndDate);
-
-        if (hasReservations)
-        {
-            throw new ArgumentException("W tym terminie pokój ma aktywne rezerwacje. Najpierw je anuluj lub wybierz inny termin.");
-        }
-
         var hasBlocks = await _availabilityService.HasBlocksAsync(dto.RoomId, dto.StartDate, dto.EndDate);
 
         if (hasBlocks)
         {
             throw new ArgumentException("Pokój jest już zablokowany w części tego terminu.");
         }
+
+        // Rezerwacje w tym pokoju w okresie blokady przechodzą do innych wolnych pokoi tego samego typu
+        var relocated = await _availabilityService.RelocateReservationsAsync(room.RoomId, room.RoomTypeId, dto.StartDate, dto.EndDate);
 
         var block = new RoomBlock
         {
@@ -88,8 +95,10 @@ public class RoomBlockService : IRoomBlockService
         await _context.SaveChangesAsync();
 
         await _availabilityService.UpdateAvailabilityAsync(block.RoomId, block.StartDate, block.EndDate, AvailabilityStatus.Blocked);
+        await NotifyRelocatedGuestsAsync(relocated);
 
         await transaction.CommitAsync();
+        return relocated;
     }
 
     public async Task<bool> DeleteRoomBlockAsync(int roomBlockId)

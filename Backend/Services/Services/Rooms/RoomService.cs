@@ -10,10 +10,23 @@ namespace Services.Services;
 public class RoomService : IRoomService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IAvailabilityService _availabilityService;
+    private readonly INotificationService _notificationService;
 
-    public RoomService(ApplicationDbContext context)
+    public RoomService(ApplicationDbContext context, IAvailabilityService availabilityService, INotificationService notificationService)
     {
         _context = context;
+        _availabilityService = availabilityService;
+        _notificationService = notificationService;
+    }
+
+    // Każdy przeniesiony gość dostaje powiadomienie o nowym pokoju
+    private async Task NotifyRelocatedGuestsAsync(List<RelocatedReservationDto> relocated)
+    {
+        foreach (var r in relocated)
+        {
+            await _notificationService.NotifyUserAsync(r.GuestId, $"Rezerwacja #{r.ReservationId} ({r.CheckInDate:dd.MM.yyyy} - {r.CheckOutDate:dd.MM.yyyy}) została przeniesiona z pokoju {r.FromRoomNumber} do pokoju {r.ToRoomNumber} tego samego typu. Termin i cena się nie zmieniają.", r.ReservationId);
+        }
     }
 
     public async Task<List<RoomDto>> GetAllRoomsAsync()
@@ -51,19 +64,32 @@ public class RoomService : IRoomService
         await _context.SaveChangesAsync();
     }
 
-    public async Task<bool> UpdateRoomAsync(int roomId, RoomDto dto)
+    public async Task<List<RelocatedReservationDto>?> UpdateRoomAsync(int roomId, RoomDto dto)
     {
         var room = await _context.Rooms.Include(r => r.Amenities).FirstOrDefaultAsync(r => r.RoomId == roomId);
         if (room == null)
         {
-            return false;
+            return null;
         }
 
         await ValidateRoomAsync(dto, roomId);
 
+        var newStatus = string.IsNullOrWhiteSpace(dto.Status) ? RoomStatus.Available : dto.Status;
+
+        // Remont, wyłączenie albo zmiana typu - pokój przestaje obsługiwać przyszłe rezerwacje, więc goście są przenoszeni
+        // do innych pokoi dotychczasowego typu (sprzątanie jest chwilowe i nie przenosi rezerwacji)
+        var leavesService = newStatus == RoomStatus.Maintenance || newStatus == RoomStatus.Disabled || dto.RoomTypeId != room.RoomTypeId;
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _availabilityService.LockRoomTypeAsync(room.RoomTypeId);
+
+        var relocated = leavesService
+            ? await _availabilityService.RelocateReservationsAsync(room.RoomId, room.RoomTypeId, DateTime.Today, null)
+            : new List<RelocatedReservationDto>();
+
         room.RoomTypeId = dto.RoomTypeId;
         room.RoomNumber = dto.RoomNumber;
-        room.Status = string.IsNullOrWhiteSpace(dto.Status) ? RoomStatus.Available : dto.Status;
+        room.Status = newStatus;
 
         var amenities = await _context.Amenities.Where(a => dto.AmenityIds.Contains(a.AmenityId)).ToListAsync();
         room.Amenities.Clear();
@@ -73,7 +99,10 @@ public class RoomService : IRoomService
         }
 
         await _context.SaveChangesAsync();
-        return true;
+        await NotifyRelocatedGuestsAsync(relocated);
+
+        await transaction.CommitAsync();
+        return relocated;
     }
 
     public async Task<bool> DeleteRoomAsync(int roomId)

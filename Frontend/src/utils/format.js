@@ -16,3 +16,8 @@ export const toInputDate = (date) => `${date.getFullYear()}-${String(date.getMon
 export const addDaysToInputDate = (value, days) => { const d = new Date(`${value}T00:00:00`); d.setDate(d.getDate() + days); return toInputDate(d); };
 // Data z godziną (np. data płatności) - zawsze w polskim formacie, niezależnie od języka przeglądarki
 export const formatDateTime = (value) => new Date(value).toLocaleString('pl-PL');
+
+// Rezerwacje przeniesione przez API do innych pokoi (remont, wyłączenie pokoju, blokada) - do komunikatu po zapisie
+export const relocationsLabel = (relocated) => relocated && relocated.length > 0
+  ? ` Przeniesiono rezerwacje: ${relocated.map(r => `#${r.reservationId} (${formatDate(r.checkInDate)} - ${formatDate(r.checkOutDate)}) z pokoju ${r.fromRoomNumber} do ${r.toRoomNumber}`).join(', ')}.`
+  : '';

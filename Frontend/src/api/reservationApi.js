@@ -24,6 +24,10 @@ export const getReservationDetails = (id, token) =>
 export const cancelReservation = (id, token) =>
   apiRequest(`/Reservation/${id}/cancel`, { method: 'PUT', token }, 'Nie udało się anulować rezerwacji');
 
+// Zmiana terminu (gość - własnej rezerwacji, właściciel - dowolnej); API sprawdza dostępność i przelicza cenę
+export const changeReservationDates = (id, dto, token) =>
+  apiRequest(`/Reservation/${id}/dates`, { method: 'PUT', token, body: dto }, 'Nie udało się zmienić terminu rezerwacji');
+
 export const registerPayment = (id, dto, token) =>
   apiRequest(`/Reservation/${id}/payments`, { method: 'POST', token, body: dto }, 'Błąd rejestracji płatności');
 

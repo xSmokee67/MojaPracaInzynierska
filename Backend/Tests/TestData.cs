@@ -76,7 +76,7 @@ public static class TestData
 
     public static Services.Services.ReservationService CreateReservationService(ApplicationDbContext context)
     {
-        return new Services.Services.ReservationService(context, CreateMapper(), new Services.Services.AvailabilityService(context));
+        return new Services.Services.ReservationService(context, CreateMapper(), new Services.Services.AvailabilityService(context), new Services.Services.NotificationService(context));
     }
 
     public static Reservation AddReservation(ApplicationDbContext context, int roomId, DateTime checkIn, DateTime checkOut, string status = "confirmed", int guestId = GuestId, decimal totalPrice = 600)

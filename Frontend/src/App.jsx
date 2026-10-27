@@ -7,6 +7,7 @@ import RoomGallery from './components/rooms/RoomGallery';
 import RoomTypeProfile from './components/rooms/RoomTypeProfile';
 import UserProfile from './components/account/UserProfile';
 import Footer from './components/common/Footer';
+import NotificationBell from './components/common/NotificationBell';
 import NotFound from './components/common/NotFound';
 import { adminTabBySlug } from './components/admin/adminTabs';
 import { SESSION_EXPIRED_EVENT } from './api/apiErrors';
@@ -18,7 +19,7 @@ const parseRoute = (hash) => {
   const numericId = Number(id);
   if (section === 'pokoj' && numericId > 0) return { view: 'room', roomTypeId: numericId };
   if (section === 'rezerwacja') return { view: 'book', roomTypeId: numericId > 0 ? numericId : undefined };
-  if (section === 'moje-rezerwacje') return { view: 'reservations' };
+  if (section === 'moje-rezerwacje') return { view: 'reservations', reservationId: numericId > 0 ? numericId : undefined };
   if (section === 'profil') return { view: 'profile' };
   if (section === 'panel') {
     const tab = adminTabBySlug(id);
@@ -106,8 +107,9 @@ export default function App() {
     const onHashChange = () => {
       const next = parseRoute(window.location.hash);
       setRoute(next);
-      // Otwarcie i zamknięcie szczegółów rezerwacji w panelu nie przewija listy rezerwacji na górę
-      const sameReservationsTab = previous.view === 'panel' && next.view === 'panel' && previous.tab === 'reservations' && next.tab === 'reservations';
+      // Otwarcie i zamknięcie szczegółów rezerwacji (panel, "Moje rezerwacje") nie przewija listy rezerwacji na górę
+      const sameReservationsTab = (previous.view === 'panel' && next.view === 'panel' && previous.tab === 'reservations' && next.tab === 'reservations')
+        || (previous.view === 'reservations' && next.view === 'reservations');
       if (!sameReservationsTab) window.scrollTo(0, 0);
       previous = next;
     };
@@ -184,6 +186,8 @@ export default function App() {
 
         {token && (
           <div className="flex items-center gap-3">
+            {/* Powiadomienia o zmianach w rezerwacjach - kliknięcie otwiera rezerwację (właściciel: panel, gość: "Moje rezerwacje") */}
+            <NotificationBell token={token} refreshKey={route} onOpenReservation={id => navigate(isOwner ? `/panel/rezerwacje/${id}` : `/moje-rezerwacje/${id}`)} />
             <span className="text-sm text-slate-300 max-w-[12rem] truncate">
               Witaj, <span className="font-semibold text-white">{firstName || email}</span>
             </span>
@@ -231,7 +235,7 @@ export default function App() {
         </div>
       ) : token && !isOwner && route.view === 'reservations' ? (
         // WIDOK GOŚCIA - moje rezerwacje
-        <MyReservations token={token} refreshKey={reservationsRefreshKey} />
+        <MyReservations token={token} refreshKey={reservationsRefreshKey} selectedReservationId={route.reservationId ?? null} onSelectReservation={id => navigate(id ? `/moje-rezerwacje/${id}` : '/moje-rezerwacje')} />
       ) : (
         // STRONA GŁÓWNA - galeria pokoi (publiczna, także dla właściciela)
         <RoomGallery search={search} onSearch={handleSearch} onClearSearch={() => handleSearch(null)} onSelect={id => navigate(`/pokoj/${id}`)} />

@@ -12,6 +12,7 @@ public interface IReservationService
     Task<bool> UpdateReservationStatusAsync(int reservationId, string status);
     Task<ReservationDetailsDto?> GetReservationDetailsAsync(int reservationId);
     Task<bool> CancelReservationByGuestAsync(int reservationId, int guestId);
+    Task<bool> ChangeReservationDatesAsync(int reservationId, ChangeReservationDatesDto dto, int? guestId);
     Task<bool> RegisterPaymentAsync(int reservationId, PaymentDto dto);
     Task<bool> IssueInvoiceAsync(int reservationId);
 }

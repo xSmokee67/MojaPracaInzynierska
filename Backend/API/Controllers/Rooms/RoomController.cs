@@ -44,12 +44,12 @@ public class RoomController : ControllerBase
     {
         try
         {
-            var success = await _roomService.UpdateRoomAsync(id, dto);
+            var relocated = await _roomService.UpdateRoomAsync(id, dto);
 
-            if (!success)
+            if (relocated == null)
                 return NotFound(new { error = "Nie znaleziono pokoju!"});
 
-            return Ok(new { message = "Dane pokoju zostały zaktualizowane!"});
+            return Ok(new { message = "Dane pokoju zostały zaktualizowane!", relocated });
         }
         catch (ArgumentException e)
         {

@@ -182,6 +182,32 @@ public class ReservationController : ControllerBase
         }
     }
 
+    // Zmiana terminu: gość - tylko własna rezerwacja, właściciel - dowolna (sprawdza serwis)
+    [HttpPut("{id}/dates")]
+    [Authorize]
+    public async Task<IActionResult> ChangeDates(int id, [FromBody] ChangeReservationDatesDto dto)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(userId, out var currentUserId))
+            return Unauthorized(new { error = "Nie udało się zidentyfikować zalogowanego użytkownika."});
+
+        int? guestId = User.IsInRole(UserRoles.Owner) ? null : currentUserId;
+
+        try
+        {
+            var success = await _reservationService.ChangeReservationDatesAsync(id, dto, guestId);
+
+            if (!success)
+                return NotFound(new { error = "Nie znaleziono rezerwacji."});
+
+            return Ok(new { message = "Termin rezerwacji został zmieniony."});
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(new { error = e.Message});
+        }
+    }
+
     [HttpPost("{id}/payments")]
     [Authorize(Roles = UserRoles.Owner)]
     public async Task<IActionResult> RegisterPayment(int id, [FromBody] PaymentDto dto)

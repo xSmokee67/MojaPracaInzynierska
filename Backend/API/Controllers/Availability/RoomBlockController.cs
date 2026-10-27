@@ -37,8 +37,8 @@ public class RoomBlockController : ControllerBase
 
         try
         {
-            await _roomBlockService.CreateRoomBlockAsync(dto);
-            return Ok(new { message = "Blokada pokoju została utworzona."});
+            var relocated = await _roomBlockService.CreateRoomBlockAsync(dto);
+            return Ok(new { message = "Blokada pokoju została utworzona.", relocated });
         }
         catch (ArgumentException e)
         {

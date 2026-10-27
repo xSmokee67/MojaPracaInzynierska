@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { getRooms, getRoomBlocks, createRoomBlock, deleteRoomBlock } from '../../api/adminApi';
 import { errorMessage } from '../../api/apiErrors';
-import { formatDate } from '../../utils/format';
+import { formatDate, relocationsLabel } from '../../utils/format';
 import Alert from '../common/Alert';
 
 // Zakładka "Blokady": wyłączenie pokoju z rezerwacji na okres remontu lub konserwacji
@@ -38,7 +38,8 @@ export default function BlocksTab({ token }) {
 
   const handleAddBlock = async (e) => {
     e.preventDefault();
-    try { await createRoomBlock(newBlock, token); showSuccess('Blokada pokoju została utworzona.'); setNewBlock({ ...newBlock, startDate: '', endDate: '', reason: '' }); reload(); } catch (err) { setError(errorMessage(err)); }
+    // Rezerwacje nachodzące na blokadę API przenosi do innych pokoi tego typu i zwraca ich listę
+    try { const result = await createRoomBlock(newBlock, token); showSuccess('Blokada pokoju została utworzona.' + relocationsLabel(result.relocated)); setNewBlock({ ...newBlock, startDate: '', endDate: '', reason: '' }); reload(); } catch (err) { setError(errorMessage(err)); }
   };
   const handleDeleteBlock = async (id) => {
     if (!window.confirm('Na pewno usunąć tę blokadę?')) return;
@@ -76,6 +77,7 @@ export default function BlocksTab({ token }) {
             <button type="submit" className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">Zablokuj Pokój</button>
           </div>
         </form>
+        <p className="-mt-6 text-xs text-slate-500">Rezerwacje w tym pokoju w okresie blokady zostaną przeniesione do innych wolnych pokoi tego samego typu. Jeśli któregoś gościa nie da się przenieść, blokada nie zostanie założona.</p>
 
         <div className="flex items-center gap-4">
           <label className="text-xs font-semibold text-slate-500 uppercase">Pokaż blokady dla pokoju</label>

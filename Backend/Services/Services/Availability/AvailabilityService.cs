@@ -51,10 +51,18 @@ public class AvailabilityService : IAvailabilityService
         }
     }
 
-    public async Task<List<int>> GetAvailableRoomIdsAsync(int roomTypeId, DateTime checkIn, DateTime checkOut)
+    public async Task<List<int>> GetAvailableRoomIdsAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, int? excludedReservationId = null)
     {
+        var reservations = _context.Reservations.AsQueryable();
+
+        // Przy zmianie terminu pomijamy zmienianą rezerwację - jej obecne noce nie zajmują pokoju dla nowego terminu
+        if (excludedReservationId != null)
+        {
+            reservations = reservations.Where(r => r.ReservationId != excludedReservationId);
+        }
+
         // Pokoje zajęte lub zablokowane w terminie - jako podzapytania (jedno zapytanie SQL z NOT IN / NOT EXISTS)
-        var reservedRoomIds = _context.Reservations.Where(ActiveReservationOverlaps(checkIn, checkOut)).Select(r => r.RoomId);
+        var reservedRoomIds = reservations.Where(ActiveReservationOverlaps(checkIn, checkOut)).Select(r => r.RoomId);
         var blockedRoomIds = _context.RoomBlocks.Where(BlockOverlaps(checkIn, checkOut)).Select(b => b.RoomId);
 
         return await _context.Rooms
@@ -71,13 +79,6 @@ public class AvailabilityService : IAvailabilityService
         return roomIds.Count > 0 ? roomIds[0] : null;
     }
 
-    public async Task<bool> HasActiveReservationsAsync(int roomId, DateTime startDate, DateTime endDate)
-    {
-        return await _context.Reservations
-            .Where(r => r.RoomId == roomId)
-            .AnyAsync(ActiveReservationOverlaps(startDate, endDate));
-    }
-
     public async Task<bool> HasBlocksAsync(int roomId, DateTime startDate, DateTime endDate)
     {
         return await _context.RoomBlocks
@@ -85,10 +86,9 @@ public class AvailabilityService : IAvailabilityService
             .AnyAsync(BlockOverlaps(startDate, endDate));
     }
 
-    // Blokada pesymistyczna (SQL Server): SELECT z UPDLOCK zakłada na wiersze pokoi blokadę aktualizacji,
-    // która trwa do końca transakcji. Drugie równoczesne żądanie dla tych pokoi czeka przy tym zapytaniu,
-    // aż pierwsze zapisze rezerwację lub blokadę, i dopiero potem sprawdza dostępność - na aktualnych danych.
-    // Rezerwacja blokuje wszystkie pokoje typu, a blokada pokoju jeden z nich, więc te dwie operacje też na siebie czekają.
+    // Blokada pesymistyczna (SQL Server): SELECT z UPDLOCK zakłada na wiersze pokoi danego typu blokadę aktualizacji,
+    // która trwa do końca transakcji. Drugie równoczesne żądanie dla tych pokoi (rezerwacja, zmiana terminu, blokada,
+    // remont pokoju) czeka przy tym zapytaniu, aż pierwsze się zakończy, i dopiero potem sprawdza dostępność - na aktualnych danych.
     public async Task LockRoomTypeAsync(int roomTypeId)
     {
         // Baza w pamięci (testy jednostkowe) nie wykonuje SQL i nie ma blokad wierszy
@@ -100,14 +100,66 @@ public class AvailabilityService : IAvailabilityService
         await _context.Database.ExecuteSqlAsync($"SELECT RoomId FROM Rooms WITH (UPDLOCK) WHERE RoomTypeId = {roomTypeId}");
     }
 
-    public async Task LockRoomAsync(int roomId)
+    // Wywoływane w transakcji (po LockRoomTypeAsync) przez remont / wyłączenie pokoju, zmianę jego typu i założenie blokady.
+    // Każda rezerwacja (oczekująca lub potwierdzona) trafia do innego pokoju tego typu wolnego przez cały jej pobyt;
+    // jeśli choć jednej nie da się przenieść, rzucany jest wyjątek, a transakcja wycofuje wszystkie przeniesienia.
+    public async Task<List<RelocatedReservationDto>> RelocateReservationsAsync(int roomId, int roomTypeId, DateTime from, DateTime? to)
     {
-        if (!_context.Database.IsRelational())
+        var reservations = await _context.Reservations
+            .Where(r => r.RoomId == roomId)
+            .Where(r => r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed)
+            .Where(r => r.CheckOutDate > from && (to == null || r.CheckInDate < to))
+            .OrderBy(r => r.CheckInDate)
+            .ToListAsync();
+
+        // Gość, który już mieszka w pokoju, nie jest przenoszony automatycznie
+        var ongoing = reservations.FirstOrDefault(r => r.CheckInDate.Date < DateTime.Today);
+        if (ongoing != null)
         {
-            return;
+            throw new ArgumentException($"W pokoju trwa pobyt (rezerwacja #{ongoing.ReservationId} do {ongoing.CheckOutDate:dd.MM.yyyy}). Zmiana jest możliwa po wymeldowaniu gościa.");
         }
 
-        await _context.Database.ExecuteSqlAsync($"SELECT RoomId FROM Rooms WITH (UPDLOCK) WHERE RoomId = {roomId}");
+        var roomNumbers = await _context.Rooms
+            .Where(r => r.RoomTypeId == roomTypeId || r.RoomId == roomId)
+            .ToDictionaryAsync(r => r.RoomId, r => r.RoomNumber);
+
+        var relocated = new List<RelocatedReservationDto>();
+        var notRelocated = new List<string>();
+
+        foreach (var reservation in reservations)
+        {
+            // Wolne pokoje tego typu na cały pobyt - bez pokoju, który jest wycofywany
+            var freeRoomIds = await GetAvailableRoomIdsAsync(roomTypeId, reservation.CheckInDate, reservation.CheckOutDate, reservation.ReservationId);
+            var newRoomId = freeRoomIds.Where(id => id != roomId).Cast<int?>().FirstOrDefault();
+
+            if (newRoomId == null)
+            {
+                notRelocated.Add($"#{reservation.ReservationId} ({reservation.CheckInDate:dd.MM.yyyy} - {reservation.CheckOutDate:dd.MM.yyyy})");
+                continue;
+            }
+
+            await UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Free);
+            reservation.RoomId = newRoomId.Value;
+            await _context.SaveChangesAsync();
+            await UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Booked);
+
+            relocated.Add(new RelocatedReservationDto
+            {
+                ReservationId = reservation.ReservationId,
+                GuestId = reservation.GuestId,
+                CheckInDate = reservation.CheckInDate,
+                CheckOutDate = reservation.CheckOutDate,
+                FromRoomNumber = roomNumbers[roomId],
+                ToRoomNumber = roomNumbers[newRoomId.Value]
+            });
+        }
+
+        if (notRelocated.Count > 0)
+        {
+            throw new ArgumentException($"Brak wolnego pokoju tego typu dla rezerwacji: {string.Join(", ", notRelocated)}. Zmień ich termin albo je anuluj i spróbuj ponownie.");
+        }
+
+        return relocated;
     }
 
     // Ustawia status (free / booked / blocked) dla każdej nocy z zakresu [startDate, endDate)

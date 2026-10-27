@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { roomStatusLabels, roomStatusStyles } from '../../utils/statuses';
 import { getRoomTypes, getRooms, getAmenities, createRoom, updateRoom, deleteRoom } from '../../api/adminApi';
 import { errorMessage } from '../../api/apiErrors';
+import { relocationsLabel } from '../../utils/format';
 import Alert from '../common/Alert';
 
 // Zakładka "Fizyczne Pokoje": pokoje z typem, statusem i udogodnieniami
@@ -42,8 +43,14 @@ export default function RoomsTab({ token }) {
   const handleAddRoom = async (e) => {
     e.preventDefault();
     try {
-      if (editingRoomId) await updateRoom(editingRoomId, newRoom, token); else await createRoom(newRoom, token);
-      showSuccess(editingRoomId ? 'Zmiany w pokoju zostały zapisane.' : 'Pokój został dodany.');
+      // Remont, wyłączenie lub zmiana typu pokoju: API przenosi przyszłe rezerwacje do innych pokoi i zwraca ich listę
+      if (editingRoomId) {
+        const result = await updateRoom(editingRoomId, newRoom, token);
+        showSuccess('Zmiany w pokoju zostały zapisane.' + relocationsLabel(result.relocated));
+      } else {
+        await createRoom(newRoom, token);
+        showSuccess('Pokój został dodany.');
+      }
       setNewRoom({ ...newRoom, roomNumber: '', status: 'available', amenityIds: [] }); setEditingRoomId(null); reload();
     } catch (err) { setError(errorMessage(err)); }
   };
@@ -61,7 +68,7 @@ export default function RoomsTab({ token }) {
       // API nie usuwa pokoju z historią rezerwacji (płatności, faktury) - zamiast tego można go wyłączyć i ukryć z listy
       if (room.status !== 'disabled' && deleteError.startsWith('Nie można usunąć pokoju, który ma rezerwacje')
         && window.confirm(`Pokój ${room.roomNumber} ma rezerwacje, więc nie można go usunąć.\n\nWyłączyć go z użytku i ukryć z listy? Historia rezerwacji zostanie zachowana.`)) {
-        try { await updateRoom(room.roomId, { ...room, status: 'disabled' }, token); showSuccess(`Pokój ${room.roomNumber} został wyłączony i ukryty z listy.`); reload(); } catch (updateErr) { setError(errorMessage(updateErr)); }
+        try { const result = await updateRoom(room.roomId, { ...room, status: 'disabled' }, token); showSuccess(`Pokój ${room.roomNumber} został wyłączony i ukryty z listy.` + relocationsLabel(result.relocated)); reload(); } catch (updateErr) { setError(errorMessage(updateErr)); }
         return;
       }
       setError(deleteError);
@@ -90,6 +97,7 @@ export default function RoomsTab({ token }) {
             <select value={newRoom.status} onChange={e => setNewRoom({...newRoom, status: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white">
               {Object.entries(roomStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
+            {editingRoomId && <p className="mt-1 text-xs text-slate-500">„W remoncie”, „Wyłączony” albo zmiana typu przeniesie przyszłe rezerwacje do innych pokoi tego typu.</p>}
           </div>
           <div className="flex items-end gap-2">
             <button type="submit" className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">{editingRoomId ? 'Zapisz Zmiany' : 'Dodaj Pokój'}</button>

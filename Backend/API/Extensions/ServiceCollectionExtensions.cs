@@ -129,6 +129,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IReviewService, Services.Services.ReviewService>();
         services.AddScoped<IAuthService, Services.Services.AuthService>();
         services.AddScoped<IProfileService, Services.Services.ProfileService>();
+        services.AddScoped<INotificationService, Services.Services.NotificationService>();
         services.AddSingleton<IFileStorageService, Services.Services.FileStorageService>();
 
         // Generowanie tokenów JWT (implementacja ITokenService z warstwy serwisów)
