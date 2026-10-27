@@ -261,6 +261,39 @@ namespace DAL.Migrations
                     b.ToTable("Invoices");
                 });
 
+            modelBuilder.Entity("Model.Notification", b =>
+                {
+                    b.Property<int>("NotificationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("NotificationId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ReservationId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("NotificationId");
+
+                    b.HasIndex("ReservationId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("Model.Payment", b =>
                 {
                     b.Property<int>("PaymentId")
@@ -717,6 +750,23 @@ namespace DAL.Migrations
                         .HasForeignKey("Model.Invoice", "ReservationId");
 
                     b.Navigation("Reservation");
+                });
+
+            modelBuilder.Entity("Model.Notification", b =>
+                {
+                    b.HasOne("Model.Reservation", "Reservation")
+                        .WithMany()
+                        .HasForeignKey("ReservationId");
+
+                    b.HasOne("Model.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Reservation");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Model.Payment", b =>
