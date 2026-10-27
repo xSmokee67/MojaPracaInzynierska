@@ -1,9 +1,9 @@
 // Plik: Frontend/src/components/reservations/ReservationDetails.jsx
 import { useState, useEffect } from 'react';
 import { reservationStatusLabels, reservationStatusStyles, paymentMethodLabels, paymentStatusLabels } from '../../utils/statuses';
-import { getReservationDetails, cancelReservation, registerPayment, issueInvoice, createReview } from '../../api/reservationApi';
+import { getReservationDetails, cancelReservation, changeReservationDates, registerPayment, issueInvoice, createReview } from '../../api/reservationApi';
 import { errorMessage } from '../../api/apiErrors';
-import { formatDate, formatDateTime, nightsLabel } from '../../utils/format';
+import { formatDate, formatDateTime, nightsLabel, toInputDate } from '../../utils/format';
 import Alert from '../common/Alert';
 import StarRating from '../common/StarRating';
 
@@ -15,6 +15,7 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
   // Stany dla formularzy
   const [newPayment, setNewPayment] = useState({ amount: 0, method: 'card', status: 'completed' });
   const [newReview, setNewReview] = useState({ reservationId, rating: 5, comment: '' });
+  const [newDates, setNewDates] = useState({ checkInDate: '', checkOutDate: '' });
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -23,6 +24,7 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
         const data = await getReservationDetails(reservationId, token);
         setDetails(data);
         setNewPayment(prev => ({ ...prev, amount: Math.max(data.totalPrice - data.paidAmount, 0) }));
+        setNewDates({ checkInDate: data.checkInDate.slice(0, 10), checkOutDate: data.checkOutDate.slice(0, 10) });
         setError('');
       } catch (err) {
         setError(errorMessage(err));
@@ -51,6 +53,13 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
     await runAction(() => cancelReservation(reservationId, token), 'Rezerwacja została anulowana.');
   };
 
+  // Handler dla Gościa i Właściciela
+  const handleChangeDates = async (e) => {
+    e.preventDefault();
+    if (!window.confirm(`Zmienić termin na ${formatDate(newDates.checkInDate)} - ${formatDate(newDates.checkOutDate)}? Cena noclegów zostanie przeliczona.`)) return;
+    await runAction(() => changeReservationDates(reservationId, newDates, token), 'Termin rezerwacji został zmieniony. Nowy pokój i cena są widoczne powyżej.');
+  };
+
   const handleAddReview = async (e) => {
     e.preventDefault();
     await runAction(() => createReview(newReview, token), 'Dziękujemy za wystawienie opinii!');
@@ -70,6 +79,8 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const canCancel = details !== null && (details.status === 'pending' || details.status === 'confirmed') && new Date(details.checkInDate) > today;
+  // Termin zmienia gość (najpóźniej dzień przed zameldowaniem) albo właściciel (także w trakcie pobytu - np. przedłużenie)
+  const canChangeDates = details !== null && (details.status === 'pending' || details.status === 'confirmed') && (isOwner || new Date(details.checkInDate) > today);
   const nights = details ? Math.round((new Date(details.checkOutDate).getTime() - new Date(details.checkInDate).getTime()) / 86400000) : 0;
 
   return (
@@ -114,6 +125,25 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
                 <span className="font-bold text-emerald-600">{details.totalPrice.toFixed(2)} PLN</span> <span className="text-sm text-slate-500">(wpłacono {details.paidAmount.toFixed(2)} PLN)</span>
               </div>
             </div>
+
+            {/* --- ZMIANA TERMINU --- */}
+            {canChangeDates && (
+              <form onSubmit={handleChangeDates} className="space-y-3 bg-slate-50 p-4 rounded-lg border">
+                <h3 className="font-bold text-slate-700">Zmiana terminu</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase">Nowe zameldowanie</label>
+                    <input type="date" required min={isOwner ? undefined : toInputDate(today)} value={newDates.checkInDate} onChange={e => setNewDates({ ...newDates, checkInDate: e.target.value })} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase">Nowe wymeldowanie</label>
+                    <input type="date" required min={newDates.checkInDate} value={newDates.checkOutDate} onChange={e => setNewDates({ ...newDates, checkOutDate: e.target.value })} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white" />
+                  </div>
+                  <button type="submit" className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">Zmień termin</button>
+                </div>
+                <p className="text-xs text-slate-500">System sprawdzi dostępność nowego terminu i przeliczy cenę noclegów według cennika; usługi dodatkowe zostają w dotychczasowej cenie. Jeśli obecny pokój jest w nowym terminie zajęty, rezerwacja trafi do innego wolnego pokoju tego samego typu.</p>
+              </form>
+            )}
 
             {!isOwner && canCancel && (
               <button onClick={handleCancel} className="w-full py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">Anuluj rezerwację</button>

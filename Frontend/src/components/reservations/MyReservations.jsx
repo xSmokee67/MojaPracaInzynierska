@@ -7,11 +7,11 @@ import { formatDate } from '../../utils/format';
 import ReservationDetails from './ReservationDetails';
 import Alert from '../common/Alert';
 
-export default function MyReservations({ token, refreshKey }) {
+// Szczegóły rezerwacji otwierają się pod własnym adresem (#/moje-rezerwacje/12) - także z powiadomienia
+export default function MyReservations({ token, refreshKey, selectedReservationId, onSelectReservation }) {
   const [reservations, setReservations] = useState([]);
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState('');
-  const [selectedReservationId, setSelectedReservationId] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   // refreshKey - nowa rezerwacja z formularza, reloadKey - zmiana w oknie szczegółów (np. anulowanie)
@@ -70,7 +70,7 @@ export default function MyReservations({ token, refreshKey }) {
                 <td className="p-4 text-slate-600">{r.additionalServices.length > 0 ? r.additionalServices.join(', ') : '—'}</td>
                 <td className="p-4 font-bold text-emerald-600">{r.totalPrice.toFixed(2)} PLN</td>
                 <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${reservationStatusStyles[r.status] ?? 'bg-slate-100 text-slate-600'}`}>{reservationStatusLabels[r.status] ?? r.status}</span></td>
-                <td className="p-4 text-right"><button onClick={() => setSelectedReservationId(r.reservationId)} className="text-emerald-600 hover:text-emerald-800 font-medium text-sm">Szczegóły</button></td>
+                <td className="p-4 text-right"><button onClick={() => onSelectReservation(r.reservationId)} className="text-emerald-600 hover:text-emerald-800 font-medium text-sm">Szczegóły</button></td>
               </tr>
             ))}
             {filteredReservations.length === 0 && <tr><td colSpan={7} className="p-4 text-center text-slate-500">Brak rezerwacji do wyświetlenia.</td></tr>}
@@ -79,7 +79,7 @@ export default function MyReservations({ token, refreshKey }) {
       </div>
 
       {selectedReservationId && (
-        <ReservationDetails token={token} reservationId={selectedReservationId} isOwner={false} onClose={() => setSelectedReservationId(null)} onChanged={() => setReloadKey(key => key + 1)} />
+        <ReservationDetails token={token} reservationId={selectedReservationId} isOwner={false} onClose={() => onSelectReservation(null)} onChanged={() => setReloadKey(key => key + 1)} />
       )}
     </div>
   );
