@@ -18,6 +18,9 @@ public class AvailabilityService : IAvailabilityService
     // Najdłuższy zakres kalendarza w panelu (ok. dwa miesiące) - siatka pokoje × dni pozostaje czytelna
     private const int MaxCalendarDays = 62;
 
+    // Propozycje innych terminów są szukane najdalej tyle dni przed i po wybranym dniu przyjazdu
+    private const int AlternativeSearchDays = 14;
+
     private readonly ApplicationDbContext _context;
 
     public AvailabilityService(ApplicationDbContext context)
@@ -160,6 +163,65 @@ public class AvailabilityService : IAvailabilityService
         }
 
         return relocated;
+    }
+
+    // Gdy w wybranym terminie nie ma pokoju: najbliższe terminy tej samej długości (do 14 dni wcześniej lub później, nie w przeszłości),
+    // w których jeden pokój danego typu jest wolny przez cały pobyt. Kolejność sprawdzania: dzień wcześniej, dzień później, dwa dni wcześniej...
+    public async Task<List<AlternativeStayDto>> FindAlternativeStaysAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, int count)
+    {
+        var requestedStart = checkIn.Date;
+        var nights = (checkOut.Date - requestedStart).Days;
+        var firstStart = requestedStart.AddDays(-AlternativeSearchDays) < DateTime.Today ? DateTime.Today : requestedStart.AddDays(-AlternativeSearchDays);
+        var lastStart = requestedStart.AddDays(AlternativeSearchDays);
+
+        // Tylko pokoje, które można rezerwować (status "available") - tak samo jak przy wyszukiwaniu wolnych pokoi
+        var roomIds = await _context.Rooms
+            .Where(r => r.RoomTypeId == roomTypeId && r.Status == RoomStatus.Available)
+            .Select(r => r.RoomId)
+            .ToListAsync();
+
+        // Rezerwacje i blokady z całego okna wczytane raz - zamiast osobnego zapytania dla każdego sprawdzanego terminu
+        var reservations = await _context.Reservations
+            .Where(r => roomIds.Contains(r.RoomId))
+            .Where(ActiveReservationOverlaps(firstStart, lastStart.AddDays(nights)))
+            .ToListAsync();
+
+        var blocks = await _context.RoomBlocks
+            .Where(b => roomIds.Contains(b.RoomId))
+            .Where(BlockOverlaps(firstStart, lastStart.AddDays(nights)))
+            .ToListAsync();
+
+        var candidates = Enumerable.Range(1, AlternativeSearchDays)
+            .SelectMany(offset => new[] { requestedStart.AddDays(-offset), requestedStart.AddDays(offset) })
+            .Where(start => start >= firstStart);
+
+        var alternatives = new List<AlternativeStayDto>();
+
+        foreach (var start in candidates)
+        {
+            var end = start.AddDays(nights);
+
+            // Ta sama reguła kolizji co w zapytaniach do bazy - wyrażenie skompilowane i sprawdzone na wczytanych danych
+            var reservationOverlaps = ActiveReservationOverlaps(start, end).Compile();
+            var blockOverlaps = BlockOverlaps(start, end).Compile();
+
+            var occupiedRooms = reservations.Where(reservationOverlaps).Select(r => r.RoomId)
+                .Concat(blocks.Where(blockOverlaps).Select(b => b.RoomId))
+                .Distinct()
+                .Count();
+
+            if (occupiedRooms < roomIds.Count)
+            {
+                alternatives.Add(new AlternativeStayDto { CheckInDate = start, CheckOutDate = end, AvailableRooms = roomIds.Count - occupiedRooms });
+            }
+
+            if (alternatives.Count == count)
+            {
+                break;
+            }
+        }
+
+        return alternatives.OrderBy(a => a.CheckInDate).ToList();
     }
 
     // Ustawia status (free / booked / blocked) dla każdej nocy z zakresu [startDate, endDate)

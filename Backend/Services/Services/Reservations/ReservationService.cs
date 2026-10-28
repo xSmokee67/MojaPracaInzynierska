@@ -23,6 +23,9 @@ public class ReservationService : IReservationService
         _notificationService = notificationService;
     }
 
+    // Ile innych terminów proponujemy, gdy w wybranym nie ma wolnego pokoju
+    private const int AlternativeStaysCount = 3;
+
     // Termin w treści powiadomień, np. "10.11.2026 - 13.11.2026"
     private static string StayDates(DateTime checkIn, DateTime checkOut) => $"{checkIn:dd.MM.yyyy} - {checkOut:dd.MM.yyyy}";
 
@@ -58,6 +61,19 @@ public class ReservationService : IReservationService
         }
 
         return results;
+    }
+
+    // Propozycje innych terminów (moduł dostępności) z ceną całego pobytu według cennika
+    public async Task<List<AlternativeStayDto>> GetAlternativeStaysAsync(int roomTypeId, DateTime checkIn, DateTime checkOut)
+    {
+        var stays = await _availabilityService.FindAlternativeStaysAsync(roomTypeId, checkIn, checkOut, AlternativeStaysCount);
+
+        foreach (var stay in stays)
+        {
+            stay.TotalPrice = await CalculateTotalPriceAsync(roomTypeId, stay.CheckInDate, stay.CheckOutDate, new List<int>());
+        }
+
+        return stays;
     }
 
     public async Task<decimal> CalculateTotalPriceAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, List<int> additionalServiceIds)

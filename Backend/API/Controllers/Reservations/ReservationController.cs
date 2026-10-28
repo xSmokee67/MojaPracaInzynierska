@@ -41,6 +41,26 @@ public class ReservationController : ControllerBase
         return Ok(new { isAvailable = true, message = "Pokoje są dostępne!" });
     }
 
+    // Propozycje innych terminów tej samej długości, gdy w wybranym nie ma wolnego pokoju (bez logowania)
+    [HttpGet("alternatives")]
+    public async Task<IActionResult> GetAlternatives([FromQuery] int roomTypeId, [FromQuery] string checkIn, [FromQuery] string checkOut)
+    {
+        if (!DateTime.TryParseExact(checkIn, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var ci) ||
+            !DateTime.TryParseExact(checkOut, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var co))
+        {
+            return BadRequest(new { error = "Nieprawidłowy format daty. Oczekiwano YYYY-MM-DD." });
+        }
+
+        if (ci >= co || ci.Date < DateTime.Today)
+            return BadRequest(new { error = "Nieprawidłowy termin pobytu - data przyjazdu nie może być w przeszłości i musi poprzedzać datę wyjazdu." });
+
+        if ((co - ci).Days > 60)
+            return BadRequest(new { error = "Pobyt może trwać maksymalnie 60 nocy." });
+
+        var stays = await _reservationService.GetAlternativeStaysAsync(roomTypeId, ci, co);
+        return Ok(stays);
+    }
+
     // Wyszukiwarka na stronie głównej (bez logowania)
     [HttpGet("search")]
     public async Task<IActionResult> Search([FromQuery] string checkIn, [FromQuery] string checkOut, [FromQuery] int guests = 1)

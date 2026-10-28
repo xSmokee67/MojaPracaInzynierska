@@ -4,6 +4,7 @@ import { checkAvailability, calculatePrice, createReservation } from '../../api/
 import { getRoomTypes, getAdditionalServices } from '../../api/adminApi';
 import { errorMessage } from '../../api/apiErrors';
 import { formatDate, toInputDate } from '../../utils/format';
+import AlternativeStays from '../rooms/AlternativeStays';
 
 // Sprawdzenie dostępności i ceny pobytu - wspólne dla przycisku "Sprawdź cenę i dostępność"
 // i dla automatycznego sprawdzenia, gdy gość przychodzi z wyszukiwarki z wybranym terminem
@@ -121,6 +122,20 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
     }
   };
 
+  // Propozycja innego terminu - od razu sprawdzana dostępność i cena (z wybranymi usługami)
+  const handleSelectAlternative = async (newCheckIn, newCheckOut) => {
+    setCheckInDate(newCheckIn);
+    setCheckOutDate(newCheckOut);
+    try {
+      setIsError(false);
+      setStatusMessage('Sprawdzanie dostępności...');
+      showCheckResult(await checkStay(roomTypeId, newCheckIn, newCheckOut, additionalServiceIds));
+    } catch (err) {
+      setIsError(true);
+      setStatusMessage(errorMessage(err));
+    }
+  };
+
   // Krok 2: Finalizacja rezerwacji
   const handleBook = async () => {
     try {
@@ -209,6 +224,11 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
         <div className={`p-4 rounded-lg text-sm font-medium ${isError ? 'bg-red-100 text-red-700' : isAvailable ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
           {statusMessage}
         </div>
+      )}
+
+      {/* Brak wolnego pokoju - propozycje innych terminów tej samej długości */}
+      {isAvailable === false && !isError && (
+        <AlternativeStays roomTypeId={roomTypeId} checkIn={checkInDate} checkOut={checkOutDate} onSelectStay={handleSelectAlternative} />
       )}
 
       {/* Podsumowanie koszyka pokazujące wybrane opcje i koszty */}

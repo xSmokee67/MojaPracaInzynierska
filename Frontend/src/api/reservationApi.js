@@ -3,6 +3,10 @@ import { apiRequest } from './apiClient';
 export const checkAvailability = (roomTypeId, checkIn, checkOut) =>
   apiRequest(`/Reservation/availability?roomTypeId=${roomTypeId}&checkIn=${checkIn}&checkOut=${checkOut}`, {}, 'Błąd sprawdzania dostępności');
 
+// Najbliższe wolne terminy tej samej długości, gdy w wybranym nie ma pokoju (z ceną pobytu)
+export const getAlternativeStays = (roomTypeId, checkIn, checkOut) =>
+  apiRequest(`/Reservation/alternatives?roomTypeId=${roomTypeId}&checkIn=${checkIn}&checkOut=${checkOut}`, {}, 'Błąd wyszukiwania innych terminów');
+
 export const calculatePrice = (dto) =>
   apiRequest('/Reservation/price', { method: 'POST', body: dto }, 'Błąd kalkulacji ceny');
 

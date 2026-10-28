@@ -5,6 +5,7 @@ namespace Services.Interfaces;
 public interface IReservationService
 {
     Task<List<RoomTypeAvailabilityDto>> SearchRoomTypesAsync(DateTime checkIn, DateTime checkOut, int guests);
+    Task<List<AlternativeStayDto>> GetAlternativeStaysAsync(int roomTypeId, DateTime checkIn, DateTime checkOut);
     Task<decimal> CalculateTotalPriceAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, List<int> additionalServiceIds);
     Task<bool> CreateReservationAsync(CreateReservationDto dto);
     Task<List<ReservationDto>> GetGuestReservationsAsync(int guestId);

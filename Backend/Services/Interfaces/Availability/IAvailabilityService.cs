@@ -22,6 +22,9 @@ public interface IAvailabilityService
     // do innych wolnych pokoi tego samego typu. Gdy dla którejś rezerwacji nie ma miejsca - ArgumentException.
     Task<List<RelocatedReservationDto>> RelocateReservationsAsync(int roomId, int roomTypeId, DateTime from, DateTime? to);
 
+    // Najbliższe terminy tej samej długości z wolnym pokojem danego typu (najwyżej count, posortowane według daty przyjazdu)
+    Task<List<AlternativeStayDto>> FindAlternativeStaysAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, int count);
+
     // Kalendarz dostępności: status (free / booked / blocked) dla każdej nocy z zakresu
     Task UpdateAvailabilityAsync(int roomId, DateTime startDate, DateTime endDate, string status);
 

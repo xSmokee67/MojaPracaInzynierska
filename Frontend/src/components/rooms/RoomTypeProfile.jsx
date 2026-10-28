@@ -8,6 +8,7 @@ import NotFound from '../common/NotFound';
 import Alert from '../common/Alert';
 import StarRating from '../common/StarRating';
 import RoomAvailabilityCalendar from './RoomAvailabilityCalendar';
+import AlternativeStays from './AlternativeStays';
 
 // Profil typu pokoju: galeria zdjęć, opis, ceny, kalendarz dostępności, udogodnienia, opinie i przycisk rezerwacji
 // canBook = false dla właściciela - przegląda stronę jak gość, ale rezerwacji dokonują tylko goście
@@ -135,7 +136,12 @@ export default function RoomTypeProfile({ roomTypeId, search, canBook, onBook, o
                     ? <div className="font-semibold text-amber-700">Ten pokój mieści maksymalnie {personsLabel(room.maxOccupancy)}.</div>
                     : stay.isAvailable
                       ? <div className="flex justify-between items-baseline gap-2"><span className="font-semibold text-emerald-700">Dostępny{stay.availableRooms === 1 ? ' - ostatni wolny pokój!' : ''}</span><span className="text-lg font-bold text-slate-800">{stay.totalPrice} PLN</span></div>
-                      : <div className="font-semibold text-slate-700">Brak jednego wolnego pokoju na cały ten termin. Wybierz inne daty w kalendarzu.</div>}
+                      : (
+                        <div className="space-y-3">
+                          <div className="font-semibold text-slate-700">Brak jednego wolnego pokoju na cały ten termin.</div>
+                          <AlternativeStays roomTypeId={roomTypeId} checkIn={search.checkIn} checkOut={search.checkOut} onSelectStay={handleSelectStay} />
+                        </div>
+                      )}
                 </div>
               ) : (
                 <p className="text-sm text-slate-500">Wybierz w kalendarzu dzień przyjazdu i wyjazdu, aby zobaczyć cenę całego pobytu.</p>

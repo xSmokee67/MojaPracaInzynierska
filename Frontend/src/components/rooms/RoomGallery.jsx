@@ -266,7 +266,7 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
                   {result
                     ? <div><span className={`text-xl font-bold ${unavailable ? 'text-slate-400' : 'text-navy-900'}`}>{result.totalPrice} PLN</span> <span className="text-sm text-slate-500">za {nightsLabel(result.nights)}</span></div>
                     : <div><span className="text-xl font-bold text-navy-900">{rt.basePrice} PLN</span> <span className="text-sm text-slate-500">/ noc</span></div>}
-                  <span className="text-sm font-semibold text-emerald-600 group-hover:underline whitespace-nowrap">Zobacz pokój →</span>
+                  <span className="text-sm font-semibold text-emerald-600 group-hover:underline whitespace-nowrap">{unavailable ? 'Inne terminy →' : 'Zobacz pokój →'}</span>
                 </div>
               </div>
             </button>
