@@ -63,11 +63,13 @@ public class ReservationServiceAvailabilityTests
         Assert.Null(roomId);
     }
 
-    [Fact(DisplayName = "Dostępność: anulowana rezerwacja nie blokuje pokoju")]
-    public async Task IgnoresCancelledReservations()
+    [Theory(DisplayName = "Dostępność: rezerwacja anulowana i z niestawieniem się nie blokuje pokoju")]
+    [InlineData("cancelled")]
+    [InlineData("no-show")]
+    public async Task IgnoresReleasedReservations(string status)
     {
         using var context = TestData.CreateContext();
-        TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut, status: "cancelled");
+        TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut, status: status);
         var service = new Services.Services.AvailabilityService(context);
 
         var roomId = await service.GetAvailableRoomIdAsync(TestData.StandardRoomTypeId, CheckIn, CheckOut);
@@ -75,11 +77,10 @@ public class ReservationServiceAvailabilityTests
         Assert.Equal(TestData.Room101Id, roomId);
     }
 
-    [Theory(DisplayName = "Dostępność: rezerwacje oczekujące, zrealizowane i z niestawieniem się nadal zajmują pokój")]
+    [Theory(DisplayName = "Dostępność: rezerwacje oczekujące i zrealizowane nadal zajmują pokój")]
     [InlineData("pending")]
     [InlineData("completed")]
-    [InlineData("no-show")]
-    public async Task TreatsNonCancelledStatusesAsOccupied(string status)
+    public async Task TreatsActiveStatusesAsOccupied(string status)
     {
         using var context = TestData.CreateContext();
         TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut, status: status);

@@ -39,6 +39,49 @@ public class ReservationService : IReservationService
         [ReservationStatus.Pending] = "oczekuje ponownie na potwierdzenie."
     };
 
+    // Statusy, po których noce rezerwacji wracają do puli wolnych pokoi (tak samo liczy moduł dostępności)
+    private static bool ReleasesRoom(string status) => status == ReservationStatus.Cancelled || status == ReservationStatus.NoShow;
+
+    // Automatyczne statusy - wywoływane przez API przy starcie i potem co godzinę (BackgroundJobs/ReservationStatusJob):
+    // - potwierdzona rezerwacja po dniu wymeldowania -> zakończona (gość może wystawić opinię, hotel - fakturę),
+    // - rezerwacja niepotwierdzona do dnia przyjazdu -> niestawienie się; jej noce wracają do puli wolnych pokoi.
+    // Zwraca liczbę zmienionych rezerwacji.
+    public async Task<int> UpdateExpiredReservationsAsync()
+    {
+        var today = DateTime.Today;
+
+        var expired = await _context.Reservations
+            .Where(r => (r.Status == ReservationStatus.Confirmed && r.CheckOutDate < today)
+                || (r.Status == ReservationStatus.Pending && r.CheckInDate < today))
+            .OrderBy(r => r.ReservationId)
+            .ToListAsync();
+
+        foreach (var reservation in expired)
+        {
+            var stay = StayDates(reservation.CheckInDate, reservation.CheckOutDate);
+
+            if (reservation.Status == ReservationStatus.Confirmed)
+            {
+                reservation.Status = ReservationStatus.Completed;
+                await _context.SaveChangesAsync();
+
+                await _notificationService.NotifyUserAsync(reservation.GuestId, $"Rezerwacja #{reservation.ReservationId} ({stay}) {StatusMessages[ReservationStatus.Completed]}", reservation.ReservationId);
+            }
+            else
+            {
+                reservation.Status = ReservationStatus.NoShow;
+                await _context.SaveChangesAsync();
+
+                await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Free);
+
+                await _notificationService.NotifyUserAsync(reservation.GuestId, $"Rezerwacja #{reservation.ReservationId} ({stay}) nie została potwierdzona do dnia przyjazdu i {StatusMessages[ReservationStatus.NoShow]}", reservation.ReservationId);
+                await _notificationService.NotifyOwnersAsync($"Rezerwacja #{reservation.ReservationId} ({stay}) nie została potwierdzona do dnia przyjazdu - oznaczono niestawienie się, pokój wrócił do puli wolnych.", reservation.ReservationId);
+            }
+        }
+
+        return expired.Count;
+    }
+
     // Wyszukiwarka na stronie głównej: dostępność i cena całego pobytu dla każdego typu pokoju
     public async Task<List<RoomTypeAvailabilityDto>> SearchRoomTypesAsync(DateTime checkIn, DateTime checkOut, int guests)
     {
@@ -197,18 +240,19 @@ public class ReservationService : IReservationService
             return false;
         }
 
-        if (reservation.Status == ReservationStatus.Cancelled && status != ReservationStatus.Cancelled)
+        // Anulowana rezerwacja i niestawienie się zwalniają pokój - przywrócenie mogłoby nałożyć się na nową rezerwację
+        if (ReleasesRoom(reservation.Status) && status != reservation.Status)
         {
-            throw new ArgumentException("Nie można przywrócić anulowanej rezerwacji, termin mógł zostać już zajęty.");
+            throw new ArgumentException("Nie można przywrócić rezerwacji anulowanej ani oznaczonej jako niestawienie się - termin mógł zostać już zajęty.");
         }
 
-        var wasCancelled = reservation.Status != ReservationStatus.Cancelled && status == ReservationStatus.Cancelled;
+        var roomReleased = !ReleasesRoom(reservation.Status) && ReleasesRoom(status);
         var statusChanged = reservation.Status != status;
 
         reservation.Status = status;
         await _context.SaveChangesAsync();
 
-        if (wasCancelled)
+        if (roomReleased)
         {
             await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Free);
         }

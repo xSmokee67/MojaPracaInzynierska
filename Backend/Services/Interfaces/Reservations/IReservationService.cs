@@ -11,6 +11,7 @@ public interface IReservationService
     Task<List<ReservationDto>> GetGuestReservationsAsync(int guestId);
     Task<List<ReservationDto>> GetAllReservationsAsync();
     Task<bool> UpdateReservationStatusAsync(int reservationId, string status);
+    Task<int> UpdateExpiredReservationsAsync();
     Task<ReservationDetailsDto?> GetReservationDetailsAsync(int reservationId);
     Task<bool> CancelReservationByGuestAsync(int reservationId, int guestId);
     Task<bool> ChangeReservationDatesAsync(int reservationId, ChangeReservationDatesDto dto, int? guestId);

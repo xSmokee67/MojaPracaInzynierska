@@ -10,7 +10,7 @@ namespace Services.Services;
 
 // Moduł zarządzania dostępnością. Pokój jest wolny w terminie, gdy:
 // - ma status "available" (nie jest sprzątany, w remoncie ani wyłączony),
-// - nie ma nieanulowanej rezerwacji nachodzącej na termin,
+// - nie ma rezerwacji nachodzącej na termin (anulowana i niestawienie się nie zajmują pokoju),
 // - nie ma blokady nachodzącej na termin.
 // Terminy to przedziały [początek, koniec) - dzień wymeldowania / koniec blokady jest już wolny dla kolejnego gościa.
 public class AvailabilityService : IAvailabilityService
@@ -28,9 +28,10 @@ public class AvailabilityService : IAvailabilityService
         _context = context;
     }
 
-    // Reguła kolizji terminów - jedna dla rezerwacji i blokad: A.początek < B.koniec i A.koniec > B.początek
+    // Reguła kolizji terminów - jedna dla rezerwacji i blokad: A.początek < B.koniec i A.koniec > B.początek.
+    // Rezerwacja anulowana albo z niestawieniem się gościa nie zajmuje pokoju - jej noce wracają do puli wolnych.
     private static Expression<Func<Reservation, bool>> ActiveReservationOverlaps(DateTime startDate, DateTime endDate) =>
-        r => r.Status != ReservationStatus.Cancelled && r.CheckInDate < endDate && r.CheckOutDate > startDate;
+        r => r.Status != ReservationStatus.Cancelled && r.Status != ReservationStatus.NoShow && r.CheckInDate < endDate && r.CheckOutDate > startDate;
 
     private static Expression<Func<RoomBlock, bool>> BlockOverlaps(DateTime startDate, DateTime endDate) =>
         b => b.StartDate < endDate && b.EndDate > startDate;
