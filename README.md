@@ -127,6 +127,8 @@ npm run dev
 
 Aplikacja działa pod adresem `http://localhost:5173`. Adres API jest ustawiony w pliku `Frontend/.env` (`VITE_API_URL`).
 
+Wersja produkcyjna (szybsza niż tryb deweloperski): `npm run build`, a potem `npm run preview` – działa pod tym samym adresem, więc najpierw trzeba zatrzymać `npm run dev`.
+
 ### 3. Konto właściciela
 
 | E-mail | Hasło |
