@@ -507,6 +507,9 @@ namespace DAL.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RoomTypeId"));
 
+                    b.Property<int>("Area")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("BasePrice")
                         .HasColumnType("decimal(18,2)");
 

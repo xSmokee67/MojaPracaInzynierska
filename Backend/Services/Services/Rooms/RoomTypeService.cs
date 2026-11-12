@@ -30,6 +30,7 @@ public class RoomTypeService : IRoomTypeService
             Description = rt.Description,
             BasePrice = rt.BasePrice,
             MaxOccupancy = rt.MaxOccupancy,
+            Area = rt.Area,
             MainPhotoUrl = rt.Photos.OrderBy(p => p.SortOrder).Select(p => p.PhotoUrl).FirstOrDefault(),
             PhotoCount = rt.Photos.Count
         })
@@ -87,6 +88,7 @@ public class RoomTypeService : IRoomTypeService
             Description = roomType.Description,
             BasePrice = roomType.BasePrice,
             MaxOccupancy = roomType.MaxOccupancy,
+            Area = roomType.Area,
             RoomCount = roomType.Rooms.Count(r => r.Status != RoomStatus.Disabled),
             Photos = roomType.Photos
                 .OrderBy(p => p.SortOrder)
@@ -128,7 +130,8 @@ public class RoomTypeService : IRoomTypeService
             Name = dto.Name,
             Description = dto.Description,
             BasePrice = dto.BasePrice,
-            MaxOccupancy = dto.MaxOccupancy
+            MaxOccupancy = dto.MaxOccupancy,
+            Area = dto.Area
         };
 
         _context.RoomTypes.Add(roomType);
@@ -149,6 +152,7 @@ public class RoomTypeService : IRoomTypeService
         roomType.Description = dto.Description;
         roomType.BasePrice = dto.BasePrice;
         roomType.MaxOccupancy = dto.MaxOccupancy;
+        roomType.Area = dto.Area;
 
         await _context.SaveChangesAsync();
         return true;
@@ -264,6 +268,11 @@ public class RoomTypeService : IRoomTypeService
         if (dto.BasePrice <= 0 || dto.MaxOccupancy <= 0)
         {
             throw new ArgumentException("Cena bazowa i maksymalna liczba gości muszą być większe od zera.");
+        }
+
+        if (dto.Area <= 0)
+        {
+            throw new ArgumentException("Powierzchnia pokoju musi być większa od zera.");
         }
     }
 }

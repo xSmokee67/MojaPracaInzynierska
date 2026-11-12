@@ -109,6 +109,7 @@ export default function RoomTypeProfile({ roomTypeId, search, canBook, onBook, o
               <div className="space-y-2 text-slate-600">
                 <div><span className="text-2xl font-bold text-emerald-600">{room.basePrice} PLN</span> / noc</div>
                 <div>Maksymalnie <span className="font-semibold text-slate-800">{personsLabel(room.maxOccupancy)}</span></div>
+                {room.area > 0 && <div>Powierzchnia: <span className="font-semibold text-slate-800">{room.area} m²</span></div>}
                 <div>W hotelu: <span className="font-semibold text-slate-800">{roomsLabel(room.roomCount)}</span> tego typu</div>
               </div>
 

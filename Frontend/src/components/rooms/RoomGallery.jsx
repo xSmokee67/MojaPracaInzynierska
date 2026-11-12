@@ -251,6 +251,7 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
                     ? <><span className="text-brass-500">★</span> <span className="font-semibold text-slate-800">{rt.averageRating.toLocaleString('pl-PL', { minimumFractionDigits: 1 })}</span> · {reviewsLabel(rt.reviewCount)}</>
                     : <span className="text-slate-500">Brak opinii</span>}
                   <span className="mx-2 text-slate-300">|</span>do {personsLabel(rt.maxOccupancy)}
+                  {rt.area > 0 && <><span className="mx-2 text-slate-300">|</span>{rt.area} m²</>}
                 </div>
 
                 {amenities.length > 0 && (

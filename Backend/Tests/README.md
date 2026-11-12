@@ -14,7 +14,7 @@ dotnet test
 
 W Visual Studio: **Test → Test Explorer → Run All**. Testy mają polskie nazwy (`DisplayName`), więc w Test Explorerze od razu widać, co sprawdzają.
 
-Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w pamięci (EF Core InMemory) z tymi samymi danymi co seed w `API/Data/DbSeeder.cs` (`TestData.cs`).
+Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w pamięci (EF Core InMemory) z małym, stałym zestawem danych (`TestData.cs`: 2 typy pokoi i 3 pokoje jak Pokój Standardowy i Apartament Premium z seeda, cennik sezonowy, śniadanie i parking) – niezależnym od rozbudowanych danych startowych w `API/Data/DbSeeder.cs`.
 
 ### Technologie
 
@@ -42,10 +42,19 @@ Testy pokrywają całą logikę biznesową z warstwy `Services`. Kontrolery API 
 Dane startowe (seed w `API/Data/DbSeeder.cs`):
 
 - **Konto właściciela:** `admin@hotel.com` / `Admin123!`
-- **Pokoje:** Pokój Standardowy (200 zł/noc, pokoje 101 i 102), Apartament Premium (500 zł/noc, pokój 201)
+- **Pokoje (typ – cena – maks. gości – powierzchnia – numery):**
+  - Pokój Standardowy – 200 zł – 2 os. – 22 m² – 101, 102
+  - Apartament Premium – 500 zł – 4 os. – 48 m² – 201 (jedyny pokój tego typu – na nim opierają się scenariusze C1–C7)
+  - Pokój Jednoosobowy – 140 zł – 1 os. – 14 m² – 103, 104, 105
+  - Pokój Twin – 210 zł – 2 os. – 20 m² – 106, 107, 108
+  - Pokój Rodzinny – 360 zł – 5 os. – 34 m² – 301, 302, 303, 304
+  - Studio z Aneksem Kuchennym – 300 zł – 3 os. – 30 m² – 305, 306, 307
+  - Apartament z Jacuzzi – 750 zł – 2 os. – 55 m² – 401, 402, 403
+- **Udogodnienia:** przypisane do pokoi według typu (np. aneks kuchenny w studiu, jacuzzi w apartamencie, łóżko małżeńskie / dwa pojedyncze łóżka); pokój 101 przystosowany dla osób z niepełnosprawnościami, wybrane pokoje z balkonem / widokiem na morze
 - **Cennik sezonowy:** Pokój Standardowy 350 zł/noc od 01.06.2027 do 31.08.2027
-- **Usługi:** Śniadanie 50 zł (za osobę za noc), Parking 30 zł (za noc)
-- **Zdjęcia:** po 5 przykładowych zdjęć dla każdego typu pokoju (`API/Data/SeedPhotos`) – dodawane tylko na bazie bez żadnych zdjęć
+- **Usługi:** Śniadanie 50 zł i Obiadokolacja 70 zł (za osobę za noc), Wypożyczenie roweru 35 zł (za osobę za noc), Parking 30 zł, Łóżeczko dla dziecka 25 zł, Pobyt ze zwierzęciem 40 zł, Ładowanie samochodu elektrycznego 40 zł (za noc), Wstęp do strefy SPA 45 zł (za osobę), Transfer z lotniska 120 zł, Wczesne zameldowanie 60 zł, Późne wymeldowanie 60 zł, Pakiet powitalny 90 zł (raz za pobyt)
+- **Zdjęcia:** 3–5 przykładowych zdjęć dla każdego typu pokoju (`API/Data/SeedPhotos`) – dodawane do typu, który nie ma jeszcze żadnego zdjęcia
+- Brakujące typy pokoi, pokoje, udogodnienia i usługi są dodawane przy każdym starcie API (po nazwie / numerze pokoju), także do bazy utworzonej wcześniej; istniejących danych seeder nie zmienia
 
 W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 

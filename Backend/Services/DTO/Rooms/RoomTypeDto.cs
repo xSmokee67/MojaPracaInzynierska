@@ -14,6 +14,8 @@ public class RoomTypeDto
     public decimal BasePrice {get; set;}
     [Range(1, 20, ErrorMessage = "Maksymalna liczba gości musi mieścić się w zakresie 1 - 20.")]
     public int MaxOccupancy {get; set; }
+    [Range(1, 1000, ErrorMessage = "Powierzchnia musi mieścić się w zakresie 1 - 1000 m².")]
+    public int Area {get; set; }
     public string? MainPhotoUrl {get; set; }
     public int PhotoCount {get; set; }
     public double? AverageRating {get; set; }

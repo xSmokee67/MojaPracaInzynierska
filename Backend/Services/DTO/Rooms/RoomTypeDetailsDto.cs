@@ -8,6 +8,7 @@ public class RoomTypeDetailsDto
     public string Description {get; set; } = string.Empty;
     public decimal BasePrice {get; set; }
     public int MaxOccupancy {get; set; }
+    public int Area {get; set; }
     public int RoomCount {get; set; }
     public List<RoomTypePhotoDto> Photos {get; set; } = new ();
     public List<string> Amenities {get; set; } = new ();
