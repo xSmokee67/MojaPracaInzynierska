@@ -1,4 +1,6 @@
 using Services.Settings;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Tests;
 
@@ -17,6 +19,16 @@ public class FileStorageServiceTests : IDisposable
     public void Dispose()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, true);
+    }
+
+    // Prawdziwy obraz w pamięci (serwis odczytuje zawartość pliku, więc przypadkowe bajty nie przejdą)
+    private static MemoryStream TestImage(int width = 40, int height = 20, bool png = false)
+    {
+        using var image = new Image<Rgba32>(width, height);
+        var stream = new MemoryStream();
+        if (png) image.SaveAsPng(stream); else image.SaveAsJpeg(stream);
+        stream.Position = 0;
+        return stream;
     }
 
     [Theory(DisplayName = "Zdjęcia: akceptowane są pliki JPG, PNG i WEBP (wielkość liter bez znaczenia)")]
@@ -52,22 +64,43 @@ public class FileStorageServiceTests : IDisposable
     [Fact(DisplayName = "Zdjęcia: zapis tworzy plik o losowej nazwie i zwraca jego adres")]
     public async Task SaveImage_WritesFileAndReturnsUrl()
     {
-        var content = new byte[] { 1, 2, 3, 4 };
-
-        var url = await _service.SaveImageAsync(new MemoryStream(content), "Mój Pokój.JPG", "room-types");
+        var url = await _service.SaveImageAsync(TestImage(), "Mój Pokój.JPG", "room-types");
 
         Assert.StartsWith("/uploads/room-types/", url);
         Assert.EndsWith(".jpg", url);
         Assert.DoesNotContain("Mój", url);  // oryginalna nazwa nie trafia na dysk
         var path = Path.Combine(_root, "room-types", Path.GetFileName(url));
-        Assert.Equal(content, await File.ReadAllBytesAsync(path));
+        using var saved = await Image.LoadAsync(path); // zapisany plik jest poprawnym obrazem
+        Assert.Equal(40, saved.Width);
+        Assert.Equal(20, saved.Height);
+    }
+
+    [Fact(DisplayName = "Zdjęcia: plik z rozszerzeniem obrazu, ale inną zawartością jest odrzucany i nie trafia na dysk")]
+    public async Task SaveImage_Throws_ForNonImageContent()
+    {
+        var notAnImage = new MemoryStream(new byte[] { 0x4D, 0x5A, 1, 2, 3, 4, 5, 6 }); // np. program .exe przemianowany na .jpg
+
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.SaveImageAsync(notAnImage, "pokoj.jpg", "room-types"));
+
+        var directory = Path.Combine(_root, "room-types");
+        Assert.True(!Directory.Exists(directory) || Directory.GetFiles(directory).Length == 0);
+    }
+
+    [Fact(DisplayName = "Zdjęcia: duże zdjęcie jest zmniejszane do 1600 px na dłuższym boku z zachowaniem proporcji")]
+    public async Task SaveImage_ResizesLargeImage()
+    {
+        var url = await _service.SaveImageAsync(TestImage(3200, 1000), "panorama.jpg", "room-types");
+
+        using var saved = await Image.LoadAsync(Path.Combine(_root, "room-types", Path.GetFileName(url)));
+        Assert.Equal(1600, saved.Width);
+        Assert.Equal(500, saved.Height);
     }
 
     [Fact(DisplayName = "Zdjęcia: dwa pliki o tej samej nazwie nie nadpisują się")]
     public async Task SaveImage_GeneratesUniqueNames()
     {
-        var first = await _service.SaveImageAsync(new MemoryStream(new byte[] { 1 }), "pokoj.png", "room-types");
-        var second = await _service.SaveImageAsync(new MemoryStream(new byte[] { 2 }), "pokoj.png", "room-types");
+        var first = await _service.SaveImageAsync(TestImage(png: true), "pokoj.png", "room-types");
+        var second = await _service.SaveImageAsync(TestImage(png: true), "pokoj.png", "room-types");
 
         Assert.NotEqual(first, second);
         Assert.Equal(2, Directory.GetFiles(Path.Combine(_root, "room-types")).Length);
@@ -76,7 +109,7 @@ public class FileStorageServiceTests : IDisposable
     [Fact(DisplayName = "Zdjęcia: usunięcie kasuje plik z dysku")]
     public async Task Delete_RemovesFile()
     {
-        var url = await _service.SaveImageAsync(new MemoryStream(new byte[] { 1 }), "pokoj.png", "room-types");
+        var url = await _service.SaveImageAsync(TestImage(png: true), "pokoj.png", "room-types");
 
         _service.Delete(url);
 

@@ -22,7 +22,7 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 - **EF Core InMemory**: baza danych w pamięci zamiast SQL Servera
 - **AutoMapper**: ten sam profil `ReservationMappingProfile` co w aplikacji
 
-### Zakres (113 przypadków testowych)
+### Zakres (122 przypadków testowych)
 
 | Plik | Co jest testowane | Przypadki |
 |------|-------------------|-----------|
@@ -30,10 +30,10 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 | `ReservationServicePriceTests.cs` | Wyliczanie ceny (`CalculateTotalPriceAsync`): cena bazowa, sezonowa, pobyt na przełomie sezonu, usługi dodatkowe według sposobu naliczania (raz za pobyt, za noc, za osobę, za osobę za noc), liczba gości nie zmienia ceny noclegu | 14 |
 | `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji (w tym liczba gości względem pojemności pokoju i liczba naliczeń usług), zmiana terminu (przeliczenie usług naliczanych za noc), zmiana statusu, anulowanie przez gościa, płatności, faktury (kolejna numeracja w serii miesiąca) | 34 |
 | `StayRulesTests.cs` | Wspólna reguła terminu pobytu (`StayRules`): przyjazd nie w przeszłości i przed wyjazdem, maks. 60 nocy – także przy tworzeniu rezerwacji i zmianie terminu | 10 |
-| `ReservationPaymentTests.cs` | Termin płatności (3 dni, najpóźniej dzień przed przyjazdem), automatyczne potwierdzenie po wpłacie całości, automatyczne anulowanie nieopłaconej rezerwacji po terminie, zakończenie pobytu po wymeldowaniu | 10 |
-| `AdditionalServiceServiceTests.cs` | Usługi dodatkowe w panelu: zapis i walidacja sposobu naliczania | 2 |
+| `ReservationPaymentTests.cs` | Termin płatności (3 dni, najpóźniej dzień przed przyjazdem), automatyczne potwierdzenie po wpłacie całości, automatyczne anulowanie nieopłaconej rezerwacji po terminie, zakończenie pobytu po wymeldowaniu, saldo (wpłaty minus zwroty), limit wpłaty do brakującej kwoty i zwrotu do wpłaconej | 14 |
+| `AdditionalServiceServiceTests.cs` | Usługi dodatkowe w panelu: zapis i walidacja sposobu naliczania, blokada usuwania usługi zamówionej w rezerwacjach, usługa wycofana z oferty nie do zamówienia | 5 |
 | `ReservationServiceSearchTests.cs` | Wyszukiwarka na stronie głównej: liczba wolnych pokoi każdego typu, cena całego pobytu (z cennikiem sezonowym), dopasowanie do liczby gości | 9 |
-| `FileStorageServiceTests.cs` | Zapis zdjęć pokoi na dysku: dozwolone formaty, limit rozmiaru, unikalne nazwy, usuwanie, ochrona przed ścieżkami spoza katalogu | 16 |
+| `FileStorageServiceTests.cs` | Zapis zdjęć pokoi na dysku: dozwolone formaty, limit rozmiaru, odrzucanie plików, które nie są obrazem, zmniejszanie dużych zdjęć, unikalne nazwy, usuwanie, ochrona przed ścieżkami spoza katalogu | 18 |
 
 Testy pokrywają całą logikę biznesową z warstwy `Services`. Kontrolery API są cienką warstwą (walidacja wejścia i wywołanie serwisu), więc sprawdzają je testy manualne poniżej.
 
@@ -111,6 +111,10 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | C14 | Gość składa rezerwację i jej nie opłaca; w bazie (SSMS) ustaw tej rezerwacji `PaymentDeadline` na wczorajszą datę i uruchom ponownie API | Status „Anulowana”; gość i właściciel dostają powiadomienie o anulowaniu z powodu braku wpłaty; termin znów dostępny w wyszukiwarce | |
 | C15 | Wystaw fakturę dla dwóch różnych zrealizowanych rezerwacji (np. #12, potem #5) | Numery `…/00001` i `…/00002` w kolejności wystawienia, niezależnie od numerów rezerwacji | |
 | C16 | Swagger: `POST /api/Reservation/price` z wyjazdem przed przyjazdem, potem z pobytem 61 nocy | 400 „Nieprawidłowy termin pobytu…”, potem 400 „Pobyt może trwać maksymalnie 60 nocy.” (ta sama reguła w `create`, `search`, `availability`, `alternatives`) | |
+| C17 | Właściciel → „Usługi Dodatkowe” → „Usuń” przy Śniadaniu zamówionym wcześniej w rezerwacji | Komunikat „Tej usługi nie można usunąć, bo była już zamawiana…”; usługa zostaje, rozliczenie starych rezerwacji bez zmian | |
+| C18 | „Edytuj” przy tej usłudze, odznacz „Dostępna w ofercie”, zapisz; gość otwiera formularz rezerwacji | Na liście w panelu „wycofana”; gość nie widzi usługi w formularzu; stare rezerwacje nadal ją pokazują | |
+| C19 | Szczegóły rezerwacji za 750 zł z wpłatą 750 zł → zarejestruj kolejną wpłatę 10 zł | Błąd „Rezerwacja jest już opłacona w całości.” | |
+| C20 | Anuluj rezerwację z wpłatą, w szczegółach formularz płatności | Podpowiada zwrot całej wpłaconej kwoty ze statusem „zwrócona”; zwrot większy niż wpłaty – błąd; po zwrocie „wpłacono 0.00 PLN – po odjęciu zwrotów …” | |
 
 ### Scenariusz D: bezpieczeństwo i sesja
 
@@ -121,6 +125,7 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | D3 | Wywołanie `GET /api/Reservation/all` z tokenem gościa | 403 Forbidden (tylko rola Owner) | |
 | D4 | W przeglądarce: F12 → Application → Local Storage → ustaw `token_expiration` na datę z przeszłości, odśwież stronę | Wylogowanie z komunikatem „Sesja wygasła. Zaloguj się ponownie.” | |
 | D5 | Gość otwiera szczegóły cudzej rezerwacji (`GET /api/Reservation/{id}` z jego tokenem) | 403 Forbidden | |
+| D6 | Swagger: `POST /api/Reservation/create` z tokenem właściciela | 403 Forbidden (rezerwację składa tylko gość) | |
 
 ### Scenariusz E: strona główna, wyszukiwarka, profil pokoju i zdjęcia
 
@@ -129,6 +134,8 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | E1 | Właściciel → „Panel Właściciela” → „Typy Pokoi” → „Edytuj” przy typie pokoju, uzupełnij opis, zapisz | Komunikat sukcesu, opis widoczny na stronie pokoju | |
 | E2 | „Zdjęcia” → „Dodaj zdjęcia”, wybierz 3 pliki JPG/PNG | Miniatury w oknie, pierwsze oznaczone jako „Główne”, w tabeli liczba zdjęć 3 | |
 | E3 | Dodaj plik GIF albo większy niż 5 MB | Komunikat o nieobsługiwanym formacie / za dużym pliku, nic nie zostaje zapisane | |
+| E3a | Dodaj plik tekstowy albo program z rozszerzeniem zmienionym na `.jpg` | Komunikat „Plik … nie jest prawidłowym obrazem.”, nic nie zostaje zapisane | |
+| E3b | Dodaj zdjęcie z telefonu/aparatu (np. 4000 × 3000 px, kilka MB) | Zdjęcie zapisane w folderze `uploads/room-types` w rozmiarze maks. 1600 px na dłuższym boku (kilkaset KB), bez danych EXIF | |
 | E4 | „Ustaw jako główne” przy drugim zdjęciu | To zdjęcie wyświetla się na kafelku na stronie głównej | |
 | E5 | „Usuń” przy zdjęciu (po potwierdzeniu) | Zdjęcie znika z listy i z folderu `Backend/API/uploads/room-types` | |
 | E6 | Wyloguj się, otwórz stronę główną | Sekcja powitalna z wyszukiwarką; kafelki ze zdjęciem, średnią oceną (lub „Brak opinii”), do 3 udogodnień i ceną za noc | |

@@ -55,8 +55,9 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
         const guests = initialGuests ?? (selected ? Math.min(2, selected.maxOccupancy) : 1);
         if (initialGuests == null) setNumberOfGuests(guests);
 
+        // Gościom proponujemy tylko usługi dostępne w ofercie (wycofane zostają w historii rezerwacji)
         const servicesData = await getAdditionalServices();
-        setServices(servicesData);
+        setServices(servicesData.filter(s => s.isActive));
 
         // Pokój i termin wybrane w wyszukiwarce - od razu pokazujemy dostępność i cenę, gość tylko potwierdza
         // (o ile pokój mieści tylu gości, ilu wybrano w wyszukiwarce)

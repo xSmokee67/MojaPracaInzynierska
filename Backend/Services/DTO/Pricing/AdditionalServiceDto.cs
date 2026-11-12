@@ -13,4 +13,6 @@ public class AdditionalServiceDto
     public decimal Price {get; set; }
     // per-stay, per-night, per-person albo per-person-per-night (ServiceChargeType)
     public string ChargeType {get; set; } = ServiceChargeType.PerStay;
+    // false = wycofana z oferty (nie do zamówienia w nowych rezerwacjach)
+    public bool IsActive {get; set; } = true;
 }

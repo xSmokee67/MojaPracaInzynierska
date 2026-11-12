@@ -42,10 +42,12 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<int>, i
             .WithMany(r => r.ReservationServices)
             .HasForeignKey(rs => rs.ReservationId);
 
+        // Usunięcie usługi nie może skasować jej pozycji w rezerwacjach (historia rozliczeń i faktur) - baza blokuje takie usunięcie
         modelBuilder.Entity<ReservationService>()
             .HasOne(rs => rs.AdditionalService)
             .WithMany(s => s.ReservationServices)
-            .HasForeignKey(rs => rs.ServiceId);
+            .HasForeignKey(rs => rs.ServiceId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Reservation>()
             .HasOne(r => r.Invoice)

@@ -59,6 +59,62 @@ public class ReservationPaymentTests
         Assert.Equal("confirmed", (await context.Reservations.FindAsync(reservation.ReservationId))!.Status);
     }
 
+    [Fact(DisplayName = "Płatność: wpłata ponad brakującą kwotę jest odrzucana")]
+    public async Task RegisterPayment_Throws_WhenAmountExceedsRemaining()
+    {
+        using var context = TestData.CreateContext();
+        var reservation = TestData.AddReservation(context, TestData.Room101Id, Today.AddDays(10), Today.AddDays(13), status: "pending", totalPrice: 600);
+        var service = TestData.CreateReservationService(context);
+        await service.RegisterPaymentAsync(reservation.ReservationId, new PaymentDto { Amount = 200, Method = "card" });
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.RegisterPaymentAsync(reservation.ReservationId, new PaymentDto { Amount = 401, Method = "card" })); // brakuje 400
+
+        Assert.Equal(1, await context.Payments.CountAsync());
+    }
+
+    [Fact(DisplayName = "Płatność: do opłaconej w całości rezerwacji nie można dopisać kolejnej wpłaty")]
+    public async Task RegisterPayment_Throws_WhenAlreadyPaid()
+    {
+        using var context = TestData.CreateContext();
+        var reservation = TestData.AddReservation(context, TestData.Room101Id, Today.AddDays(10), Today.AddDays(13), totalPrice: 600);
+        var service = TestData.CreateReservationService(context);
+        await service.RegisterPaymentAsync(reservation.ReservationId, new PaymentDto { Amount = 600, Method = "transfer" });
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.RegisterPaymentAsync(reservation.ReservationId, new PaymentDto { Amount = 10, Method = "cash" }));
+    }
+
+    [Fact(DisplayName = "Płatność: zwrot nie może przekroczyć wpłaconej kwoty")]
+    public async Task RegisterRefund_Throws_WhenExceedsPaidAmount()
+    {
+        using var context = TestData.CreateContext();
+        var reservation = TestData.AddReservation(context, TestData.Room101Id, Today.AddDays(10), Today.AddDays(13), totalPrice: 600);
+        var service = TestData.CreateReservationService(context);
+        await service.RegisterPaymentAsync(reservation.ReservationId, new PaymentDto { Amount = 300, Method = "card" });
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.RegisterPaymentAsync(reservation.ReservationId, new PaymentDto { Amount = 301, Method = "transfer", Status = "refunded" }));
+        Assert.True(await service.RegisterPaymentAsync(reservation.ReservationId, new PaymentDto { Amount = 300, Method = "transfer", Status = "refunded" }));
+    }
+
+    [Fact(DisplayName = "Płatność: saldo to wpłaty minus zwroty - po zwrocie można dopłacić brakującą kwotę i rezerwacja się potwierdza")]
+    public async Task Balance_SubtractsRefunds()
+    {
+        using var context = TestData.CreateContext();
+        var reservation = TestData.AddReservation(context, TestData.Room101Id, Today.AddDays(10), Today.AddDays(13), status: "pending", totalPrice: 600);
+        var service = TestData.CreateReservationService(context);
+
+        await service.RegisterPaymentAsync(reservation.ReservationId, new PaymentDto { Amount = 400, Method = "card" });
+        await service.RegisterPaymentAsync(reservation.ReservationId, new PaymentDto { Amount = 100, Method = "card", Status = "refunded" }); // saldo 300
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.RegisterPaymentAsync(reservation.ReservationId, new PaymentDto { Amount = 301, Method = "card" }));
+        await service.RegisterPaymentAsync(reservation.ReservationId, new PaymentDto { Amount = 300, Method = "card" }); // saldo 600
+
+        Assert.Equal("confirmed", (await context.Reservations.FindAsync(reservation.ReservationId))!.Status);
+    }
+
     [Fact(DisplayName = "Automat: nieopłacona rezerwacja po terminie płatności zostaje anulowana i zwalnia pokój")]
     public async Task UpdateExpired_CancelsUnpaidReservationAfterDeadline()
     {

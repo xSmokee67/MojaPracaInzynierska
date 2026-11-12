@@ -45,11 +45,14 @@ public class ReservationService : IReservationService
         return deadline < today.Date ? today.Date : deadline;
     }
 
-    // Suma zaksięgowanych wpłat rezerwacji (zwroty i nieudane płatności się nie liczą)
-    private async Task<decimal> GetPaidAmountAsync(int reservationId) =>
-        await _context.Payments
-            .Where(p => p.ReservationId == reservationId && p.Status == PaymentStatus.Completed)
-            .SumAsync(p => p.Amount);
+    // Saldo rezerwacji: zaksięgowane wpłaty minus zwroty (płatności oczekujące i nieudane się nie liczą)
+    private async Task<decimal> GetPaidAmountAsync(int reservationId)
+    {
+        var payments = _context.Payments.Where(p => p.ReservationId == reservationId);
+        var paid = await payments.Where(p => p.Status == PaymentStatus.Completed).SumAsync(p => p.Amount);
+        var refunded = await payments.Where(p => p.Status == PaymentStatus.Refunded).SumAsync(p => p.Amount);
+        return paid - refunded;
+    }
 
     // Termin w treści powiadomień, np. "10.11.2026 - 13.11.2026"
     private static string StayDates(DateTime checkIn, DateTime checkOut) => $"{checkIn:dd.MM.yyyy} - {checkOut:dd.MM.yyyy}";
@@ -196,6 +199,13 @@ public class ReservationService : IReservationService
         var services = await _context.AdditionalServices
             .Where(s => additionalServiceIds.Contains(s.ServiceId))
             .ToListAsync();
+
+        // Usługi wycofanej z oferty nie można zamówić w nowej rezerwacji
+        var withdrawn = services.FirstOrDefault(s => !s.IsActive);
+        if (withdrawn != null)
+        {
+            throw new ArgumentException($"Usługa „{withdrawn.Name}” nie jest już dostępna w ofercie.");
+        }
 
         return services.Select(service =>
         {
@@ -519,6 +529,21 @@ public class ReservationService : IReservationService
         if (reservation.Status == ReservationStatus.Cancelled && status != PaymentStatus.Refunded)
         {
             throw new ArgumentException("Do anulowanej rezerwacji można zarejestrować tylko zwrot.");
+        }
+
+        // Wpłata nie może przekroczyć brakującej kwoty, a zwrot - tego, co gość faktycznie wpłacił
+        var balance = await GetPaidAmountAsync(reservationId);
+        if (status == PaymentStatus.Completed && dto.Amount > reservation.TotalPrice - balance)
+        {
+            var remaining = Math.Max(reservation.TotalPrice - balance, 0);
+            throw new ArgumentException(remaining == 0
+                ? "Rezerwacja jest już opłacona w całości."
+                : $"Kwota przekracza pozostałą do zapłaty ({remaining:0.00} PLN).");
+        }
+
+        if (status == PaymentStatus.Refunded && dto.Amount > balance)
+        {
+            throw new ArgumentException($"Zwrot nie może przekraczać wpłaconej kwoty ({Math.Max(balance, 0):0.00} PLN).");
         }
 
         var payment = new Payment

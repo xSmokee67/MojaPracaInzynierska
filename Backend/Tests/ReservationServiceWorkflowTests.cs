@@ -327,6 +327,9 @@ public class ReservationServiceWorkflowTests
     {
         using var context = TestData.CreateContext();
         var reservation = TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut, status: "cancelled");
+        // Wpłata sprzed anulowania - jest co zwrócić
+        context.Payments.Add(new Model.Payment { ReservationId = reservation.ReservationId, Amount = 100, Method = "card", Status = "completed", PaymentDate = DateTime.UtcNow });
+        context.SaveChanges();
         var service = TestData.CreateReservationService(context);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
@@ -334,7 +337,7 @@ public class ReservationServiceWorkflowTests
         var refund = await service.RegisterPaymentAsync(reservation.ReservationId, new PaymentDto { Amount = 100, Method = "transfer", Status = "refunded" });
 
         Assert.True(refund);
-        Assert.Equal("refunded", (await context.Payments.SingleAsync()).Status);
+        Assert.Equal(1, await context.Payments.CountAsync(p => p.Status == "refunded"));
     }
 
     // --- FAKTURY ---

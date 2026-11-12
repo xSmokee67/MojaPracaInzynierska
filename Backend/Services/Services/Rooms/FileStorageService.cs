@@ -1,5 +1,11 @@
 using Services.Interfaces;
 using Services.Settings;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.Processing;
 
 namespace Services.Services;
 
@@ -7,6 +13,9 @@ namespace Services.Services;
 public class FileStorageService : IFileStorageService
 {
     private static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".webp" };
+
+    // Dłuższy bok zapisanego zdjęcia - zdjęcia z aparatu (np. 6000 px, 5 MB) są zmniejszane, żeby galeria ładowała się szybko
+    public const int MaxImageDimension = 1600;
 
     private readonly FileStorageSettings _settings;
 
@@ -34,22 +43,56 @@ public class FileStorageService : IFileStorageService
         }
     }
 
-    // Zwraca adres pliku, np. /uploads/room-types/3f2a...c1.jpg
+    // Zapisuje zdjęcie i zwraca jego adres, np. /uploads/room-types/3f2a...c1.jpg.
+    // Plik jest odczytywany jako obraz (plik o innej zawartości, np. skrypt z rozszerzeniem .jpg, jest odrzucany),
+    // obracany zgodnie z orientacją z aparatu, zmniejszany do MaxImageDimension i zapisywany bez metadanych EXIF
+    // (np. lokalizacji GPS z telefonu).
     public async Task<string> SaveImageAsync(Stream content, string fileName, string folder)
     {
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
-        var storedName = $"{Guid.NewGuid():N}{extension}";
 
-        var directory = Path.Combine(_settings.RootPath, folder);
-        Directory.CreateDirectory(directory);
-
-        await using (var file = File.Create(Path.Combine(directory, storedName)))
+        Image image;
+        try
         {
-            await content.CopyToAsync(file);
+            image = await Image.LoadAsync(content);
+        }
+        catch (ImageFormatException)
+        {
+            throw new ArgumentException($"Plik \"{fileName}\" nie jest prawidłowym obrazem.");
         }
 
-        return $"{_settings.RequestPath}/{folder}/{storedName}";
+        using (image)
+        {
+            image.Mutate(x => x.AutoOrient());
+
+            if (image.Width > MaxImageDimension || image.Height > MaxImageDimension)
+            {
+                image.Mutate(x => x.Resize(new ResizeOptions
+                {
+                    Mode = ResizeMode.Max,
+                    Size = new Size(MaxImageDimension, MaxImageDimension)
+                }));
+            }
+
+            image.Metadata.ExifProfile = null;
+
+            var storedName = $"{Guid.NewGuid():N}{extension}";
+            var directory = Path.Combine(_settings.RootPath, folder);
+            Directory.CreateDirectory(directory);
+
+            await image.SaveAsync(Path.Combine(directory, storedName), EncoderFor(extension));
+
+            return $"{_settings.RequestPath}/{folder}/{storedName}";
+        }
     }
+
+    // Zapis w formacie zgodnym z rozszerzeniem pliku (jakość 85 - dobra przy niewielkim rozmiarze)
+    private static IImageEncoder EncoderFor(string extension) => extension switch
+    {
+        ".png" => new PngEncoder(),
+        ".webp" => new WebpEncoder { Quality = 85 },
+        _ => new JpegEncoder { Quality = 85 }
+    };
 
     public void Delete(string fileUrl)
     {

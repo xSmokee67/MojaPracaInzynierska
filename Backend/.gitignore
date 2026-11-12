@@ -11,3 +11,12 @@ obj/
 
 # Wyniki testów
 TestResults/
+
+# Kopie przykładowych zdjęć, które DbSeeder tworzy przy starcie API (oryginały są w API/Data/SeedPhotos)
+API/uploads/room-types/standard-*.jpg
+API/uploads/room-types/premium-*.jpg
+API/uploads/room-types/single-*.jpg
+API/uploads/room-types/twin-*.jpg
+API/uploads/room-types/family-*.jpg
+API/uploads/room-types/studio-*.jpg
+API/uploads/room-types/suite-*.jpg

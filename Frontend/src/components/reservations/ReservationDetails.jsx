@@ -23,7 +23,10 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
       try {
         const data = await getReservationDetails(reservationId, token);
         setDetails(data);
-        setNewPayment(prev => ({ ...prev, amount: Math.max(data.totalPrice - data.paidAmount, 0) }));
+        // Podpowiedź w formularzu płatności: brakująca kwota, a dla anulowanej rezerwacji - zwrot wpłaconej kwoty
+        setNewPayment(prev => data.status === 'cancelled'
+          ? { ...prev, amount: Math.max(data.paidAmount, 0), status: 'refunded' }
+          : { ...prev, amount: Math.max(data.totalPrice - data.paidAmount, 0) });
         setNewDates({ checkInDate: data.checkInDate.slice(0, 10), checkOutDate: data.checkOutDate.slice(0, 10) });
         setError('');
       } catch (err) {
@@ -126,7 +129,7 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
               </div>
               <div>
                 <span className="block text-xs font-semibold text-slate-500 uppercase">Rozliczenie</span>
-                <span className="font-bold text-emerald-600">{details.totalPrice.toFixed(2)} PLN</span> <span className="text-sm text-slate-500">(wpłacono {details.paidAmount.toFixed(2)} PLN)</span>
+                <span className="font-bold text-emerald-600">{details.totalPrice.toFixed(2)} PLN</span> <span className="text-sm text-slate-500">(wpłacono {details.paidAmount.toFixed(2)} PLN{details.refundedAmount > 0 && <> – po odjęciu zwrotów {details.refundedAmount.toFixed(2)} PLN</>})</span>
                 {/* Oczekująca = jeszcze nieopłacona w całości: termin płatności i brakująca kwota */}
                 {details.status === 'pending' && (
                   <div className="mt-1 text-sm font-medium text-amber-700">

@@ -103,7 +103,8 @@ public class ReservationController : ControllerBase
     }
 
     [HttpPost("create")]
-    [Authorize]
+    // Rezerwację składa gość - konto właściciela nie jest gościem (rezerwacja wskazuje na tabelę Guests)
+    [Authorize(Roles = UserRoles.Guest)]
     public async Task<IActionResult> CreateReservation([FromBody] CreateReservationDto dto)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);

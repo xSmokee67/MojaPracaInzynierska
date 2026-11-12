@@ -213,11 +213,25 @@ public class RoomTypeService : IRoomTypeService
         }
 
         var nextSortOrder = roomType.Photos.Count == 0 ? 0 : roomType.Photos.Max(p => p.SortOrder) + 1;
-        foreach (var photo in photos)
+        var savedUrls = new List<string>();
+        try
         {
-            var url = await _fileStorage.SaveImageAsync(photo.Content, photo.FileName, PhotoFolder);
+            foreach (var photo in photos)
+            {
+                var url = await _fileStorage.SaveImageAsync(photo.Content, photo.FileName, PhotoFolder);
+                savedUrls.Add(url);
 
-            roomType.Photos.Add(new RoomTypePhoto { PhotoUrl = url, SortOrder = nextSortOrder++ });
+                roomType.Photos.Add(new RoomTypePhoto { PhotoUrl = url, SortOrder = nextSortOrder++ });
+            }
+        }
+        catch (ArgumentException)
+        {
+            // Zawartość któregoś pliku nie jest obrazem - usuwamy już zapisane pliki z tego zestawu (nic nie trafia do bazy)
+            foreach (var url in savedUrls)
+            {
+                _fileStorage.Delete(url);
+            }
+            throw;
         }
 
         await _context.SaveChangesAsync();

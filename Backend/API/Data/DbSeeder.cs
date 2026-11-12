@@ -236,7 +236,8 @@ public static class DbSeeder
     // 8. Przykładowe zdjęcia typów pokoi - pliki z katalogu Data/SeedPhotos (np. standard-1.jpg, suite-1.jpg)
     // są kopiowane do uploads/room-types i przypinane do typu pokoju, który nie ma jeszcze żadnego zdjęcia.
     // Dzięki temu na świeżej bazie (inny komputer, nowa instalacja) pokoje od razu mają zdjęcia.
-    // Pierwsze zdjęcie (SortOrder = 0) jest zdjęciem głównym.
+    // Pierwsze zdjęcie (SortOrder = 0) jest zdjęciem głównym. Kopie w uploads nie są w repozytorium (.gitignore) -
+    // brakującą kopię seeder odtwarza przy każdym starcie, więc zdjęcia startowe działają po każdym klonowaniu.
     private static async Task SeedRoomTypePhotosAsync(ApplicationDbContext dbContext, FileStorageSettings fileStorage, string contentRootPath)
     {
         var seedPhotosPath = Path.Combine(contentRootPath, "Data", "SeedPhotos");
@@ -248,6 +249,15 @@ public static class DbSeeder
         const string folder = "room-types"; // ten sam katalog co zdjęcia wgrywane w panelu (RoomTypeService)
         var targetDirectory = Path.Combine(fileStorage.RootPath, folder);
         Directory.CreateDirectory(targetDirectory);
+
+        foreach (var source in Directory.GetFiles(seedPhotosPath, "*.jpg"))
+        {
+            var target = Path.Combine(targetDirectory, Path.GetFileName(source));
+            if (!File.Exists(target))
+            {
+                File.Copy(source, target);
+            }
+        }
 
         foreach (var seed in RoomTypes)
         {
@@ -266,12 +276,6 @@ public static class DbSeeder
             for (var i = 0; i < files.Count; i++)
             {
                 var fileName = Path.GetFileName(files[i]);
-                var target = Path.Combine(targetDirectory, fileName);
-                if (!File.Exists(target))
-                {
-                    File.Copy(files[i], target);
-                }
-
                 dbContext.RoomTypePhotos.Add(new RoomTypePhoto
                 {
                     RoomTypeId = roomType.RoomTypeId,
