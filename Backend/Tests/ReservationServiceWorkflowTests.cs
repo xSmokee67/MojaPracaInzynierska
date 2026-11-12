@@ -166,10 +166,19 @@ public class ReservationServiceWorkflowTests
 
     // --- ZMIANA STATUSU (WŁAŚCICIEL) ---
 
+    [Fact(DisplayName = "Status: dawny status 'no-show' (niestawienie się) jest odrzucany")]
+    public async Task UpdateStatus_Throws_ForRemovedNoShowStatus()
+    {
+        using var context = TestData.CreateContext();
+        var reservation = TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut, status: "pending");
+        var service = TestData.CreateReservationService(context);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.UpdateReservationStatusAsync(reservation.ReservationId, "no-show"));
+    }
+
     [Theory(DisplayName = "Status: właściciel może ustawić każdy status ze słownika danych")]
     [InlineData("confirmed")]
     [InlineData("completed")]
-    [InlineData("no-show")]
     [InlineData("cancelled")]
     public async Task UpdateStatus_SetsAllowedStatus(string status)
     {
@@ -270,7 +279,6 @@ public class ReservationServiceWorkflowTests
 
     [Theory(DisplayName = "Anulowanie: gość może anulować tylko rezerwację oczekującą lub potwierdzoną")]
     [InlineData("completed")]
-    [InlineData("no-show")]
     [InlineData("cancelled")]
     public async Task CancelByGuest_Throws_ForFinishedReservation(string status)
     {

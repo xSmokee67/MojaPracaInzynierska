@@ -22,13 +22,14 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 - **EF Core InMemory**: baza danych w pamięci zamiast SQL Servera
 - **AutoMapper**: ten sam profil `ReservationMappingProfile` co w aplikacji
 
-### Zakres (97 przypadków testowych)
+### Zakres (105 przypadków testowych)
 
 | Plik | Co jest testowane | Przypadki |
 |------|-------------------|-----------|
-| `ReservationServiceAvailabilityTests.cs` | Sprawdzanie dostępności pokoju w module dostępności (`AvailabilityService.GetAvailableRoomIdAsync`): nakładające się terminy, terminy stykające się, rezerwacje anulowane i z niestawieniem się (zwalniają pokój), blokady pokoi, status pokoju | 19 |
+| `ReservationServiceAvailabilityTests.cs` | Sprawdzanie dostępności pokoju w module dostępności (`AvailabilityService.GetAvailableRoomIdAsync`): nakładające się terminy, terminy stykające się, rezerwacje anulowane (zwalniają pokój), blokady pokoi, status pokoju | 18 |
 | `ReservationServicePriceTests.cs` | Wyliczanie ceny (`CalculateTotalPriceAsync`): cena bazowa, sezonowa, pobyt na przełomie sezonu, usługi dodatkowe według sposobu naliczania (raz za pobyt, za noc, za osobę, za osobę za noc), liczba gości nie zmienia ceny noclegu | 14 |
-| `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji (w tym liczba gości względem pojemności pokoju i liczba naliczeń usług), zmiana terminu (przeliczenie usług naliczanych za noc), zmiana statusu, anulowanie przez gościa, płatności, faktury | 33 |
+| `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji (w tym liczba gości względem pojemności pokoju i liczba naliczeń usług), zmiana terminu (przeliczenie usług naliczanych za noc), zmiana statusu, anulowanie przez gościa, płatności, faktury | 32 |
+| `ReservationPaymentTests.cs` | Termin płatności (3 dni, najpóźniej dzień przed przyjazdem), automatyczne potwierdzenie po wpłacie całości, automatyczne anulowanie nieopłaconej rezerwacji po terminie, zakończenie pobytu po wymeldowaniu | 10 |
 | `AdditionalServiceServiceTests.cs` | Usługi dodatkowe w panelu: zapis i walidacja sposobu naliczania | 2 |
 | `AvailabilityServiceTests.cs` | Aktualizacja kalendarza dostępności (`Availability`) | 4 |
 | `ReservationServiceSearchTests.cs` | Wyszukiwarka na stronie głównej: liczba wolnych pokoi każdego typu, cena całego pobytu (z cennikiem sezonowym), dopasowanie do liczby gości | 9 |
@@ -56,12 +57,12 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | A3 | Zarejestruj drugi raz ten sam e-mail | Błąd „Użytkownik o podanym emailu już istnieje.” | |
 | A4 | Zaloguj się jako gość | Strona główna, w prawym górnym rogu „Witaj, Anna” i przycisk „Mój profil” | |
 | A5 | Zakładka „Zarezerwuj pobyt”: liczba gości 1, Pokój Standardowy, 10.03.2027 – 13.03.2027, zaznacz Śniadanie, „Sprawdź cenę i dostępność” | „Pokój dostępny!”, w podsumowaniu „Śniadanie: 3 × 50 PLN (za osobę za noc) = 150.00 PLN”, do zapłaty **750,00 PLN** (3 × 200 + 1 os. × 3 noce × 50) | |
-| A6 | „Potwierdź i Rezerwuj” | Ekran „Udało się!” | |
-| A7 | Zakładka „Moje rezerwacje” | Rezerwacja z pokojem 101, statusem „Oczekująca”, ceną 750 PLN | |
-| A8 | Wyloguj, zaloguj jako właściciel, czerwony przycisk „Panel Właściciela” → zakładka „Rezerwacje” | Rezerwacja gościa na liście | |
-| A9 | Zmień status na „Potwierdzona” | Komunikat sukcesu, nowy status na liście | |
-| A10 | „Szczegóły” → zarejestruj płatność 300 zł kartą | Płatność na liście, „wpłacono 300,00 PLN” | |
-| A11 | Zarejestruj drugą płatność (kwota podpowiada się jako 450 zł) | „wpłacono 750,00 PLN” | |
+| A6 | „Potwierdź i Rezerwuj” | Ekran „Udało się!” z komunikatem „Opłać ją do …” (dziś + 3 dni) | |
+| A7 | Zakładka „Moje rezerwacje” | Rezerwacja z pokojem 101, statusem „Oczekująca” z dopiskiem „opłać do …”, ceną 750 PLN; w szczegółach „Do zapłaty 750.00 PLN do …” | |
+| A8 | Wyloguj, zaloguj jako właściciel, czerwony przycisk „Panel Właściciela” → zakładka „Rezerwacje” | Rezerwacja gościa na liście, pod statusem „wpłata do …” | |
+| A9 | „Szczegóły” → zarejestruj płatność 300 zł kartą | Płatność na liście, „wpłacono 300.00 PLN”, status nadal „Oczekująca”, „Do zapłaty 450.00 PLN do …” | |
+| A10 | Zarejestruj drugą płatność (kwota podpowiada się jako 450 zł) | „wpłacono 750.00 PLN”, status zmienia się automatycznie na „Potwierdzona” | |
+| A11 | Zamknij szczegóły, lista rezerwacji | Status „Potwierdzona”, bez dopisku „wpłata do” | |
 | A12 | Spróbuj wystawić fakturę | Przycisk nieaktywny: faktura dopiero po zrealizowaniu | |
 | A13 | Zmień status na „Zrealizowana”, w szczegółach „Wystaw fakturę” | Faktura `FV/rrrr/mm/000nn` na 750 zł, przycisk znika | |
 | A14 | Zaloguj jako gość, szczegóły rezerwacji | Widoczne płatności i faktura, formularz opinii | |
@@ -93,10 +94,11 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | C7 | Gość sprawdza Apartament Premium 12.05.2027 – 14.05.2027 | Brak wolnych pokoi | |
 | C8 | Właściciel blokuje pokój w terminie z aktywną rezerwacją | Błąd „W tym terminie pokój ma aktywne rezerwacje…” | |
 | C9 | Właściciel dodaje wpis cennika nachodzący na sezon 01.06–31.08.2027 | Błąd „Okres nakłada się na istniejący wpis cennika…” | |
-| C10 | Właściciel zmienia status anulowanej rezerwacji (albo z niestawieniem się) na „Potwierdzona” | Lista statusów nieaktywna (takiej rezerwacji nie da się przywrócić - jej noce wróciły do puli wolnych) | |
+| C10 | Właściciel zmienia status anulowanej rezerwacji na „Potwierdzona” | Lista statusów nieaktywna (takiej rezerwacji nie da się przywrócić - jej noce wróciły do puli wolnych) | |
 | C11 | Formularz „Zarezerwuj pobyt”: liczba gości 3 | Pokój Standardowy (max 2 os.) nieaktywny na liście z dopiskiem „za mały”; gdy był wybrany - komunikat i nieaktywny przycisk „Sprawdź cenę i dostępność” | |
 | C12 | `POST /api/Reservation/create` (Swagger, token gościa) dla Pokoju Standardowego z `numberOfGuests: 3` | 400 „Liczba gości musi wynosić od 1 do 2 - tyle osób mieści wybrany pokój.” | |
 | C13 | Rezerwacja Apartamentu Premium dla 4 osób, potem szczegóły rezerwacji (gość) i zakładka „Rezerwacje” (właściciel) | Rezerwacja utworzona; liczba gości „4 osoby” widoczna w szczegółach i na liście w panelu | |
+| C14 | Gość składa rezerwację i jej nie opłaca; w bazie (SSMS) ustaw tej rezerwacji `PaymentDeadline` na wczorajszą datę i uruchom ponownie API | Status „Anulowana”; gość i właściciel dostają powiadomienie o anulowaniu z powodu braku wpłaty; termin znów dostępny w wyszukiwarce | |
 
 ### Scenariusz D: bezpieczeństwo i sesja
 

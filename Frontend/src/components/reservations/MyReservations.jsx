@@ -69,7 +69,7 @@ export default function MyReservations({ token, refreshKey, selectedReservationI
                 <td className="p-4 text-slate-600">{formatDate(r.checkInDate)} - {formatDate(r.checkOutDate)}</td>
                 <td className="p-4 text-slate-600">{r.additionalServices.length > 0 ? r.additionalServices.join(', ') : '—'}</td>
                 <td className="p-4 font-bold text-emerald-600">{r.totalPrice.toFixed(2)} PLN</td>
-                <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${reservationStatusStyles[r.status] ?? 'bg-slate-100 text-slate-600'}`}>{reservationStatusLabels[r.status] ?? r.status}</span></td>
+                <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${reservationStatusStyles[r.status] ?? 'bg-slate-100 text-slate-600'}`}>{reservationStatusLabels[r.status] ?? r.status}</span>{r.status === 'pending' && <div className="mt-1 text-xs text-amber-700">opłać do {formatDate(r.paymentDeadline)}</div>}</td>
                 <td className="p-4 text-right"><button onClick={() => onSelectReservation(r.reservationId)} className="text-emerald-600 hover:text-emerald-800 font-medium text-sm">Szczegóły</button></td>
               </tr>
             ))}

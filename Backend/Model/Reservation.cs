@@ -13,6 +13,8 @@ public class Reservation
     public int NumberOfGuests {get; set; }
     public string Status {get; set; } = string.Empty;
     public decimal TotalPrice {get; set; }
+    // Do końca tego dnia rezerwacja musi być opłacona w całości - inaczej zadanie w tle ją anuluje
+    public DateTime PaymentDeadline {get; set; }
 
     public virtual Guest Guest { get; set; } = null!;
     public virtual Room Room { get; set; } = null!;

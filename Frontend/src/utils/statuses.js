@@ -17,21 +17,19 @@ export const roomStatusStyles = {
   'disabled': 'bg-slate-200 text-slate-600'
 };
 
-// Statusy rezerwacji (pending / confirmed / cancelled / completed / no-show)
+// Statusy rezerwacji (pending / confirmed / cancelled / completed)
 export const reservationStatusLabels = {
   'pending': 'Oczekująca',
   'confirmed': 'Potwierdzona',
   'cancelled': 'Anulowana',
-  'completed': 'Zrealizowana',
-  'no-show': 'Niestawienie się'
+  'completed': 'Zrealizowana'
 };
 
 export const reservationStatusStyles = {
   'pending': 'bg-amber-100 text-amber-700',
   'confirmed': 'bg-emerald-100 text-emerald-700',
   'cancelled': 'bg-red-100 text-red-700',
-  'completed': 'bg-sky-100 text-sky-700',
-  'no-show': 'bg-slate-200 text-slate-700'
+  'completed': 'bg-sky-100 text-sky-700'
 };
 
 // Metody i statusy płatności

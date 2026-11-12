@@ -26,6 +26,30 @@ public class ReservationService : IReservationService
     // Ile innych terminów proponujemy, gdy w wybranym nie ma wolnego pokoju
     private const int AlternativeStaysCount = 3;
 
+    // Na opłacenie rezerwacji gość ma tyle dni od jej złożenia (ale najpóźniej do dnia przed przyjazdem)
+    public const int PaymentDays = 3;
+
+    // Termin płatności: 3 dni od rezerwacji, ale najpóźniej dzień przed przyjazdem.
+    // Przy rezerwacji na dziś lub jutro - do końca dzisiejszego dnia. Po tym dniu nieopłacona rezerwacja jest anulowana.
+    public static DateTime PaymentDeadlineFor(DateTime checkIn, DateTime today)
+    {
+        var deadline = today.Date.AddDays(PaymentDays);
+        var dayBeforeArrival = checkIn.Date.AddDays(-1);
+
+        if (dayBeforeArrival < deadline)
+        {
+            deadline = dayBeforeArrival;
+        }
+
+        return deadline < today.Date ? today.Date : deadline;
+    }
+
+    // Suma zaksięgowanych wpłat rezerwacji (zwroty i nieudane płatności się nie liczą)
+    private async Task<decimal> GetPaidAmountAsync(int reservationId) =>
+        await _context.Payments
+            .Where(p => p.ReservationId == reservationId && p.Status == PaymentStatus.Completed)
+            .SumAsync(p => p.Amount);
+
     // Termin w treści powiadomień, np. "10.11.2026 - 13.11.2026"
     private static string StayDates(DateTime checkIn, DateTime checkOut) => $"{checkIn:dd.MM.yyyy} - {checkOut:dd.MM.yyyy}";
 
@@ -35,16 +59,15 @@ public class ReservationService : IReservationService
         [ReservationStatus.Confirmed] = "została potwierdzona przez hotel.",
         [ReservationStatus.Cancelled] = "została anulowana przez hotel.",
         [ReservationStatus.Completed] = "została zakończona. Możesz wystawić opinię o pobycie.",
-        [ReservationStatus.NoShow] = "została oznaczona jako niestawienie się.",
         [ReservationStatus.Pending] = "oczekuje ponownie na potwierdzenie."
     };
 
-    // Statusy, po których noce rezerwacji wracają do puli wolnych pokoi (tak samo liczy moduł dostępności)
-    private static bool ReleasesRoom(string status) => status == ReservationStatus.Cancelled || status == ReservationStatus.NoShow;
+    // Status, po którym noce rezerwacji wracają do puli wolnych pokoi (tak samo liczy moduł dostępności)
+    private static bool ReleasesRoom(string status) => status == ReservationStatus.Cancelled;
 
     // Automatyczne statusy - wywoływane przez API przy starcie i potem co godzinę (BackgroundJobs/ReservationStatusJob):
     // - potwierdzona rezerwacja po dniu wymeldowania -> zakończona (gość może wystawić opinię, hotel - fakturę),
-    // - rezerwacja niepotwierdzona do dnia przyjazdu -> niestawienie się; jej noce wracają do puli wolnych pokoi.
+    // - rezerwacja nieopłacona w całości do końca dnia terminu płatności -> anulowana; jej noce wracają do puli wolnych pokoi.
     // Zwraca liczbę zmienionych rezerwacji.
     public async Task<int> UpdateExpiredReservationsAsync()
     {
@@ -52,7 +75,7 @@ public class ReservationService : IReservationService
 
         var expired = await _context.Reservations
             .Where(r => (r.Status == ReservationStatus.Confirmed && r.CheckOutDate < today)
-                || (r.Status == ReservationStatus.Pending && r.CheckInDate < today))
+                || (r.Status == ReservationStatus.Pending && r.PaymentDeadline < today))
             .OrderBy(r => r.ReservationId)
             .ToListAsync();
 
@@ -67,15 +90,24 @@ public class ReservationService : IReservationService
 
                 await _notificationService.NotifyUserAsync(reservation.GuestId, $"Rezerwacja #{reservation.ReservationId} ({stay}) {StatusMessages[ReservationStatus.Completed]}", reservation.ReservationId);
             }
+            else if (await GetPaidAmountAsync(reservation.ReservationId) >= reservation.TotalPrice)
+            {
+                // Opłacona w całości (wpłata zarejestrowana, ale rezerwacja nie zmieniła statusu) - potwierdzamy zamiast anulować
+                reservation.Status = ReservationStatus.Confirmed;
+                await _context.SaveChangesAsync();
+
+                await _notificationService.NotifyUserAsync(reservation.GuestId, $"Rezerwacja #{reservation.ReservationId} ({stay}) {StatusMessages[ReservationStatus.Confirmed]}", reservation.ReservationId);
+            }
             else
             {
-                reservation.Status = ReservationStatus.NoShow;
+                reservation.Status = ReservationStatus.Cancelled;
                 await _context.SaveChangesAsync();
 
                 await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Free);
 
-                await _notificationService.NotifyUserAsync(reservation.GuestId, $"Rezerwacja #{reservation.ReservationId} ({stay}) nie została potwierdzona do dnia przyjazdu i {StatusMessages[ReservationStatus.NoShow]}", reservation.ReservationId);
-                await _notificationService.NotifyOwnersAsync($"Rezerwacja #{reservation.ReservationId} ({stay}) nie została potwierdzona do dnia przyjazdu - oznaczono niestawienie się, pokój wrócił do puli wolnych.", reservation.ReservationId);
+                var deadline = $"{reservation.PaymentDeadline:dd.MM.yyyy}";
+                await _notificationService.NotifyUserAsync(reservation.GuestId, $"Rezerwacja #{reservation.ReservationId} ({stay}) została automatycznie anulowana - nie została opłacona do {deadline}. Ewentualne wpłaty zwróci hotel.", reservation.ReservationId);
+                await _notificationService.NotifyOwnersAsync($"Rezerwacja #{reservation.ReservationId} ({stay}) nie została opłacona do {deadline} - anulowano automatycznie, pokój wrócił do puli wolnych.", reservation.ReservationId);
             }
         }
 
@@ -213,6 +245,7 @@ public class ReservationService : IReservationService
         var reservation = _mapper.Map<Reservation>(dto);
         reservation.RoomId = availableRoomId.Value;
         reservation.TotalPrice = totalPrice;
+        reservation.PaymentDeadline = PaymentDeadlineFor(dto.CheckInDate, DateTime.Today);
 
         // Usługi z liczbą naliczeń i ceną z chwili rezerwacji (ta sama metoda co przy wyliczaniu ceny)
         var nights = (dto.CheckOutDate.Date - dto.CheckInDate.Date).Days;
@@ -228,6 +261,7 @@ public class ReservationService : IReservationService
 
         var roomTypeName = await _context.RoomTypes.Where(rt => rt.RoomTypeId == dto.RoomTypeId).Select(rt => rt.Name).FirstAsync();
         await _notificationService.NotifyOwnersAsync($"Nowa rezerwacja #{reservation.ReservationId}: {roomTypeName}, {StayDates(reservation.CheckInDate, reservation.CheckOutDate)}.", reservation.ReservationId);
+        await _notificationService.NotifyUserAsync(reservation.GuestId, $"Rezerwacja #{reservation.ReservationId} została złożona. Opłać {reservation.TotalPrice:0.00} PLN do {reservation.PaymentDeadline:dd.MM.yyyy} - po zaksięgowaniu wpłaty rezerwacja zostanie potwierdzona, a nieopłacona w terminie zostanie automatycznie anulowana.", reservation.ReservationId);
 
         await transaction.CommitAsync();
         return true;
@@ -275,10 +309,10 @@ public class ReservationService : IReservationService
             return false;
         }
 
-        // Anulowana rezerwacja i niestawienie się zwalniają pokój - przywrócenie mogłoby nałożyć się na nową rezerwację
+        // Anulowana rezerwacja zwalnia pokój - przywrócenie mogłoby nałożyć się na nową rezerwację
         if (ReleasesRoom(reservation.Status) && status != reservation.Status)
         {
-            throw new ArgumentException("Nie można przywrócić rezerwacji anulowanej ani oznaczonej jako niestawienie się - termin mógł zostać już zajęty.");
+            throw new ArgumentException("Nie można przywrócić anulowanej rezerwacji - termin mógł zostać już zajęty.");
         }
 
         var roomReleased = !ReleasesRoom(reservation.Status) && ReleasesRoom(status);
@@ -436,6 +470,16 @@ public class ReservationService : IReservationService
         reservation.CheckInDate = newCheckIn;
         reservation.CheckOutDate = newCheckOut;
         reservation.TotalPrice = roomPrice + servicesPrice;
+
+        // Nieopłacona rezerwacja przeniesiona na wcześniejszy termin: płatność najpóźniej dzień przed nowym przyjazdem
+        if (reservation.Status == ReservationStatus.Pending)
+        {
+            var newDeadline = PaymentDeadlineFor(newCheckIn, DateTime.Today);
+            if (newDeadline < reservation.PaymentDeadline)
+            {
+                reservation.PaymentDeadline = newDeadline;
+            }
+        }
         await _context.SaveChangesAsync();
 
         await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Booked);
@@ -496,6 +540,15 @@ public class ReservationService : IReservationService
 
         _context.Payments.Add(payment);
         await _context.SaveChangesAsync();
+
+        // Wpłata całej kwoty potwierdza oczekującą rezerwację - bez osobnego klikania przez właściciela
+        if (reservation.Status == ReservationStatus.Pending && await GetPaidAmountAsync(reservationId) >= reservation.TotalPrice)
+        {
+            reservation.Status = ReservationStatus.Confirmed;
+            await _context.SaveChangesAsync();
+
+            await _notificationService.NotifyUserAsync(reservation.GuestId, $"Wpłata za rezerwację #{reservation.ReservationId} ({StayDates(reservation.CheckInDate, reservation.CheckOutDate)}) została zaksięgowana - rezerwacja {StatusMessages[ReservationStatus.Confirmed]}", reservation.ReservationId);
+        }
 
         return true;
     }

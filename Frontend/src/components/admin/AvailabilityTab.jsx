@@ -13,16 +13,14 @@ const periodOptions = [7, 14, 30];
 const bookedStyles = {
   'pending': 'bg-amber-300 hover:bg-amber-400 text-amber-900',
   'confirmed': 'bg-sky-500 hover:bg-sky-600 text-white',
-  'completed': 'bg-sky-300 hover:bg-sky-400 text-sky-900',
-  'no-show': 'bg-slate-400 hover:bg-slate-500 text-white'
+  'completed': 'bg-sky-300 hover:bg-sky-400 text-sky-900'
 };
 
 const legend = [
   { label: 'Wolny', style: 'bg-emerald-100' },
-  { label: 'Rezerwacja oczekująca', style: 'bg-amber-300' },
+  { label: 'Rezerwacja oczekująca (nieopłacona)', style: 'bg-amber-300' },
   { label: 'Rezerwacja potwierdzona', style: 'bg-sky-500' },
   { label: 'Rezerwacja zrealizowana', style: 'bg-sky-300' },
-  { label: 'Niestawienie się', style: 'bg-slate-400' },
   { label: 'Blokada (remont, konserwacja)', style: 'bg-red-300' },
   { label: 'Pokój wyłączony z rezerwacji', style: 'bg-slate-200' }
 ];

@@ -7,7 +7,6 @@ public static class ReservationStatus
     public const string Confirmed = "confirmed";
     public const string Cancelled = "cancelled";
     public const string Completed = "completed";
-    public const string NoShow = "no-show";
 
-    public static readonly string[] All = { Pending, Confirmed, Cancelled, Completed, NoShow };
+    public static readonly string[] All = { Pending, Confirmed, Cancelled, Completed };
 }

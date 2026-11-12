@@ -124,7 +124,9 @@ public class ReservationController : ControllerBase
             if (!success)
                 return BadRequest(new { error = "Niestety, pokój został przed chwilą zarezerwowany, lub jest już niedostępny."});
 
-            return Ok(new { message = "Rezerwacja została pomyślnie utworzona!"});
+            // Termin płatności liczony tą samą regułą co w serwisie (3 dni, najpóźniej dzień przed przyjazdem)
+            var paymentDeadline = Services.Services.ReservationService.PaymentDeadlineFor(dto.CheckInDate, DateTime.Today);
+            return Ok(new { message = $"Rezerwacja została złożona! Opłać ją do {paymentDeadline:dd.MM.yyyy} - po zaksięgowaniu wpłaty zostanie potwierdzona, a nieopłacona w terminie zostanie automatycznie anulowana." });
         }
         catch (ArgumentException e)
         {

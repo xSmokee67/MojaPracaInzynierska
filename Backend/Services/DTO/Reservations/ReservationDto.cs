@@ -14,5 +14,6 @@ public class ReservationDto
     public int NumberOfGuests {get; set; }
     public string Status {get; set; } = string.Empty;
     public decimal TotalPrice {get; set; }
+    public DateTime PaymentDeadline {get; set; }
     public List<string> AdditionalServices {get; set; } = new ();
 }

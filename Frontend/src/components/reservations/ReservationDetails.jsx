@@ -127,6 +127,12 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
               <div>
                 <span className="block text-xs font-semibold text-slate-500 uppercase">Rozliczenie</span>
                 <span className="font-bold text-emerald-600">{details.totalPrice.toFixed(2)} PLN</span> <span className="text-sm text-slate-500">(wpłacono {details.paidAmount.toFixed(2)} PLN)</span>
+                {/* Oczekująca = jeszcze nieopłacona w całości: termin płatności i brakująca kwota */}
+                {details.status === 'pending' && (
+                  <div className="mt-1 text-sm font-medium text-amber-700">
+                    Do zapłaty {Math.max(details.totalPrice - details.paidAmount, 0).toFixed(2)} PLN do {formatDate(details.paymentDeadline)} - po zaksięgowaniu wpłaty rezerwacja zostanie potwierdzona, nieopłacona zostanie automatycznie anulowana.
+                  </div>
+                )}
               </div>
             </div>
 

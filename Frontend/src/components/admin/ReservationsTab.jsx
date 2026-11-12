@@ -35,7 +35,6 @@ export default function ReservationsTab({ token, selectedReservationId, onSelect
 
   const handleChangeStatus = async (id, status) => {
     if (status === 'cancelled' && !window.confirm('Na pewno anulować tę rezerwację? Tej operacji nie można cofnąć.')) return;
-    if (status === 'no-show' && !window.confirm('Oznaczyć niestawienie się gościa? Noce tej rezerwacji wrócą do puli wolnych pokoi, a tej operacji nie można cofnąć.')) return;
     try { await updateReservationStatus(id, { status }, token); showSuccess(`Status rezerwacji #${id} został zmieniony.`); reload(); } catch (err) { setError(errorMessage(err)); }
   };
 
@@ -91,9 +90,9 @@ export default function ReservationsTab({ token, selectedReservationId, onSelect
                   <td className="p-4"><span className="font-bold text-slate-800">{r.roomNumber}</span> <span className="text-slate-600">({r.roomTypeName})</span></td>
                   <td className="p-4 text-slate-600">{formatDate(r.checkInDate)} - {formatDate(r.checkOutDate)}<div className="text-xs text-slate-500">{personsLabel(r.numberOfGuests)}</div></td>
                   <td className="p-4 font-bold text-emerald-600">{r.totalPrice.toFixed(2)} PLN</td>
-                  <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${reservationStatusStyles[r.status] ?? 'bg-slate-100 text-slate-600'}`}>{reservationStatusLabels[r.status] ?? r.status}</span></td>
+                  <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${reservationStatusStyles[r.status] ?? 'bg-slate-100 text-slate-600'}`}>{reservationStatusLabels[r.status] ?? r.status}</span>{r.status === 'pending' && <div className="mt-1 text-xs text-amber-700">wpłata do {formatDate(r.paymentDeadline)}</div>}</td>
                   <td className="p-4 text-right">
-                    <select value={r.status} disabled={r.status === 'cancelled' || r.status === 'no-show'} onChange={e => handleChangeStatus(r.reservationId, e.target.value)} className="px-3 py-2 border rounded-lg outline-none bg-white text-sm disabled:bg-slate-100 disabled:text-slate-400">
+                    <select value={r.status} disabled={r.status === 'cancelled'} onChange={e => handleChangeStatus(r.reservationId, e.target.value)} className="px-3 py-2 border rounded-lg outline-none bg-white text-sm disabled:bg-slate-100 disabled:text-slate-400">
                       {Object.entries(reservationStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                     </select>
                   </td>
@@ -106,8 +105,9 @@ export default function ReservationsTab({ token, selectedReservationId, onSelect
         </div>
 
         <p className="text-sm text-slate-500">
-          Statusy zmieniają się też automatycznie (co godzinę): potwierdzona rezerwacja dzień po wymeldowaniu staje się zakończona,
-          a rezerwacja niepotwierdzona do dnia przyjazdu - niestawieniem się. Anulowanie i niestawienie się zwalniają noce rezerwacji dla innych gości.
+          Statusy zmieniają się też automatycznie: zarejestrowanie wpłaty całej kwoty potwierdza oczekującą rezerwację,
+          rezerwacja nieopłacona do terminu płatności (3 dni od rezerwacji, najpóźniej dzień przed przyjazdem) zostaje anulowana,
+          a potwierdzona dzień po wymeldowaniu staje się zakończona (sprawdzane co godzinę). Anulowanie zwalnia noce rezerwacji dla innych gości.
         </p>
       </div>
 

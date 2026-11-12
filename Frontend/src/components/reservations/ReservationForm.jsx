@@ -171,12 +171,13 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
         numberOfGuests,
         additionalServiceIds
       };
-      await createReservation(payload, token);
+      const result = await createReservation(payload, token);
       setIsSuccess(true);
       setAdditionalServiceIds([]);
       resetCheck();
       onReservationCreated();
-      setStatusMessage('Rezerwacja została pomyślnie potwierdzona!');
+      // Komunikat z API zawiera termin płatności
+      setStatusMessage(result?.message ?? 'Rezerwacja została złożona.');
     } catch (err) {
       setIsError(true);
       setStatusMessage(errorMessage(err));
