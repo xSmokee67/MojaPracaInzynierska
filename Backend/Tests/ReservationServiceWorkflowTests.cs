@@ -6,8 +6,9 @@ namespace Tests;
 // Testy obsługi rezerwacji - tworzenie, zmiana statusu, anulowanie, płatności i faktury
 public class ReservationServiceWorkflowTests
 {
-    private static readonly DateTime CheckIn = new DateTime(2027, 3, 10);
-    private static readonly DateTime CheckOut = new DateTime(2027, 3, 13);
+    // Pobyt 10-13 marca przyszłego roku: zawsze w przyszłości (serwis odrzuca rezerwacje wstecz) i poza sezonem z cennika testowego
+    private static readonly DateTime CheckIn = new DateTime(DateTime.Today.Year + 1, 3, 10);
+    private static readonly DateTime CheckOut = CheckIn.AddDays(3);
 
     // --- TWORZENIE REZERWACJI ---
 
@@ -353,7 +354,45 @@ public class ReservationServiceWorkflowTests
         Assert.True(success);
         var invoice = await context.Invoices.SingleAsync();
         Assert.Equal(680m, invoice.GrossAmount);
-        Assert.Equal($"FV/{invoice.IssueDate:yyyy}/{invoice.IssueDate:MM}/{reservation.ReservationId:D5}", invoice.InvoiceNumber);
+        var local = invoice.IssueDate.ToLocalTime();
+        Assert.Equal($"FV/{local:yyyy}/{local:MM}/00001", invoice.InvoiceNumber); // pierwsza faktura w miesiącu
+        Assert.Equal(1, invoice.SequenceNumber);
+    }
+
+    [Fact(DisplayName = "Faktura: kolejne faktury w miesiącu mają kolejne numery, niezależnie od numerów rezerwacji")]
+    public async Task IssueInvoice_NumbersInvoicesSequentiallyInMonth()
+    {
+        using var context = TestData.CreateContext();
+        var first = TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut, status: "completed");
+        TestData.AddReservation(context, TestData.Room102Id, CheckIn, CheckOut, status: "confirmed"); // bez faktury - nie tworzy luki w numeracji
+        var second = TestData.AddReservation(context, TestData.Room201Id, CheckIn, CheckOut, status: "completed");
+        var service = TestData.CreateReservationService(context);
+
+        await service.IssueInvoiceAsync(second.ReservationId);
+        await service.IssueInvoiceAsync(first.ReservationId);
+
+        var invoices = await context.Invoices.OrderBy(i => i.InvoiceId).ToListAsync();
+        Assert.EndsWith("/00001", invoices[0].InvoiceNumber);
+        Assert.Equal(second.ReservationId, invoices[0].ReservationId);
+        Assert.EndsWith("/00002", invoices[1].InvoiceNumber);
+        Assert.Equal(first.ReservationId, invoices[1].ReservationId);
+    }
+
+    [Fact(DisplayName = "Faktura: nowy miesiąc zaczyna numerację od 1 (faktury z innych miesięcy się nie liczą)")]
+    public async Task IssueInvoice_StartsNewSeriesEachMonth()
+    {
+        using var context = TestData.CreateContext();
+        var old = TestData.AddReservation(context, TestData.Room102Id, CheckIn, CheckOut, status: "completed");
+        context.Invoices.Add(new Model.Invoice { ReservationId = old.ReservationId, InvoiceNumber = "FV/2020/01/00007", SequenceNumber = 7, IssueDate = new DateTime(2020, 1, 15), GrossAmount = 600 });
+        context.SaveChanges();
+        var reservation = TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut, status: "completed");
+        var service = TestData.CreateReservationService(context);
+
+        await service.IssueInvoiceAsync(reservation.ReservationId);
+
+        var invoice = await context.Invoices.SingleAsync(i => i.ReservationId == reservation.ReservationId);
+        Assert.Equal(1, invoice.SequenceNumber);
+        Assert.EndsWith("/00001", invoice.InvoiceNumber);
     }
 
     [Theory(DisplayName = "Faktura: nie można wystawić faktury dla niezrealizowanej rezerwacji")]

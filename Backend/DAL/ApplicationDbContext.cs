@@ -54,6 +54,15 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<int>, i
             .HasForeignKey<Invoice>(i => i.ReservationId)
             .IsRequired(false);
 
+        // Numer faktury musi być unikalny - ostatnie zabezpieczenie przed dwiema fakturami o tym samym numerze
+        modelBuilder.Entity<Invoice>()
+            .Property(i => i.InvoiceNumber)
+            .HasMaxLength(30);
+
+        modelBuilder.Entity<Invoice>()
+            .HasIndex(i => i.InvoiceNumber)
+            .IsUnique();
+
         modelBuilder.Entity<Reservation>()
             .HasOne(r => r.Review)
             .WithOne(rev => rev.Reservation)

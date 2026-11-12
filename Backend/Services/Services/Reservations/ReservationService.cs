@@ -3,6 +3,7 @@ using DAL;
 using Microsoft.EntityFrameworkCore;
 using Model;
 using Services.Constants;
+using Services.Validation;
 using Services.DTO;
 using Services.Interfaces;
 
@@ -213,6 +214,9 @@ public class ReservationService : IReservationService
 
     public async Task<bool> CreateReservationAsync(CreateReservationDto dto)
     {
+        // Ta sama reguła terminu co w kontrolerze (przyjazd nie w przeszłości, przed wyjazdem, maks. 60 nocy)
+        StayRules.EnsureValid(dto.CheckInDate, dto.CheckOutDate);
+
         // Liczba gości musi zmieścić się w pokoju - reguła po stronie serwera, niezależnie od filtrów w interfejsie
         var maxOccupancy = await _context.RoomTypes
             .Where(rt => rt.RoomTypeId == dto.RoomTypeId)
@@ -430,6 +434,11 @@ public class ReservationService : IReservationService
             throw new ArgumentException("Data wymeldowania nie może być w przeszłości.");
         }
 
+        if ((newCheckOut - newCheckIn).Days > StayRules.MaxNights)
+        {
+            throw new ArgumentException(StayRules.TooLongMessage);
+        }
+
         if (newCheckIn == reservation.CheckInDate.Date && newCheckOut == reservation.CheckOutDate.Date)
         {
             throw new ArgumentException("Nowy termin jest taki sam jak obecny.");
@@ -576,17 +585,47 @@ public class ReservationService : IReservationService
 
         var issueDate = DateTime.UtcNow;
 
+        // Faktury są numerowane kolejno w serii miesiąca (wymóg kolejnej numeracji): FV/2026/11/00001, FV/2026/11/00002, ...
+        // Miesiąc serii według czasu lokalnego - faktura wystawiona 1 listopada o 0:30 należy do serii listopadowej.
+        var seriesPrefix = $"FV/{issueDate.ToLocalTime():yyyy}/{issueDate.ToLocalTime():MM}/";
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        // Dwie faktury wystawiane w tej samej chwili nie mogą dostać tego samego numeru:
+        // blokada zakresu numerów serii trwa do końca transakcji, drugie żądanie czeka i liczy numer po zapisaniu pierwszego
+        await LockInvoiceSeriesAsync(seriesPrefix);
+
+        var lastNumber = await _context.Invoices
+            .Where(i => i.InvoiceNumber.StartsWith(seriesPrefix))
+            .MaxAsync(i => (int?)i.SequenceNumber) ?? 0;
+        var sequenceNumber = lastNumber + 1;
+
         var invoice = new Invoice
         {
             ReservationId = reservationId,
-            InvoiceNumber = $"FV/{issueDate:yyyy}/{issueDate:MM}/{reservationId:D5}",
+            SequenceNumber = sequenceNumber,
+            InvoiceNumber = $"{seriesPrefix}{sequenceNumber:D5}",
             IssueDate = issueDate,
             GrossAmount = reservation.TotalPrice
         };
 
         _context.Invoices.Add(invoice);
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         return true;
+    }
+
+    // Blokada pesymistyczna (SQL Server) na faktury danej serii: UPDLOCK + HOLDLOCK blokuje też wstawianie nowych wierszy
+    // w tym zakresie numerów do końca transakcji. Baza w pamięci (testy jednostkowe) nie wykonuje SQL i nie ma blokad.
+    private async Task LockInvoiceSeriesAsync(string seriesPrefix)
+    {
+        if (!_context.Database.IsRelational())
+        {
+            return;
+        }
+
+        var pattern = seriesPrefix + "%";
+        await _context.Database.ExecuteSqlAsync($"SELECT InvoiceId FROM Invoices WITH (UPDLOCK, HOLDLOCK) WHERE InvoiceNumber LIKE {pattern}");
     }
 }
