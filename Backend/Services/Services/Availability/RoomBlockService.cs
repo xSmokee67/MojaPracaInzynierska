@@ -1,7 +1,6 @@
 using DAL;
 using Microsoft.EntityFrameworkCore;
 using Model;
-using Services.Constants;
 using Services.DTO;
 using Services.Interfaces;
 
@@ -94,7 +93,6 @@ public class RoomBlockService : IRoomBlockService
         _context.RoomBlocks.Add(block);
         await _context.SaveChangesAsync();
 
-        await _availabilityService.UpdateAvailabilityAsync(block.RoomId, block.StartDate, block.EndDate, AvailabilityStatus.Blocked);
         await NotifyRelocatedGuestsAsync(relocated);
 
         await transaction.CommitAsync();
@@ -111,8 +109,6 @@ public class RoomBlockService : IRoomBlockService
 
         _context.RoomBlocks.Remove(block);
         await _context.SaveChangesAsync();
-
-        await _availabilityService.UpdateAvailabilityAsync(block.RoomId, block.StartDate, block.EndDate, AvailabilityStatus.Free);
 
         return true;
     }

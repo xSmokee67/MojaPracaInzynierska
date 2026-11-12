@@ -18,7 +18,6 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<int>, i
     public DbSet<RoomTypePhoto> RoomTypePhotos { get; set; }
     public DbSet<Room> Rooms { get; set; }
     public DbSet<Amenity> Amenities { get; set; }
-    public DbSet<Availability> Availabilities { get; set; }
     public DbSet<RoomBlock> RoomBlocks { get; set; }
     public DbSet<Reservation> Reservations { get; set; }
     public DbSet<Payment> Payments { get; set; }

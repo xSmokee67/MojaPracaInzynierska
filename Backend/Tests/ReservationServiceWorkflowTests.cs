@@ -42,26 +42,27 @@ public class ReservationServiceWorkflowTests
         Assert.Equal(3, reservation.ReservationServices.Single(rs => rs.ServiceId == TestData.ParkingId).Quantity);
     }
 
-    [Fact(DisplayName = "Rezerwacja: utworzenie oznacza noce pobytu jako 'booked' w tabeli Availability")]
-    public async Task CreateReservation_MarksAvailabilityAsBooked()
+    [Fact(DisplayName = "Rezerwacja: noce pobytu są zajęte, a dzień wymeldowania jest wolny dla kolejnego gościa")]
+    public async Task CreateReservation_OccupiesNightsButNotCheckOutDay()
     {
         using var context = TestData.CreateContext();
         var service = TestData.CreateReservationService(context);
+        var availability = new Services.Services.AvailabilityService(context);
 
         await service.CreateReservationAsync(new CreateReservationDto
         {
             GuestId = TestData.GuestId,
-            RoomTypeId = TestData.StandardRoomTypeId,
+            RoomTypeId = TestData.PremiumRoomTypeId, // jedyny apartament: 201
             CheckInDate = CheckIn,
             CheckOutDate = CheckOut,
             NumberOfGuests = 2
         });
 
-        var entries = await context.Availabilities.Where(a => a.RoomId == TestData.Room101Id).OrderBy(a => a.Date).ToListAsync();
-        Assert.Equal(3, entries.Count); // 10, 11 i 12 marca - dzień wymeldowania pozostaje wolny
-        Assert.All(entries, a => Assert.Equal("booked", a.Status));
-        Assert.Equal(CheckIn, entries.First().Date);
-        Assert.Equal(CheckOut.AddDays(-1), entries.Last().Date);
+        // Dostępność jest liczona na bieżąco z rezerwacji - każda noc pobytu jest zajęta
+        Assert.Null(await availability.GetAvailableRoomIdAsync(TestData.PremiumRoomTypeId, CheckIn, CheckIn.AddDays(1)));
+        Assert.Null(await availability.GetAvailableRoomIdAsync(TestData.PremiumRoomTypeId, CheckOut.AddDays(-1), CheckOut));
+        // Dzień wymeldowania jest już wolny (przedziały [przyjazd, wyjazd))
+        Assert.Equal(TestData.Room201Id, await availability.GetAvailableRoomIdAsync(TestData.PremiumRoomTypeId, CheckOut, CheckOut.AddDays(2)));
     }
 
     [Fact(DisplayName = "Rezerwacja: druga rezerwacja w tym samym terminie trafia do kolejnego wolnego pokoju")]
@@ -135,7 +136,6 @@ public class ReservationServiceWorkflowTests
         }));
 
         Assert.Equal(0, await context.Reservations.CountAsync());
-        Assert.Equal(0, await context.Availabilities.CountAsync());
     }
 
     [Fact(DisplayName = "Zmiana terminu: usługi naliczane za noc są przeliczane na nową liczbę nocy (ceny z chwili rezerwacji)")]
@@ -224,7 +224,7 @@ public class ReservationServiceWorkflowTests
         await Assert.ThrowsAsync<ArgumentException>(() => service.UpdateReservationStatusAsync(reservation.ReservationId, "confirmed"));
     }
 
-    [Fact(DisplayName = "Status: anulowanie przez właściciela zwalnia pokój (Availability = 'free' i pokój znów dostępny)")]
+    [Fact(DisplayName = "Status: anulowanie przez właściciela zwalnia pokój (termin znów dostępny)")]
     public async Task UpdateStatus_Cancelled_FreesRoom()
     {
         using var context = TestData.CreateContext();
@@ -234,9 +234,6 @@ public class ReservationServiceWorkflowTests
 
         await service.UpdateReservationStatusAsync(reservation.ReservationId, "cancelled");
 
-        var entries = await context.Availabilities.Where(a => a.RoomId == TestData.Room201Id).ToListAsync();
-        Assert.Equal(3, entries.Count);
-        Assert.All(entries, a => Assert.Equal("free", a.Status));
         Assert.Equal(TestData.Room201Id, await new Services.Services.AvailabilityService(context).GetAvailableRoomIdAsync(TestData.PremiumRoomTypeId, CheckIn, CheckOut));
     }
 

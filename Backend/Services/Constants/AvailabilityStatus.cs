@@ -1,6 +1,6 @@
 namespace Services.Constants;
 
-// Statusy dni w kalendarzu dostępności pokoju (tabela Availabilities)
+// Statusy nocy w kalendarzu dostępności - wyliczane na bieżąco z rezerwacji i blokad (AvailabilityService.GetCalendarAsync)
 public static class AvailabilityStatus
 {
     public const string Free = "free";

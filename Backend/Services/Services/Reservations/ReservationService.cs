@@ -104,8 +104,6 @@ public class ReservationService : IReservationService
                 reservation.Status = ReservationStatus.Cancelled;
                 await _context.SaveChangesAsync();
 
-                await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Free);
-
                 var deadline = $"{reservation.PaymentDeadline:dd.MM.yyyy}";
                 await _notificationService.NotifyUserAsync(reservation.GuestId, $"Rezerwacja #{reservation.ReservationId} ({stay}) została automatycznie anulowana - nie została opłacona do {deadline}. Ewentualne wpłaty zwróci hotel.", reservation.ReservationId);
                 await _notificationService.NotifyOwnersAsync($"Rezerwacja #{reservation.ReservationId} ({stay}) nie została opłacona do {deadline} - anulowano automatycznie, pokój wrócił do puli wolnych.", reservation.ReservationId);
@@ -261,8 +259,6 @@ public class ReservationService : IReservationService
         await _context.Reservations.AddAsync(reservation);
         await _context.SaveChangesAsync();
 
-        await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Booked);
-
         var roomTypeName = await _context.RoomTypes.Where(rt => rt.RoomTypeId == dto.RoomTypeId).Select(rt => rt.Name).FirstAsync();
         await _notificationService.NotifyOwnersAsync($"Nowa rezerwacja #{reservation.ReservationId}: {roomTypeName}, {StayDates(reservation.CheckInDate, reservation.CheckOutDate)}.", reservation.ReservationId);
         await _notificationService.NotifyUserAsync(reservation.GuestId, $"Rezerwacja #{reservation.ReservationId} została złożona. Opłać {reservation.TotalPrice:0.00} PLN do {reservation.PaymentDeadline:dd.MM.yyyy} - po zaksięgowaniu wpłaty rezerwacja zostanie potwierdzona, a nieopłacona w terminie zostanie automatycznie anulowana.", reservation.ReservationId);
@@ -319,16 +315,10 @@ public class ReservationService : IReservationService
             throw new ArgumentException("Nie można przywrócić anulowanej rezerwacji - termin mógł zostać już zajęty.");
         }
 
-        var roomReleased = !ReleasesRoom(reservation.Status) && ReleasesRoom(status);
         var statusChanged = reservation.Status != status;
 
         reservation.Status = status;
         await _context.SaveChangesAsync();
-
-        if (roomReleased)
-        {
-            await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Free);
-        }
 
         // Status zmienia właściciel - informacja dla gościa
         if (statusChanged)
@@ -383,8 +373,6 @@ public class ReservationService : IReservationService
 
         reservation.Status = ReservationStatus.Cancelled;
         await _context.SaveChangesAsync();
-
-        await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Free);
 
         await _notificationService.NotifyOwnersAsync($"Gość anulował rezerwację #{reservation.ReservationId} ({StayDates(reservation.CheckInDate, reservation.CheckOutDate)}).", reservation.ReservationId);
 
@@ -472,9 +460,6 @@ public class ReservationService : IReservationService
         }
         var servicesPrice = reservation.ReservationServices.Sum(s => s.TotalPrice);
 
-        // Kalendarz dostępności: zwolnienie starych nocy, potem zajęcie nowych
-        await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Free);
-
         reservation.RoomId = newRoomId;
         reservation.CheckInDate = newCheckIn;
         reservation.CheckOutDate = newCheckOut;
@@ -490,8 +475,6 @@ public class ReservationService : IReservationService
             }
         }
         await _context.SaveChangesAsync();
-
-        await _availabilityService.UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Booked);
 
         // Zmianę wprowadza jedna strona - powiadomienie dostaje druga (gość albo właściciele)
         var roomNumber = await _context.Rooms.Where(r => r.RoomId == reservation.RoomId).Select(r => r.RoomNumber).FirstAsync();

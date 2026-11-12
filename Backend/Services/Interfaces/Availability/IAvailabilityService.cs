@@ -25,9 +25,6 @@ public interface IAvailabilityService
     // Najbliższe terminy tej samej długości z wolnym pokojem danego typu (najwyżej count, posortowane według daty przyjazdu)
     Task<List<AlternativeStayDto>> FindAlternativeStaysAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, int count);
 
-    // Kalendarz dostępności: status (free / booked / blocked) dla każdej nocy z zakresu
-    Task UpdateAvailabilityAsync(int roomId, DateTime startDate, DateTime endDate, string status);
-
     // Kalendarz w panelu właściciela: każdy pokój i każda noc z zakresu [from, to) - wolna, zarezerwowana lub zablokowana
     Task<List<RoomAvailabilityDto>> GetCalendarAsync(DateTime from, DateTime to);
 
