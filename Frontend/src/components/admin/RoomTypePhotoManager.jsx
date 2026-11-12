@@ -4,6 +4,7 @@ import { getRoomTypeDetails, photoUrl } from '../../api/roomApi';
 import { uploadRoomTypePhotos, deleteRoomTypePhoto, setMainRoomTypePhoto } from '../../api/adminApi';
 import { errorMessage } from '../../api/apiErrors';
 import Alert from '../common/Alert';
+import { resizeImage } from '../../utils/resizeImage';
 
 // Limity zgodne z API (FileStorageService i RoomTypeController)
 const MAX_PHOTOS = 10;
@@ -51,12 +52,16 @@ export default function RoomTypePhotoManager({ token, roomTypeId, roomTypeName, 
     // Walidacja po stronie przeglądarki - API sprawdza to samo ponownie
     const invalid = files.find(f => !ALLOWED_TYPES.includes(f.type));
     if (invalid) { setError(`Plik "${invalid.name}" ma nieobsługiwany format. Dozwolone: JPG, PNG, WEBP.`); return; }
-    const tooBig = files.find(f => f.size > MAX_FILE_SIZE);
-    if (tooBig) { setError(`Plik "${tooBig.name}" jest za duży. Maksymalny rozmiar to 5 MB.`); return; }
     if (photos.length + files.length > MAX_PHOTOS) { setError(`Typ pokoju może mieć maksymalnie ${MAX_PHOTOS} zdjęć (obecnie: ${photos.length}).`); return; }
 
     setIsUploading(true);
-    await runAction(() => uploadRoomTypePhotos(roomTypeId, files, token), files.length === 1 ? 'Zdjęcie zostało dodane.' : `Dodano zdjęcia: ${files.length}.`);
+    // Zdjęcia z aparatu (kilka MB, 4000+ px) są zmniejszane do 1600 px i zapisywane bez EXIF jeszcze w przeglądarce,
+    // więc limit 5 MB sprawdzamy dopiero po zmniejszeniu
+    const resized = await Promise.all(files.map(resizeImage));
+    const tooBig = resized.find(f => f.size > MAX_FILE_SIZE);
+    if (tooBig) { setError(`Plik "${tooBig.name}" jest za duży. Maksymalny rozmiar to 5 MB.`); setIsUploading(false); return; }
+
+    await runAction(() => uploadRoomTypePhotos(roomTypeId, resized, token), resized.length === 1 ? 'Zdjęcie zostało dodane.' : `Dodano zdjęcia: ${resized.length}.`);
     setIsUploading(false);
   };
 

@@ -7,8 +7,6 @@
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="16.2.0" />
-    <!-- Odczyt, zmniejszanie i zapis zdjęć pokoi (licencja Six Labors Split - bezpłatnie m.in. dla projektów niekomercyjnych) -->
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
   </ItemGroup>
 
   <PropertyGroup>

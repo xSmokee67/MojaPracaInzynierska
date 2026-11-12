@@ -33,7 +33,7 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 | `ReservationPaymentTests.cs` | Termin płatności (3 dni, najpóźniej dzień przed przyjazdem), automatyczne potwierdzenie po wpłacie całości, automatyczne anulowanie nieopłaconej rezerwacji po terminie, zakończenie pobytu po wymeldowaniu, saldo (wpłaty minus zwroty), limit wpłaty do brakującej kwoty i zwrotu do wpłaconej | 14 |
 | `AdditionalServiceServiceTests.cs` | Usługi dodatkowe w panelu: zapis i walidacja sposobu naliczania, blokada usuwania usługi zamówionej w rezerwacjach, usługa wycofana z oferty nie do zamówienia | 5 |
 | `ReservationServiceSearchTests.cs` | Wyszukiwarka na stronie głównej: liczba wolnych pokoi każdego typu, cena całego pobytu (z cennikiem sezonowym), dopasowanie do liczby gości | 9 |
-| `FileStorageServiceTests.cs` | Zapis zdjęć pokoi na dysku: dozwolone formaty, limit rozmiaru, odrzucanie plików, które nie są obrazem, zmniejszanie dużych zdjęć, unikalne nazwy, usuwanie, ochrona przed ścieżkami spoza katalogu | 18 |
+| `FileStorageServiceTests.cs` | Zapis zdjęć pokoi na dysku: dozwolone formaty, limit rozmiaru, odrzucanie plików, które nie są obrazem (sygnatura pliku zgodna z rozszerzeniem), unikalne nazwy, usuwanie, ochrona przed ścieżkami spoza katalogu | 18 |
 
 Testy pokrywają całą logikę biznesową z warstwy `Services`. Kontrolery API są cienką warstwą (walidacja wejścia i wywołanie serwisu), więc sprawdzają je testy manualne poniżej.
 
@@ -134,8 +134,8 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | E1 | Właściciel → „Panel Właściciela” → „Typy Pokoi” → „Edytuj” przy typie pokoju, uzupełnij opis, zapisz | Komunikat sukcesu, opis widoczny na stronie pokoju | |
 | E2 | „Zdjęcia” → „Dodaj zdjęcia”, wybierz 3 pliki JPG/PNG | Miniatury w oknie, pierwsze oznaczone jako „Główne”, w tabeli liczba zdjęć 3 | |
 | E3 | Dodaj plik GIF albo większy niż 5 MB | Komunikat o nieobsługiwanym formacie / za dużym pliku, nic nie zostaje zapisane | |
-| E3a | Dodaj plik tekstowy albo program z rozszerzeniem zmienionym na `.jpg` | Komunikat „Plik … nie jest prawidłowym obrazem.”, nic nie zostaje zapisane | |
-| E3b | Dodaj zdjęcie z telefonu/aparatu (np. 4000 × 3000 px, kilka MB) | Zdjęcie zapisane w folderze `uploads/room-types` w rozmiarze maks. 1600 px na dłuższym boku (kilkaset KB), bez danych EXIF | |
+| E3a | Swagger: `POST /api/RoomType/{id}/photos` z plikiem tekstowym albo programem przemianowanym na `.jpg` | 400 „Plik … nie jest prawidłowym obrazem JPG.”, nic nie zostaje zapisane | |
+| E3b | W panelu dodaj zdjęcie z telefonu/aparatu (np. 4000 × 3000 px, nawet ponad 5 MB) | Zdjęcie przyjęte; w folderze `uploads/room-types` ma maks. 1600 px na dłuższym boku (kilkaset KB) i nie zawiera danych EXIF | |
 | E4 | „Ustaw jako główne” przy drugim zdjęciu | To zdjęcie wyświetla się na kafelku na stronie głównej | |
 | E5 | „Usuń” przy zdjęciu (po potwierdzeniu) | Zdjęcie znika z listy i z folderu `Backend/API/uploads/room-types` | |
 | E6 | Wyloguj się, otwórz stronę główną | Sekcja powitalna z wyszukiwarką; kafelki ze zdjęciem, średnią oceną (lub „Brak opinii”), do 3 udogodnień i ceną za noc | |

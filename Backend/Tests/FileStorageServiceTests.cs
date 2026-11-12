@@ -1,6 +1,4 @@
 using Services.Settings;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace Tests;
 
@@ -21,15 +19,10 @@ public class FileStorageServiceTests : IDisposable
         if (Directory.Exists(_root)) Directory.Delete(_root, true);
     }
 
-    // Prawdziwy obraz w pamięci (serwis odczytuje zawartość pliku, więc przypadkowe bajty nie przejdą)
-    private static MemoryStream TestImage(int width = 40, int height = 20, bool png = false)
-    {
-        using var image = new Image<Rgba32>(width, height);
-        var stream = new MemoryStream();
-        if (png) image.SaveAsPng(stream); else image.SaveAsJpeg(stream);
-        stream.Position = 0;
-        return stream;
-    }
+    // Zawartość z poprawną sygnaturą formatu (serwis sprawdza pierwsze bajty pliku, więc przypadkowe bajty nie przejdą)
+    private static readonly byte[] JpegContent = { 0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3, 4 };
+    private static readonly byte[] PngContent = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 5, 6 };
+    private static readonly byte[] WebpContent = { (byte)'R', (byte)'I', (byte)'F', (byte)'F', 0, 0, 0, 0, (byte)'W', (byte)'E', (byte)'B', (byte)'P', 7 };
 
     [Theory(DisplayName = "Zdjęcia: akceptowane są pliki JPG, PNG i WEBP (wielkość liter bez znaczenia)")]
     [InlineData("pokoj.jpg")]
@@ -64,15 +57,13 @@ public class FileStorageServiceTests : IDisposable
     [Fact(DisplayName = "Zdjęcia: zapis tworzy plik o losowej nazwie i zwraca jego adres")]
     public async Task SaveImage_WritesFileAndReturnsUrl()
     {
-        var url = await _service.SaveImageAsync(TestImage(), "Mój Pokój.JPG", "room-types");
+        var url = await _service.SaveImageAsync(new MemoryStream(JpegContent), "Mój Pokój.JPG", "room-types");
 
         Assert.StartsWith("/uploads/room-types/", url);
         Assert.EndsWith(".jpg", url);
         Assert.DoesNotContain("Mój", url);  // oryginalna nazwa nie trafia na dysk
         var path = Path.Combine(_root, "room-types", Path.GetFileName(url));
-        using var saved = await Image.LoadAsync(path); // zapisany plik jest poprawnym obrazem
-        Assert.Equal(40, saved.Width);
-        Assert.Equal(20, saved.Height);
+        Assert.Equal(JpegContent, await File.ReadAllBytesAsync(path));
     }
 
     [Fact(DisplayName = "Zdjęcia: plik z rozszerzeniem obrazu, ale inną zawartością jest odrzucany i nie trafia na dysk")]
@@ -86,21 +77,20 @@ public class FileStorageServiceTests : IDisposable
         Assert.True(!Directory.Exists(directory) || Directory.GetFiles(directory).Length == 0);
     }
 
-    [Fact(DisplayName = "Zdjęcia: duże zdjęcie jest zmniejszane do 1600 px na dłuższym boku z zachowaniem proporcji")]
-    public async Task SaveImage_ResizesLargeImage()
+    [Fact(DisplayName = "Zdjęcia: zawartość musi odpowiadać rozszerzeniu (PNG zapisany jako .jpg jest odrzucany, WEBP przyjmowany)")]
+    public async Task SaveImage_ChecksSignatureAgainstExtension()
     {
-        var url = await _service.SaveImageAsync(TestImage(3200, 1000), "panorama.jpg", "room-types");
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.SaveImageAsync(new MemoryStream(PngContent), "pokoj.jpg", "room-types"));
 
-        using var saved = await Image.LoadAsync(Path.Combine(_root, "room-types", Path.GetFileName(url)));
-        Assert.Equal(1600, saved.Width);
-        Assert.Equal(500, saved.Height);
+        var url = await _service.SaveImageAsync(new MemoryStream(WebpContent), "pokoj.webp", "room-types");
+        Assert.EndsWith(".webp", url);
     }
 
     [Fact(DisplayName = "Zdjęcia: dwa pliki o tej samej nazwie nie nadpisują się")]
     public async Task SaveImage_GeneratesUniqueNames()
     {
-        var first = await _service.SaveImageAsync(TestImage(png: true), "pokoj.png", "room-types");
-        var second = await _service.SaveImageAsync(TestImage(png: true), "pokoj.png", "room-types");
+        var first = await _service.SaveImageAsync(new MemoryStream(PngContent), "pokoj.png", "room-types");
+        var second = await _service.SaveImageAsync(new MemoryStream(PngContent), "pokoj.png", "room-types");
 
         Assert.NotEqual(first, second);
         Assert.Equal(2, Directory.GetFiles(Path.Combine(_root, "room-types")).Length);
@@ -109,7 +99,7 @@ public class FileStorageServiceTests : IDisposable
     [Fact(DisplayName = "Zdjęcia: usunięcie kasuje plik z dysku")]
     public async Task Delete_RemovesFile()
     {
-        var url = await _service.SaveImageAsync(TestImage(png: true), "pokoj.png", "room-types");
+        var url = await _service.SaveImageAsync(new MemoryStream(PngContent), "pokoj.png", "room-types");
 
         _service.Delete(url);
 
