@@ -50,9 +50,6 @@ export default function UserProfile({ token, onNavigate }) {
             {isGuest && (<>
               <dt className="text-slate-500">Telefon</dt><dd className="font-semibold text-slate-800">{profile.phoneNumber || '—'}</dd>
             </>)}
-            {isGuest && profile.documentNumber && (<>
-              <dt className="text-slate-500">Nr dokumentu</dt><dd className="font-semibold text-slate-800">{profile.documentNumber}</dd>
-            </>)}
             <dt className="text-slate-500">Konto od</dt><dd className="font-semibold text-slate-800">{formatDate(profile.registrationDate)}</dd>
           </dl>
         </div>

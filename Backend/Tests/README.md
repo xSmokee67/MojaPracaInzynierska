@@ -45,6 +45,7 @@ Dane startowe (seed w `API/Data/DbSeeder.cs`):
 - **Pokoje:** Pokój Standardowy (200 zł/noc, pokoje 101 i 102), Apartament Premium (500 zł/noc, pokój 201)
 - **Cennik sezonowy:** Pokój Standardowy 350 zł/noc od 01.06.2027 do 31.08.2027
 - **Usługi:** Śniadanie 50 zł (za osobę za noc), Parking 30 zł (za noc)
+- **Zdjęcia:** po 5 przykładowych zdjęć dla każdego typu pokoju (`API/Data/SeedPhotos`) – dodawane tylko na bazie bez żadnych zdjęć
 
 W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 
@@ -107,7 +108,7 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | # | Krok | Oczekiwany wynik | Wynik |
 |---|------|------------------|-------|
 | D1 | Logowanie złym hasłem | „Nieprawidłowy email lub hasło.” | |
-| D2 | Wywołanie `GET /api/Reservation/all` bez tokenu (Swagger lub `API.http`) | 401 Unauthorized | |
+| D2 | Wywołanie `GET /api/Reservation/all` bez tokenu (Swagger) | 401 Unauthorized | |
 | D3 | Wywołanie `GET /api/Reservation/all` z tokenem gościa | 403 Forbidden (tylko rola Owner) | |
 | D4 | W przeglądarce: F12 → Application → Local Storage → ustaw `token_expiration` na datę z przeszłości, odśwież stronę | Wylogowanie z komunikatem „Sesja wygasła. Zaloguj się ponownie.” | |
 | D5 | Gość otwiera szczegóły cudzej rezerwacji (`GET /api/Reservation/{id}` z jego tokenem) | 403 Forbidden | |

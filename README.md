@@ -125,7 +125,7 @@ dotnet run
 
 - Klucz podpisu tokenów JWT nie jest trzymany w repozytorium – przechowują go User Secrets na komputerze dewelopera.
 - `dotnet ef database update` tworzy bazę `HotelReservationDb` (connection string w `appsettings.json`).
-- Przy pierwszym uruchomieniu aplikacja dodaje dane startowe (`API/Data/DbSeeder.cs`): role, konto właściciela, przykładowe typy pokoi, pokoje, cennik, usługi i udogodnienia.
+- Przy pierwszym uruchomieniu aplikacja dodaje dane startowe (`API/Data/DbSeeder.cs`): role, konto właściciela, przykładowe typy pokoi, pokoje, cennik, usługi i udogodnienia oraz przykładowe zdjęcia typów pokoi – pliki z `API/Data/SeedPhotos` (`standard-1.jpg`, `premium-1.jpg`, …) są kopiowane do `uploads/room-types` i przypinane do typów pokoi, gdy w bazie nie ma jeszcze żadnego zdjęcia. Dzięki temu na każdym komputerze (także na świeżej bazie) pokoje od razu mają zdjęcia.
 - Adres aplikacji React, z którego API przyjmuje zapytania (CORS), to `Frontend:BaseUrl` w `appsettings.json`.
 - API działa pod adresem `http://localhost:5285`, dokumentacja Swagger: `http://localhost:5285/swagger` (przycisk **Authorize** przyjmuje token z `POST /api/Auth/login`).
 

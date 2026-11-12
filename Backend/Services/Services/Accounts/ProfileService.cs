@@ -39,7 +39,6 @@ public class ProfileService : IProfileService
                 profile.FirstName = guest.FirstName;
                 profile.LastName = guest.LastName;
                 profile.PhoneNumber = guest.PhoneNumber ?? string.Empty;
-                profile.DocumentNumber = guest.DocumentNumber;
                 break;
             case Owner owner:
                 profile.Role = UserRoles.Owner;

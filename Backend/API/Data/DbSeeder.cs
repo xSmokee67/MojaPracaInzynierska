@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Model;
 using Services.Constants;
+using Services.Settings;
 
 namespace API.Data;
 
@@ -20,6 +21,8 @@ public static class DbSeeder
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<int>>>();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var fileStorage = scope.ServiceProvider.GetRequiredService<FileStorageSettings>();
+        var environment = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
 
         await SeedRolesAsync(roleManager);
         await SeedOwnerAsync(userManager);
@@ -28,6 +31,7 @@ public static class DbSeeder
         await SeedPriceListAsync(dbContext);
         await SeedAdditionalServicesAsync(dbContext);
         await SeedAmenitiesAsync(dbContext);
+        await SeedRoomTypePhotosAsync(dbContext, fileStorage, environment.ContentRootPath);
     }
 
     // 1. Domyślne role
@@ -161,6 +165,65 @@ public static class DbSeeder
             new Amenity { Name = "Telewizor" },
             new Amenity { Name = "Widok na morze" }
         );
+        await dbContext.SaveChangesAsync();
+    }
+
+    // 8. Przykładowe zdjęcia typów pokoi - pliki z katalogu Data/SeedPhotos (standard-1.jpg, premium-1.jpg, ...)
+    // są kopiowane do uploads/room-types i przypinane do typów pokoi. Dzięki temu na świeżej bazie (inny komputer,
+    // nowa instalacja) pokoje od razu mają zdjęcia. Pierwsze zdjęcie (SortOrder = 0) jest zdjęciem głównym.
+    private static async Task SeedRoomTypePhotosAsync(ApplicationDbContext dbContext, FileStorageSettings fileStorage, string contentRootPath)
+    {
+        if (await dbContext.RoomTypePhotos.AnyAsync())
+        {
+            return;
+        }
+
+        var seedPhotosPath = Path.Combine(contentRootPath, "Data", "SeedPhotos");
+        if (!Directory.Exists(seedPhotosPath))
+        {
+            return;
+        }
+
+        const string folder = "room-types"; // ten sam katalog co zdjęcia wgrywane w panelu (RoomTypeService)
+        var targetDirectory = Path.Combine(fileStorage.RootPath, folder);
+        Directory.CreateDirectory(targetDirectory);
+
+        var photosByRoomType = new Dictionary<string, string>
+        {
+            [StandardRoomTypeName] = "standard",
+            [PremiumRoomTypeName] = "premium"
+        };
+
+        foreach (var (roomTypeName, filePrefix) in photosByRoomType)
+        {
+            var roomType = await dbContext.RoomTypes.FirstOrDefaultAsync(rt => rt.Name == roomTypeName);
+            if (roomType == null)
+            {
+                continue;
+            }
+
+            var files = Directory.GetFiles(seedPhotosPath, $"{filePrefix}-*.jpg")
+                .OrderBy(f => f, StringComparer.Ordinal)
+                .ToList();
+
+            for (var i = 0; i < files.Count; i++)
+            {
+                var fileName = Path.GetFileName(files[i]);
+                var target = Path.Combine(targetDirectory, fileName);
+                if (!File.Exists(target))
+                {
+                    File.Copy(files[i], target);
+                }
+
+                dbContext.RoomTypePhotos.Add(new RoomTypePhoto
+                {
+                    RoomTypeId = roomType.RoomTypeId,
+                    PhotoUrl = $"{fileStorage.RequestPath}/{folder}/{fileName}",
+                    SortOrder = i
+                });
+            }
+        }
+
         await dbContext.SaveChangesAsync();
     }
 }

@@ -632,10 +632,6 @@ namespace DAL.Migrations
                 {
                     b.HasBaseType("Model.User");
 
-                    b.Property<string>("DocumentNumber")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -845,7 +841,7 @@ namespace DAL.Migrations
             modelBuilder.Entity("Model.RoomBlock", b =>
                 {
                     b.HasOne("Model.Owner", "Owner")
-                        .WithMany("CreatedRoomBlocks")
+                        .WithMany()
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -927,11 +923,6 @@ namespace DAL.Migrations
                     b.Navigation("Reservations");
 
                     b.Navigation("Reviews");
-                });
-
-            modelBuilder.Entity("Model.Owner", b =>
-                {
-                    b.Navigation("CreatedRoomBlocks");
                 });
 #pragma warning restore 612, 618
         }
