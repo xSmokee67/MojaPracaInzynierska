@@ -53,8 +53,9 @@ public static class TestData
         });
 
         context.AdditionalServices.AddRange(
-            new AdditionalService { ServiceId = BreakfastId, Name = "Śniadanie", Price = 50 },
-            new AdditionalService { ServiceId = ParkingId, Name = "Parking", Price = 30 }
+            // Jak w seedzie: śniadanie za osobę za noc, parking za noc
+            new AdditionalService { ServiceId = BreakfastId, Name = "Śniadanie", Price = 50, ChargeType = "per-person-per-night" },
+            new AdditionalService { ServiceId = ParkingId, Name = "Parking", Price = 30, ChargeType = "per-night" }
         );
 
         context.SaveChanges();

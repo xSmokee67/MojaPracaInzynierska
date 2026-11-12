@@ -5,10 +5,12 @@ import { getRoomTypes, getAdditionalServices } from '../../api/adminApi';
 import { errorMessage } from '../../api/apiErrors';
 import { formatDate, toInputDate, personsLabel } from '../../utils/format';
 import AlternativeStays from '../rooms/AlternativeStays';
+import { serviceChargeTypeLabels, serviceQuantity } from '../../utils/statuses';
 
 // Sprawdzenie dostępności i ceny pobytu - wspólne dla przycisku "Sprawdź cenę i dostępność"
 // i dla automatycznego sprawdzenia, gdy gość przychodzi z wyszukiwarki z wybranym terminem
-const checkStay = async (roomTypeId, checkInDate, checkOutDate, additionalServiceIds) => {
+// Liczba gości jest potrzebna do ceny usług naliczanych za osobę (np. śniadanie)
+const checkStay = async (roomTypeId, checkInDate, checkOutDate, additionalServiceIds, numberOfGuests) => {
   const avail = await checkAvailability(roomTypeId, checkInDate, checkOutDate);
   if (!avail.isAvailable) return { isAvailable: false, totalPrice: null, message: avail.message };
 
@@ -17,6 +19,7 @@ const checkStay = async (roomTypeId, checkInDate, checkOutDate, additionalServic
     roomTypeId,
     checkInDate,
     checkOutDate,
+    numberOfGuests,
     additionalServiceIds
   };
   const priceData = await calculatePrice(payload);
@@ -49,7 +52,8 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
         const preselected = types.find(rt => rt.roomTypeId === initialRoomTypeId);
         const selected = preselected ?? types[0];
         if (selected) setRoomTypeId(selected.roomTypeId);
-        if (initialGuests == null) setNumberOfGuests(selected ? Math.min(2, selected.maxOccupancy) : 1);
+        const guests = initialGuests ?? (selected ? Math.min(2, selected.maxOccupancy) : 1);
+        if (initialGuests == null) setNumberOfGuests(guests);
 
         const servicesData = await getAdditionalServices();
         setServices(servicesData);
@@ -59,7 +63,7 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
         const fits = initialGuests == null || (preselected && initialGuests <= preselected.maxOccupancy);
         if (preselected && fits && initialCheckIn && initialCheckOut && initialCheckIn < initialCheckOut) {
           setStatusMessage('Sprawdzanie dostępności...');
-          const result = await checkStay(preselected.roomTypeId, initialCheckIn, initialCheckOut, []);
+          const result = await checkStay(preselected.roomTypeId, initialCheckIn, initialCheckOut, [], guests);
           setIsAvailable(result.isAvailable);
           setTotalPrice(result.totalPrice);
           setStatusMessage(result.message);
@@ -75,6 +79,9 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
   const selectedRoomType = roomTypes.find(rt => rt.roomTypeId === roomTypeId);
   // Pokój musi pomieścić wszystkich gości - tę samą regułę sprawdza API przy tworzeniu rezerwacji
   const fitsGuests = !selectedRoomType || numberOfGuests === null || numberOfGuests <= selectedRoomType.maxOccupancy;
+  // Liczba nocy w wybranym terminie - do rozpisania ceny usług w podsumowaniu
+  const nights = checkInDate && checkOutDate && checkInDate < checkOutDate
+    ? Math.round((new Date(`${checkOutDate}T00:00:00`) - new Date(`${checkInDate}T00:00:00`)) / 86400000) : 0;
   // Lista liczby gości: do największego pokoju w hotelu (co najmniej 4, jak w wyszukiwarce)
   const maxGuests = Math.max(4, ...roomTypes.map(rt => rt.maxOccupancy));
 
@@ -99,7 +106,7 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
     // Termin i pokój już sprawdzone - zmiana usług tylko przelicza cenę, bez ponownego klikania "Sprawdź"
     if (isAvailable && totalPrice !== null) {
       try {
-        showCheckResult(await checkStay(roomTypeId, checkInDate, checkOutDate, newServiceIds));
+        showCheckResult(await checkStay(roomTypeId, checkInDate, checkOutDate, newServiceIds, numberOfGuests));
       } catch (err) {
         setIsError(true);
         setStatusMessage(errorMessage(err));
@@ -132,7 +139,7 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
     try {
       setIsError(false);
       setStatusMessage('Sprawdzanie dostępności...');
-      showCheckResult(await checkStay(roomTypeId, checkInDate, checkOutDate, additionalServiceIds));
+      showCheckResult(await checkStay(roomTypeId, checkInDate, checkOutDate, additionalServiceIds, numberOfGuests));
     } catch (err) {
       setIsError(true);
       setStatusMessage(errorMessage(err));
@@ -146,7 +153,7 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
     try {
       setIsError(false);
       setStatusMessage('Sprawdzanie dostępności...');
-      showCheckResult(await checkStay(roomTypeId, newCheckIn, newCheckOut, additionalServiceIds));
+      showCheckResult(await checkStay(roomTypeId, newCheckIn, newCheckOut, additionalServiceIds, numberOfGuests));
     } catch (err) {
       setIsError(true);
       setStatusMessage(errorMessage(err));
@@ -247,7 +254,7 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
                     <input type="checkbox" checked={additionalServiceIds.includes(s.serviceId)} onChange={() => handleToggleService(s.serviceId)} className="accent-emerald-600" />
                     {s.name}
                   </span>
-                  <span className="font-medium text-slate-500">+{s.price} PLN</span>
+                  <span className="font-medium text-slate-500">+{s.price} PLN {serviceChargeTypeLabels[s.chargeType] ?? ''}</span>
                 </label>
               ))}
             </div>
@@ -278,7 +285,16 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
             <div>Pokój: <span className="font-medium text-slate-800">{roomTypes.find(rt => rt.roomTypeId === roomTypeId)?.name}</span></div>
             <div>Termin: <span className="font-medium text-slate-800">{formatDate(checkInDate)} - {formatDate(checkOutDate)}</span></div>
             <div>Goście: <span className="font-medium text-slate-800">{personsLabel(numberOfGuests)}</span></div>
-            <div>Usługi: <span className="font-medium text-slate-800">{additionalServiceIds.length > 0 ? services.filter(s => additionalServiceIds.includes(s.serviceId)).map(s => s.name).join(', ') : 'brak'}</span></div>
+            <div>Usługi: {additionalServiceIds.length === 0 && <span className="font-medium text-slate-800">brak</span>}</div>
+            {/* Każda usługa z liczbą naliczeń, np. "Śniadanie: 8 × 50 PLN (za osobę za noc) = 400 PLN" */}
+            {services.filter(s => additionalServiceIds.includes(s.serviceId)).map(s => {
+              const quantity = serviceQuantity(s.chargeType, nights, numberOfGuests);
+              return (
+                <div key={s.serviceId} className="pl-3">
+                  {s.name}: <span className="font-medium text-slate-800">{quantity} × {s.price} PLN</span> <span className="text-slate-500">({serviceChargeTypeLabels[s.chargeType] ?? s.chargeType})</span> = <span className="font-medium text-slate-800">{(quantity * s.price).toFixed(2)} PLN</span>
+                </div>
+              );
+            })}
           </div>
           <div className="flex justify-between items-center text-xl font-bold text-emerald-600">
             <span>Do zapłaty:</span>

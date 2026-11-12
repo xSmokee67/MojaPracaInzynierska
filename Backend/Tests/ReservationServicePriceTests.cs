@@ -2,7 +2,7 @@ namespace Tests;
 
 // Testy wyliczania ceny rezerwacji - ReservationService.CalculateTotalPriceAsync
 // Cena bazowa pokoju standardowego: 200 zł/noc, w lipcu 2027 (cennik sezonowy): 350 zł/noc
-// Usługi dodatkowe: śniadanie 50 zł, parking 30 zł (doliczane jednorazowo do pobytu)
+// Usługi dodatkowe: śniadanie 50 zł za osobę za noc, parking 30 zł za noc
 public class ReservationServicePriceTests
 {
     [Fact(DisplayName = "Cena: poza sezonem liczona jest cena bazowa za każdą noc")]
@@ -81,9 +81,9 @@ public class ReservationServicePriceTests
         var service = TestData.CreateReservationService(context);
 
         var price = await service.CalculateTotalPriceAsync(TestData.StandardRoomTypeId, new DateTime(2027, 3, 10), new DateTime(2027, 3, 13),
-            new List<int> { TestData.BreakfastId, TestData.ParkingId });
+            new List<int> { TestData.BreakfastId, TestData.ParkingId }, numberOfGuests: 2);
 
-        Assert.Equal(680m, price); // 600 zł + 50 zł + 30 zł
+        Assert.Equal(990m, price); // 3 noce x 200 zł + śniadanie 2 os. x 3 noce x 50 zł + parking 3 noce x 30 zł
     }
 
     [Fact(DisplayName = "Cena: nieistniejąca usługa dodatkowa jest pomijana")]
@@ -95,7 +95,34 @@ public class ReservationServicePriceTests
         var price = await service.CalculateTotalPriceAsync(TestData.StandardRoomTypeId, new DateTime(2027, 3, 10), new DateTime(2027, 3, 13),
             new List<int> { TestData.BreakfastId, 999 });
 
-        Assert.Equal(650m, price);
+        Assert.Equal(750m, price); // 600 zł + śniadanie 1 os. x 3 noce x 50 zł
+    }
+
+    [Fact(DisplayName = "Cena: liczba gości nie zmienia ceny noclegu, tylko usług naliczanych za osobę")]
+    public async Task GuestsAffectOnlyPerPersonServices()
+    {
+        using var context = TestData.CreateContext();
+        var service = TestData.CreateReservationService(context);
+        var checkIn = new DateTime(2027, 3, 10);
+        var checkOut = new DateTime(2027, 3, 12);
+
+        var roomOnlyFor1 = await service.CalculateTotalPriceAsync(TestData.PremiumRoomTypeId, checkIn, checkOut, new List<int>(), numberOfGuests: 1);
+        var roomOnlyFor4 = await service.CalculateTotalPriceAsync(TestData.PremiumRoomTypeId, checkIn, checkOut, new List<int>(), numberOfGuests: 4);
+        var withBreakfastFor4 = await service.CalculateTotalPriceAsync(TestData.PremiumRoomTypeId, checkIn, checkOut, new List<int> { TestData.BreakfastId }, numberOfGuests: 4);
+
+        Assert.Equal(1000m, roomOnlyFor1); // 2 noce x 500 zł - cena za pokój
+        Assert.Equal(1000m, roomOnlyFor4);
+        Assert.Equal(1400m, withBreakfastFor4); // + śniadanie 4 os. x 2 noce x 50 zł
+    }
+
+    [Theory(DisplayName = "Cena: liczba naliczeń usługi zależy od sposobu naliczania (pobyt 3 noce, 2 osoby)")]
+    [InlineData("per-stay", 1)]
+    [InlineData("per-night", 3)]
+    [InlineData("per-person", 2)]
+    [InlineData("per-person-per-night", 6)]
+    public void ServiceQuantity_DependsOnChargeType(string chargeType, int expected)
+    {
+        Assert.Equal(expected, Services.Constants.ServiceChargeType.Quantity(chargeType, nights: 3, guests: 2));
     }
 
     [Fact(DisplayName = "Cena: dla nieistniejącego typu pokoju rzucany jest wyjątek")]

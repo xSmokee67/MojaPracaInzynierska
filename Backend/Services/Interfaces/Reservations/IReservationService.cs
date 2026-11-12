@@ -6,7 +6,7 @@ public interface IReservationService
 {
     Task<List<RoomTypeAvailabilityDto>> SearchRoomTypesAsync(DateTime checkIn, DateTime checkOut, int guests);
     Task<List<AlternativeStayDto>> GetAlternativeStaysAsync(int roomTypeId, DateTime checkIn, DateTime checkOut);
-    Task<decimal> CalculateTotalPriceAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, List<int> additionalServiceIds);
+    Task<decimal> CalculateTotalPriceAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, List<int> additionalServiceIds, int numberOfGuests = 1);
     Task<bool> CreateReservationAsync(CreateReservationDto dto);
     Task<List<ReservationDto>> GetGuestReservationsAsync(int guestId);
     Task<List<ReservationDto>> GetAllReservationsAsync();

@@ -32,9 +32,13 @@ public class ReservationServiceWorkflowTests
         Assert.Equal(TestData.GuestId, reservation.GuestId);
         Assert.Equal(TestData.Room101Id, reservation.RoomId);
         Assert.Equal("pending", reservation.Status);
-        Assert.Equal(680m, reservation.TotalPrice); // 3 noce x 200 zł + 50 zł + 30 zł
+        Assert.Equal(990m, reservation.TotalPrice); // 3 noce x 200 zł + śniadanie 2 os. x 3 noce x 50 zł + parking 3 noce x 30 zł
         Assert.Equal(2, reservation.ReservationServices.Count);
-        Assert.Equal(80m, reservation.ReservationServices.Sum(rs => rs.TotalPrice)); // ceny usług zapisane na moment rezerwacji
+        Assert.Equal(390m, reservation.ReservationServices.Sum(rs => rs.TotalPrice)); // ceny usług zapisane na moment rezerwacji
+        var breakfast = reservation.ReservationServices.Single(rs => rs.ServiceId == TestData.BreakfastId);
+        Assert.Equal(6, breakfast.Quantity); // 2 osoby x 3 noce
+        Assert.Equal("per-person-per-night", breakfast.ChargeType);
+        Assert.Equal(3, reservation.ReservationServices.Single(rs => rs.ServiceId == TestData.ParkingId).Quantity);
     }
 
     [Fact(DisplayName = "Rezerwacja: utworzenie oznacza noce pobytu jako 'booked' w tabeli Availability")]
@@ -131,6 +135,33 @@ public class ReservationServiceWorkflowTests
 
         Assert.Equal(0, await context.Reservations.CountAsync());
         Assert.Equal(0, await context.Availabilities.CountAsync());
+    }
+
+    [Fact(DisplayName = "Zmiana terminu: usługi naliczane za noc są przeliczane na nową liczbę nocy (ceny z chwili rezerwacji)")]
+    public async Task ChangeDates_RecalculatesPerNightServices()
+    {
+        using var context = TestData.CreateContext();
+        var service = TestData.CreateReservationService(context);
+        await service.CreateReservationAsync(new CreateReservationDto
+        {
+            GuestId = TestData.GuestId,
+            RoomTypeId = TestData.StandardRoomTypeId,
+            CheckInDate = CheckIn,
+            CheckOutDate = CheckOut,
+            NumberOfGuests = 2,
+            AdditionalServiceIds = new List<int> { TestData.BreakfastId, TestData.ParkingId }
+        });
+        var reservation = await context.Reservations.SingleAsync();
+
+        // Po rezerwacji hotel podnosi cenę śniadania - rezerwacja zachowuje cenę z chwili rezerwacji
+        (await context.AdditionalServices.FindAsync(TestData.BreakfastId))!.Price = 80;
+        await context.SaveChangesAsync();
+
+        await service.ChangeReservationDatesAsync(reservation.ReservationId, new ChangeReservationDatesDto { CheckInDate = CheckIn, CheckOutDate = CheckIn.AddDays(5) }, null);
+
+        var updated = await context.Reservations.Include(r => r.ReservationServices).SingleAsync();
+        Assert.Equal(10, updated.ReservationServices.Single(rs => rs.ServiceId == TestData.BreakfastId).Quantity); // 2 osoby x 5 nocy
+        Assert.Equal(1650m, updated.TotalPrice); // 5 nocy x 200 zł + śniadanie 10 x 50 zł + parking 5 x 30 zł
     }
 
     // --- ZMIANA STATUSU (WŁAŚCICIEL) ---

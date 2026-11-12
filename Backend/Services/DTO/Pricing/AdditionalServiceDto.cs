@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Services.Constants;
 
 namespace Services.DTO;
 
@@ -10,4 +11,6 @@ public class AdditionalServiceDto
     public string Name {get; set; } = string.Empty;
     [Range(0.01, 100000, ErrorMessage = "Cena usługi musi mieścić się w zakresie 0,01 - 100 000 PLN.")]
     public decimal Price {get; set; }
+    // per-stay, per-night, per-person albo per-person-per-night (ServiceChargeType)
+    public string ChargeType {get; set; } = ServiceChargeType.PerStay;
 }

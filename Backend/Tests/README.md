@@ -22,13 +22,14 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 - **EF Core InMemory**: baza danych w pamięci zamiast SQL Servera
 - **AutoMapper**: ten sam profil `ReservationMappingProfile` co w aplikacji
 
-### Zakres (89 przypadków testowych)
+### Zakres (97 przypadków testowych)
 
 | Plik | Co jest testowane | Przypadki |
 |------|-------------------|-----------|
 | `ReservationServiceAvailabilityTests.cs` | Sprawdzanie dostępności pokoju w module dostępności (`AvailabilityService.GetAvailableRoomIdAsync`): nakładające się terminy, terminy stykające się, rezerwacje anulowane i z niestawieniem się (zwalniają pokój), blokady pokoi, status pokoju | 19 |
-| `ReservationServicePriceTests.cs` | Wyliczanie ceny (`CalculateTotalPriceAsync`): cena bazowa, sezonowa, pobyt na przełomie sezonu, usługi dodatkowe | 9 |
-| `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji (w tym liczba gości względem pojemności pokoju), zmiana statusu, anulowanie przez gościa, płatności, faktury | 32 |
+| `ReservationServicePriceTests.cs` | Wyliczanie ceny (`CalculateTotalPriceAsync`): cena bazowa, sezonowa, pobyt na przełomie sezonu, usługi dodatkowe według sposobu naliczania (raz za pobyt, za noc, za osobę, za osobę za noc), liczba gości nie zmienia ceny noclegu | 14 |
+| `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji (w tym liczba gości względem pojemności pokoju i liczba naliczeń usług), zmiana terminu (przeliczenie usług naliczanych za noc), zmiana statusu, anulowanie przez gościa, płatności, faktury | 33 |
+| `AdditionalServiceServiceTests.cs` | Usługi dodatkowe w panelu: zapis i walidacja sposobu naliczania | 2 |
 | `AvailabilityServiceTests.cs` | Aktualizacja kalendarza dostępności (`Availability`) | 4 |
 | `ReservationServiceSearchTests.cs` | Wyszukiwarka na stronie głównej: liczba wolnych pokoi każdego typu, cena całego pobytu (z cennikiem sezonowym), dopasowanie do liczby gości | 9 |
 | `FileStorageServiceTests.cs` | Zapis zdjęć pokoi na dysku: dozwolone formaty, limit rozmiaru, unikalne nazwy, usuwanie, ochrona przed ścieżkami spoza katalogu | 16 |
@@ -42,7 +43,7 @@ Dane startowe (seed w `API/Data/DbSeeder.cs`):
 - **Konto właściciela:** `admin@hotel.com` / `Admin123!`
 - **Pokoje:** Pokój Standardowy (200 zł/noc, pokoje 101 i 102), Apartament Premium (500 zł/noc, pokój 201)
 - **Cennik sezonowy:** Pokój Standardowy 350 zł/noc od 01.06.2027 do 31.08.2027
-- **Usługi:** Śniadanie 50 zł, Parking 30 zł (doliczane raz do pobytu)
+- **Usługi:** Śniadanie 50 zł (za osobę za noc), Parking 30 zł (za noc)
 
 W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 
@@ -54,15 +55,15 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | A2 | Zarejestruj gościa z poprawnymi danymi (np. `anna@test.pl` / `Haslo1234`) | „Rejestracja zakończona sukcesem! Możesz się teraz zalogować.” | |
 | A3 | Zarejestruj drugi raz ten sam e-mail | Błąd „Użytkownik o podanym emailu już istnieje.” | |
 | A4 | Zaloguj się jako gość | Strona główna, w prawym górnym rogu „Witaj, Anna” i przycisk „Mój profil” | |
-| A5 | Zakładka „Zarezerwuj pobyt”: Pokój Standardowy, 10.03.2027 – 13.03.2027, zaznacz Śniadanie, „Sprawdź cenę i dostępność” | „Pokój dostępny!”, do zapłaty **650,00 PLN** (3 × 200 + 50) | |
+| A5 | Zakładka „Zarezerwuj pobyt”: liczba gości 1, Pokój Standardowy, 10.03.2027 – 13.03.2027, zaznacz Śniadanie, „Sprawdź cenę i dostępność” | „Pokój dostępny!”, w podsumowaniu „Śniadanie: 3 × 50 PLN (za osobę za noc) = 150.00 PLN”, do zapłaty **750,00 PLN** (3 × 200 + 1 os. × 3 noce × 50) | |
 | A6 | „Potwierdź i Rezerwuj” | Ekran „Udało się!” | |
-| A7 | Zakładka „Moje rezerwacje” | Rezerwacja z pokojem 101, statusem „Oczekująca”, ceną 650 PLN | |
+| A7 | Zakładka „Moje rezerwacje” | Rezerwacja z pokojem 101, statusem „Oczekująca”, ceną 750 PLN | |
 | A8 | Wyloguj, zaloguj jako właściciel, czerwony przycisk „Panel Właściciela” → zakładka „Rezerwacje” | Rezerwacja gościa na liście | |
 | A9 | Zmień status na „Potwierdzona” | Komunikat sukcesu, nowy status na liście | |
 | A10 | „Szczegóły” → zarejestruj płatność 300 zł kartą | Płatność na liście, „wpłacono 300,00 PLN” | |
-| A11 | Zarejestruj drugą płatność (kwota podpowiada się jako 350 zł) | „wpłacono 650,00 PLN” | |
+| A11 | Zarejestruj drugą płatność (kwota podpowiada się jako 450 zł) | „wpłacono 750,00 PLN” | |
 | A12 | Spróbuj wystawić fakturę | Przycisk nieaktywny: faktura dopiero po zrealizowaniu | |
-| A13 | Zmień status na „Zrealizowana”, w szczegółach „Wystaw fakturę” | Faktura `FV/rrrr/mm/000nn` na 650 zł, przycisk znika | |
+| A13 | Zmień status na „Zrealizowana”, w szczegółach „Wystaw fakturę” | Faktura `FV/rrrr/mm/000nn` na 750 zł, przycisk znika | |
 | A14 | Zaloguj jako gość, szczegóły rezerwacji | Widoczne płatności i faktura, formularz opinii | |
 | A15 | Dodaj opinię 5★ z komentarzem | „Dziękujemy za wystawienie opinii!”, formularz zastąpiony opinią | |
 | A16 | Zaloguj jako właściciel, „Panel Właściciela” → zakładka „Opinie” | Opinia gościa na liście, „Usuń” działa po potwierdzeniu | |
@@ -74,6 +75,10 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | B1 | Pokój Standardowy, 10.07.2027 – 13.07.2027 | 1050 PLN (3 × 350) | |
 | B2 | Pokój Standardowy, 30.08.2027 – 02.09.2027 | 900 PLN (350 + 350 + 200, 31.08 to jeszcze sezon) | |
 | B3 | Apartament Premium, 10.07.2027 – 12.07.2027 | 1000 PLN (cennik sezonowy dotyczy tylko pokoju standardowego) | |
+| B4 | Apartament Premium, 10.03.2027 – 12.03.2027, liczba gości 1, potem 4 (bez usług) | Za każdym razem 1000 PLN - cena za pokój, nie za osobę | |
+| B5 | Jak B4 dla 4 gości, zaznacz Śniadanie i Parking | 1460 PLN (1000 + śniadanie 4 os. × 2 noce × 50 + parking 2 noce × 30); w podsumowaniu każda usługa rozpisana | |
+| B6 | Właściciel → „Usługi Dodatkowe”: dodaj „Transfer z lotniska”, 120 zł, naliczanie „raz za pobyt” | Usługa na liście z kolumną „Naliczanie”; w formularzu rezerwacji „+120 PLN raz za pobyt” i doliczane 120 zł niezależnie od nocy i osób | |
+| B7 | Rezerwacja z B5 → szczegóły → właściciel zmienia termin na 10.03.2027 – 13.03.2027 | Usługi przeliczone na 3 noce („Śniadanie × 12”, „Parking × 3”), cena 1500 + 600 + 90 = 2190 PLN | |
 
 ### Scenariusz C: dostępność i przypadki brzegowe
 

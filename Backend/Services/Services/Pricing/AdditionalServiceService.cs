@@ -1,6 +1,7 @@
 using DAL;
 using Microsoft.EntityFrameworkCore;
 using Model;
+using Services.Constants;
 using Services.DTO;
 using Services.Interfaces;
 
@@ -21,7 +22,8 @@ public class AdditionalServiceService : IAdditionalServiceService
         {
             ServiceId = s.ServiceId,
             Name = s.Name,
-            Price = s.Price
+            Price = s.Price,
+            ChargeType = s.ChargeType
         }).ToListAsync();
     }
 
@@ -32,7 +34,8 @@ public class AdditionalServiceService : IAdditionalServiceService
         var service = new AdditionalService
         {
             Name = dto.Name,
-            Price = dto.Price
+            Price = dto.Price,
+            ChargeType = dto.ChargeType
         };
 
         _context.AdditionalServices.Add(service);
@@ -51,6 +54,7 @@ public class AdditionalServiceService : IAdditionalServiceService
 
         service.Name = dto.Name;
         service.Price = dto.Price;
+        service.ChargeType = dto.ChargeType;
 
         await _context.SaveChangesAsync();
         return true;
@@ -79,6 +83,11 @@ public class AdditionalServiceService : IAdditionalServiceService
         if (dto.Price <= 0)
         {
             throw new ArgumentException("Cena usługi musi być większa od zera.");
+        }
+
+        if (!ServiceChargeType.All.Contains(dto.ChargeType))
+        {
+            throw new ArgumentException("Nieprawidłowy sposób naliczania usługi.");
         }
     }
 }

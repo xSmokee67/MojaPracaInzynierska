@@ -48,3 +48,21 @@ export const paymentStatusLabels = {
   'failed': 'Nieudana',
   'refunded': 'Zwrot'
 };
+
+// Sposób naliczania usług dodatkowych (per-stay / per-night / per-person / per-person-per-night)
+export const serviceChargeTypeLabels = {
+  'per-stay': 'raz za pobyt',
+  'per-night': 'za noc',
+  'per-person': 'za osobę',
+  'per-person-per-night': 'za osobę za noc'
+};
+
+// Ile razy usługa jest doliczana do pobytu - ta sama reguła co ServiceChargeType.Quantity w API
+export const serviceQuantity = (chargeType, nights, guests) => {
+  switch (chargeType) {
+    case 'per-night': return nights;
+    case 'per-person': return guests;
+    case 'per-person-per-night': return nights * guests;
+    default: return 1;
+  }
+};

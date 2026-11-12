@@ -20,7 +20,8 @@ public class ReservationMappingProfile : Profile
             .ForMember(d => d.GuestEmail, o => o.MapFrom(s => s.Guest.Email ?? string.Empty))
             .ForMember(d => d.RoomNumber, o => o.MapFrom(s => s.Room.RoomNumber))
             .ForMember(d => d.RoomTypeName, o => o.MapFrom(s => s.Room.RoomType.Name))
-            .ForMember(d => d.AdditionalServices, o => o.MapFrom(s => s.ReservationServices.Select(rs => rs.AdditionalService.Name)));
+            // Usługa naliczona kilka razy z liczbą naliczeń, np. "Śniadanie × 8" (4 osoby × 2 noce)
+            .ForMember(d => d.AdditionalServices, o => o.MapFrom(s => s.ReservationServices.Select(rs => rs.Quantity > 1 ? rs.AdditionalService.Name + " × " + rs.Quantity : rs.AdditionalService.Name)));
 
         CreateMap<Payment, PaymentDto>();
         CreateMap<Invoice, InvoiceDto>();

@@ -141,8 +141,8 @@ public static class DbSeeder
         }
 
         dbContext.AdditionalServices.AddRange(
-            new AdditionalService { Name = "Śniadanie", Price = 50 },
-            new AdditionalService { Name = "Parking", Price = 30 }
+            new AdditionalService { Name = "Śniadanie", Price = 50, ChargeType = ServiceChargeType.PerPersonPerNight },
+            new AdditionalService { Name = "Parking", Price = 30, ChargeType = ServiceChargeType.PerNight }
         );
         await dbContext.SaveChangesAsync();
     }

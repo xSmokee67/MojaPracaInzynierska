@@ -93,7 +93,8 @@ public class ReservationController : ControllerBase
                 dto.RoomTypeId,
                 dto.CheckInDate,
                 dto.CheckOutDate,
-                dto.AdditionalServiceIds);
+                dto.AdditionalServiceIds,
+                dto.NumberOfGuests);
 
             return Ok(new { totalPrice = price});
         }

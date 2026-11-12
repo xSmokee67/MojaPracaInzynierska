@@ -119,7 +119,9 @@ public class ReservationService : IReservationService
         return stays;
     }
 
-    public async Task<decimal> CalculateTotalPriceAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, List<int> additionalServiceIds)
+    // Cena pobytu = noclegi (cena za pokój za noc, według cennika sezonowego) + usługi dodatkowe według sposobu naliczania.
+    // Liczba gości nie zmienia ceny noclegu, wpływa tylko na usługi naliczane za osobę (np. śniadanie).
+    public async Task<decimal> CalculateTotalPriceAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, List<int> additionalServiceIds, int numberOfGuests = 1)
     {
         var roomType = await _context.RoomTypes
             .Include(rt => rt.PriceListEntries)
@@ -140,17 +142,41 @@ public class ReservationService : IReservationService
             totalRoomPrice += seasonalPrice != null ? seasonalPrice.PricePerNight : roomType.BasePrice;
         }
 
-        decimal additionalServicesPrice = 0;
-        if (additionalServiceIds.Any())
-        {
-            var services = await _context.AdditionalServices
-                .Where(s => additionalServiceIds.Contains(s.ServiceId))
-                .ToListAsync();
+        var nights = (checkOut.Date - checkIn.Date).Days;
+        var services = await PriceAdditionalServicesAsync(additionalServiceIds, nights, numberOfGuests);
 
-            additionalServicesPrice = services.Sum(s => s.Price);
+        return totalRoomPrice + services.Sum(s => s.TotalPrice);
+    }
+
+    // Usługi dodatkowe wybrane do pobytu: liczba naliczeń według sposobu naliczania (np. śniadanie: osoby × noce) i cena.
+    // Cena jednostkowa i sposób naliczania są zapisywane w rezerwacji - późniejsza zmiana cennika usług jej nie dotyczy.
+    private async Task<List<Model.ReservationService>> PriceAdditionalServicesAsync(List<int> additionalServiceIds, int nights, int numberOfGuests)
+    {
+        if (numberOfGuests < 1)
+        {
+            throw new ArgumentException("Liczba gości musi wynosić co najmniej 1.");
         }
 
-        return totalRoomPrice + additionalServicesPrice;
+        if (!additionalServiceIds.Any())
+        {
+            return new List<Model.ReservationService>();
+        }
+
+        var services = await _context.AdditionalServices
+            .Where(s => additionalServiceIds.Contains(s.ServiceId))
+            .ToListAsync();
+
+        return services.Select(service =>
+        {
+            var quantity = ServiceChargeType.Quantity(service.ChargeType, nights, numberOfGuests);
+            return new Model.ReservationService
+            {
+                ServiceId = service.ServiceId,
+                ChargeType = service.ChargeType,
+                Quantity = quantity,
+                TotalPrice = service.Price * quantity
+            };
+        }).ToList();
     }
 
     public async Task<bool> CreateReservationAsync(CreateReservationDto dto)
@@ -182,24 +208,17 @@ public class ReservationService : IReservationService
             return false;
         }
 
-        var totalPrice = await CalculateTotalPriceAsync(dto.RoomTypeId, dto.CheckInDate, dto.CheckOutDate, dto.AdditionalServiceIds);
+        var totalPrice = await CalculateTotalPriceAsync(dto.RoomTypeId, dto.CheckInDate, dto.CheckOutDate, dto.AdditionalServiceIds, dto.NumberOfGuests);
 
         var reservation = _mapper.Map<Reservation>(dto);
         reservation.RoomId = availableRoomId.Value;
         reservation.TotalPrice = totalPrice;
 
-        var services = await _context.AdditionalServices
-            .Where(s => dto.AdditionalServiceIds.Contains(s.ServiceId))
-            .ToListAsync();
-
-        foreach (var service in services)
+        // Usługi z liczbą naliczeń i ceną z chwili rezerwacji (ta sama metoda co przy wyliczaniu ceny)
+        var nights = (dto.CheckOutDate.Date - dto.CheckInDate.Date).Days;
+        foreach (var service in await PriceAdditionalServicesAsync(dto.AdditionalServiceIds, nights, dto.NumberOfGuests))
         {
-            reservation.ReservationServices.Add(new Model.ReservationService
-            {
-                ServiceId = service.ServiceId,
-                Quantity = 1,
-                TotalPrice = service.Price
-            });
+            reservation.ReservationServices.Add(service);
         }
 
         await _context.Reservations.AddAsync(reservation);
@@ -398,8 +417,16 @@ public class ReservationService : IReservationService
         // Gość zostaje w swoim pokoju, jeśli jest wolny w nowym terminie - w przeciwnym razie pierwszy wolny pokój tego typu
         var newRoomId = availableRoomIds.Contains(reservation.RoomId) ? reservation.RoomId : availableRoomIds[0];
 
-        // Nowa cena: noclegi według cennika w nowym terminie + usługi dodatkowe w cenach z chwili rezerwacji
+        // Nowa cena: noclegi według cennika w nowym terminie + usługi dodatkowe w cenach z chwili rezerwacji.
+        // Usługi naliczane za noc (np. śniadanie, parking) są przeliczane na nową liczbę nocy - cena jednostkowa się nie zmienia.
         var roomPrice = await CalculateTotalPriceAsync(roomTypeId, newCheckIn, newCheckOut, new List<int>());
+        var newNights = (newCheckOut - newCheckIn).Days;
+        foreach (var service in reservation.ReservationServices)
+        {
+            var unitPrice = service.Quantity > 0 ? service.TotalPrice / service.Quantity : service.TotalPrice;
+            service.Quantity = ServiceChargeType.Quantity(service.ChargeType, newNights, reservation.NumberOfGuests);
+            service.TotalPrice = unitPrice * service.Quantity;
+        }
         var servicesPrice = reservation.ReservationServices.Sum(s => s.TotalPrice);
 
         // Kalendarz dostępności: zwolnienie starych nocy, potem zajęcie nowych
