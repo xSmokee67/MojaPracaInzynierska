@@ -155,6 +155,22 @@ public class ReservationService : IReservationService
 
     public async Task<bool> CreateReservationAsync(CreateReservationDto dto)
     {
+        // Liczba gości musi zmieścić się w pokoju - reguła po stronie serwera, niezależnie od filtrów w interfejsie
+        var maxOccupancy = await _context.RoomTypes
+            .Where(rt => rt.RoomTypeId == dto.RoomTypeId)
+            .Select(rt => (int?)rt.MaxOccupancy)
+            .FirstOrDefaultAsync();
+
+        if (maxOccupancy == null)
+        {
+            throw new ArgumentException("Nieznany typ pokoju.");
+        }
+
+        if (dto.NumberOfGuests < 1 || dto.NumberOfGuests > maxOccupancy)
+        {
+            throw new ArgumentException($"Liczba gości musi wynosić od 1 do {maxOccupancy} - tyle osób mieści wybrany pokój.");
+        }
+
         // Sprawdzenie dostępności i zapis rezerwacji w jednej transakcji: dwóch gości nie dostanie tego samego pokoju,
         // a rezerwacja i kalendarz dostępności zapisują się razem albo wcale (bez commita transakcja jest wycofywana)
         await using var transaction = await _context.Database.BeginTransactionAsync();

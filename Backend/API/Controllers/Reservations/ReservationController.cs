@@ -116,12 +116,20 @@ public class ReservationController : ControllerBase
         if (dto.CheckInDate >= dto.CheckOutDate || dto.CheckInDate.Date < DateTime.Today)
             return BadRequest(new { error = "Nieprawidłowy termin pobytu - data zameldowania nie może być w przeszłości i musi poprzedzać datę wymeldowania."});
 
-        var success = await _reservationService.CreateReservationAsync(dto);
+        try
+        {
+            var success = await _reservationService.CreateReservationAsync(dto);
 
-        if (!success)
-            return BadRequest(new { error = "Niestety, pokój został przed chwilą zarezerwowany, lub jest już niedostępny."});
+            if (!success)
+                return BadRequest(new { error = "Niestety, pokój został przed chwilą zarezerwowany, lub jest już niedostępny."});
 
-        return Ok(new { message = "Rezerwacja została pomyślnie utworzona!"});
+            return Ok(new { message = "Rezerwacja została pomyślnie utworzona!"});
+        }
+        catch (ArgumentException e)
+        {
+            // Np. liczba gości większa niż mieści pokój albo nieznany typ pokoju
+            return BadRequest(new { error = e.Message });
+        }
     }
 
     [HttpGet("my")]

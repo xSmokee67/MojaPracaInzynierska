@@ -18,7 +18,7 @@ Projekt realizowany w ramach pracy inżynierskiej. Aplikacja webowa do przegląd
 - powiadomienia o zmianach w rezerwacjach (dzwonek w pasku nawigacji z liczbą nieprzeczytanych); kliknięcie powiadomienia otwiera szczegóły rezerwacji
 
 **Gość (zalogowany)**
-- rezerwacja pokoju z usługami dodatkowymi i wyliczeniem ceny (z cennikiem sezonowym)
+- rezerwacja pokoju z usługami dodatkowymi i wyliczeniem ceny (z cennikiem sezonowym); liczba gości zapisywana w rezerwacji i sprawdzana z pojemnością pokoju (API odrzuca rezerwację, w której gości jest więcej, niż mieści pokój)
 - lista własnych rezerwacji, szczegóły (płatności, faktura), anulowanie rezerwacji
 - zmiana terminu rezerwacji (najpóźniej dzień przed zameldowaniem): sprawdzenie dostępności nowego terminu i przeliczenie ceny
 - wystawienie opinii po zakończonym pobycie, lista własnych opinii w profilu

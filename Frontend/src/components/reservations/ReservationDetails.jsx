@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { reservationStatusLabels, reservationStatusStyles, paymentMethodLabels, paymentStatusLabels } from '../../utils/statuses';
 import { getReservationDetails, cancelReservation, changeReservationDates, registerPayment, issueInvoice, createReview } from '../../api/reservationApi';
 import { errorMessage } from '../../api/apiErrors';
-import { formatDate, formatDateTime, nightsLabel, toInputDate } from '../../utils/format';
+import { formatDate, formatDateTime, nightsLabel, personsLabel, toInputDate } from '../../utils/format';
 import Alert from '../common/Alert';
 import StarRating from '../common/StarRating';
 
@@ -111,6 +111,10 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
               <div>
                 <span className="block text-xs font-semibold text-slate-500 uppercase">Termin pobytu</span>
                 <span className="text-slate-800">{formatDate(details.checkInDate)} - {formatDate(details.checkOutDate)} ({nightsLabel(nights)})</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold text-slate-500 uppercase">Liczba gości</span>
+                <span className="text-slate-800">{personsLabel(details.numberOfGuests)}</span>
               </div>
               <div>
                 <span className="block text-xs font-semibold text-slate-500 uppercase">Usługi dodatkowe</span>

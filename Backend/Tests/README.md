@@ -22,13 +22,13 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 - **EF Core InMemory**: baza danych w pamięci zamiast SQL Servera
 - **AutoMapper**: ten sam profil `ReservationMappingProfile` co w aplikacji
 
-### Zakres (86 przypadków testowych)
+### Zakres (89 przypadków testowych)
 
 | Plik | Co jest testowane | Przypadki |
 |------|-------------------|-----------|
 | `ReservationServiceAvailabilityTests.cs` | Sprawdzanie dostępności pokoju w module dostępności (`AvailabilityService.GetAvailableRoomIdAsync`): nakładające się terminy, terminy stykające się, rezerwacje anulowane i z niestawieniem się (zwalniają pokój), blokady pokoi, status pokoju | 19 |
 | `ReservationServicePriceTests.cs` | Wyliczanie ceny (`CalculateTotalPriceAsync`): cena bazowa, sezonowa, pobyt na przełomie sezonu, usługi dodatkowe | 9 |
-| `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji, zmiana statusu, anulowanie przez gościa, płatności, faktury | 29 |
+| `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji (w tym liczba gości względem pojemności pokoju), zmiana statusu, anulowanie przez gościa, płatności, faktury | 32 |
 | `AvailabilityServiceTests.cs` | Aktualizacja kalendarza dostępności (`Availability`) | 4 |
 | `ReservationServiceSearchTests.cs` | Wyszukiwarka na stronie głównej: liczba wolnych pokoi każdego typu, cena całego pobytu (z cennikiem sezonowym), dopasowanie do liczby gości | 9 |
 | `FileStorageServiceTests.cs` | Zapis zdjęć pokoi na dysku: dozwolone formaty, limit rozmiaru, unikalne nazwy, usuwanie, ochrona przed ścieżkami spoza katalogu | 16 |
@@ -89,6 +89,9 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | C8 | Właściciel blokuje pokój w terminie z aktywną rezerwacją | Błąd „W tym terminie pokój ma aktywne rezerwacje…” | |
 | C9 | Właściciel dodaje wpis cennika nachodzący na sezon 01.06–31.08.2027 | Błąd „Okres nakłada się na istniejący wpis cennika…” | |
 | C10 | Właściciel zmienia status anulowanej rezerwacji (albo z niestawieniem się) na „Potwierdzona” | Lista statusów nieaktywna (takiej rezerwacji nie da się przywrócić - jej noce wróciły do puli wolnych) | |
+| C11 | Formularz „Zarezerwuj pobyt”: liczba gości 3 | Pokój Standardowy (max 2 os.) nieaktywny na liście z dopiskiem „za mały”; gdy był wybrany - komunikat i nieaktywny przycisk „Sprawdź cenę i dostępność” | |
+| C12 | `POST /api/Reservation/create` (Swagger, token gościa) dla Pokoju Standardowego z `numberOfGuests: 3` | 400 „Liczba gości musi wynosić od 1 do 2 - tyle osób mieści wybrany pokój.” | |
+| C13 | Rezerwacja Apartamentu Premium dla 4 osób, potem szczegóły rezerwacji (gość) i zakładka „Rezerwacje” (właściciel) | Rezerwacja utworzona; liczba gości „4 osoby” widoczna w szczegółach i na liście w panelu | |
 
 ### Scenariusz D: bezpieczeństwo i sesja
 
@@ -113,7 +116,7 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | E7 | Wybierz daty i liczbę gości, „Szukaj pokoi” | Nagłówek „Dostępne pokoje: N” z terminem; ceny za cały pobyt („1050 PLN za 3 noce”); etykiety „Dostępny” / „Ostatni wolny pokój!” / „Brak wolnych pokoi”; pokoje za małe dla tylu gości ukryte | |
 | E8 | Kliknij dostępny pokój z wyników | Adres `#/pokoj/{id}`, galeria, opis, udogodnienia, opinie (imię i inicjał) oraz ramka „Twój termin” z ceną pobytu | |
 | E9 | „Zarezerwuj ten termin” bez logowania | Formularz logowania z komunikatem „Zaloguj się lub załóż konto, aby zarezerwować pokój.” | |
-| E10 | Zaloguj się jako gość | Od razu formularz rezerwacji z typem pokoju i datami z wyszukiwarki | |
+| E10 | Zaloguj się jako gość | Od razu formularz rezerwacji z typem pokoju, datami i liczbą gości z wyszukiwarki | |
 | E11 | Przycisk „Wstecz” w przeglądarce, potem odśwież stronę główną | Powrót do profilu; wyniki wyszukiwania zostają po odświeżeniu | |
 | E12 | „Pokaż wszystkie pokoje” | Pełna lista typów pokoi z ceną za noc | |
 

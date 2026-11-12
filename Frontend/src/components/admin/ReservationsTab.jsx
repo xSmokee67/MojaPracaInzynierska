@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { reservationStatusLabels, reservationStatusStyles } from '../../utils/statuses';
 import { getAllReservations, updateReservationStatus } from '../../api/reservationApi';
 import { errorMessage } from '../../api/apiErrors';
-import { formatDate } from '../../utils/format';
+import { formatDate, personsLabel } from '../../utils/format';
 import ReservationDetails from '../reservations/ReservationDetails';
 import Alert from '../common/Alert';
 
@@ -89,7 +89,7 @@ export default function ReservationsTab({ token, selectedReservationId, onSelect
                   <td className="p-4 text-slate-500">#{r.reservationId}</td>
                   <td className="p-4"><div className="font-medium text-slate-800">{r.guestName}</div><div className="text-xs text-slate-500">{r.guestEmail}</div></td>
                   <td className="p-4"><span className="font-bold text-slate-800">{r.roomNumber}</span> <span className="text-slate-600">({r.roomTypeName})</span></td>
-                  <td className="p-4 text-slate-600">{formatDate(r.checkInDate)} - {formatDate(r.checkOutDate)}</td>
+                  <td className="p-4 text-slate-600">{formatDate(r.checkInDate)} - {formatDate(r.checkOutDate)}<div className="text-xs text-slate-500">{personsLabel(r.numberOfGuests)}</div></td>
                   <td className="p-4 font-bold text-emerald-600">{r.totalPrice.toFixed(2)} PLN</td>
                   <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${reservationStatusStyles[r.status] ?? 'bg-slate-100 text-slate-600'}`}>{reservationStatusLabels[r.status] ?? r.status}</span></td>
                   <td className="p-4 text-right">

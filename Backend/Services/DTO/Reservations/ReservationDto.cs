@@ -11,6 +11,7 @@ public class ReservationDto
     public string RoomTypeName {get; set; } = string.Empty;
     public DateTime CheckInDate {get; set; }
     public DateTime CheckOutDate {get; set; }
+    public int NumberOfGuests {get; set; }
     public string Status {get; set; } = string.Empty;
     public decimal TotalPrice {get; set; }
     public List<string> AdditionalServices {get; set; } = new ();

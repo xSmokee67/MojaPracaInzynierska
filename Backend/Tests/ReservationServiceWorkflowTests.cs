@@ -23,6 +23,7 @@ public class ReservationServiceWorkflowTests
             RoomTypeId = TestData.StandardRoomTypeId,
             CheckInDate = CheckIn,
             CheckOutDate = CheckOut,
+            NumberOfGuests = 2,
             AdditionalServiceIds = new List<int> { TestData.BreakfastId, TestData.ParkingId }
         });
 
@@ -47,7 +48,8 @@ public class ReservationServiceWorkflowTests
             GuestId = TestData.GuestId,
             RoomTypeId = TestData.StandardRoomTypeId,
             CheckInDate = CheckIn,
-            CheckOutDate = CheckOut
+            CheckOutDate = CheckOut,
+            NumberOfGuests = 2
         });
 
         var entries = await context.Availabilities.Where(a => a.RoomId == TestData.Room101Id).OrderBy(a => a.Date).ToListAsync();
@@ -62,7 +64,7 @@ public class ReservationServiceWorkflowTests
     {
         using var context = TestData.CreateContext();
         var service = TestData.CreateReservationService(context);
-        var dto = new CreateReservationDto { GuestId = TestData.GuestId, RoomTypeId = TestData.StandardRoomTypeId, CheckInDate = CheckIn, CheckOutDate = CheckOut };
+        var dto = new CreateReservationDto { GuestId = TestData.GuestId, RoomTypeId = TestData.StandardRoomTypeId, CheckInDate = CheckIn, CheckOutDate = CheckOut, NumberOfGuests = 2 };
 
         await service.CreateReservationAsync(dto);
         await service.CreateReservationAsync(dto);
@@ -83,11 +85,52 @@ public class ReservationServiceWorkflowTests
             GuestId = TestData.GuestId,
             RoomTypeId = TestData.PremiumRoomTypeId,
             CheckInDate = CheckIn,
-            CheckOutDate = CheckOut
+            CheckOutDate = CheckOut,
+            NumberOfGuests = 2
         });
 
         Assert.False(success);
         Assert.Equal(1, await context.Reservations.CountAsync());
+    }
+
+    [Fact(DisplayName = "Rezerwacja: zapisuje liczbę gości, gdy mieści się w pokoju (dokładnie MaxOccupancy)")]
+    public async Task CreateReservation_SavesNumberOfGuests()
+    {
+        using var context = TestData.CreateContext();
+        var service = TestData.CreateReservationService(context);
+
+        var success = await service.CreateReservationAsync(new CreateReservationDto
+        {
+            GuestId = TestData.GuestId,
+            RoomTypeId = TestData.PremiumRoomTypeId,
+            CheckInDate = CheckIn,
+            CheckOutDate = CheckOut,
+            NumberOfGuests = 4 // Apartament Premium mieści 4 osoby
+        });
+
+        Assert.True(success);
+        Assert.Equal(4, (await context.Reservations.SingleAsync()).NumberOfGuests);
+    }
+
+    [Theory(DisplayName = "Rezerwacja: liczba gości spoza zakresu 1 - MaxOccupancy jest odrzucana i niczego nie zapisuje")]
+    [InlineData(0)]
+    [InlineData(3)] // Pokój Standardowy mieści 2 osoby
+    public async Task CreateReservation_Throws_WhenGuestsDoNotFit(int numberOfGuests)
+    {
+        using var context = TestData.CreateContext();
+        var service = TestData.CreateReservationService(context);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateReservationAsync(new CreateReservationDto
+        {
+            GuestId = TestData.GuestId,
+            RoomTypeId = TestData.StandardRoomTypeId,
+            CheckInDate = CheckIn,
+            CheckOutDate = CheckOut,
+            NumberOfGuests = numberOfGuests
+        }));
+
+        Assert.Equal(0, await context.Reservations.CountAsync());
+        Assert.Equal(0, await context.Availabilities.CountAsync());
     }
 
     // --- ZMIANA STATUSU (WŁAŚCICIEL) ---
@@ -145,7 +188,7 @@ public class ReservationServiceWorkflowTests
     {
         using var context = TestData.CreateContext();
         var service = TestData.CreateReservationService(context);
-        await service.CreateReservationAsync(new CreateReservationDto { GuestId = TestData.GuestId, RoomTypeId = TestData.PremiumRoomTypeId, CheckInDate = CheckIn, CheckOutDate = CheckOut });
+        await service.CreateReservationAsync(new CreateReservationDto { GuestId = TestData.GuestId, RoomTypeId = TestData.PremiumRoomTypeId, CheckInDate = CheckIn, CheckOutDate = CheckOut, NumberOfGuests = 2 });
         var reservation = await context.Reservations.SingleAsync();
 
         await service.UpdateReservationStatusAsync(reservation.ReservationId, "cancelled");

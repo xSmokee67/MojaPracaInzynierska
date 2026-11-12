@@ -230,7 +230,7 @@ export default function App() {
             </p>
           </div>
           <div className="flex justify-center">
-             <ReservationForm key={route.roomTypeId ?? 0} token={token} initialRoomTypeId={route.roomTypeId} initialCheckIn={search?.checkIn} initialCheckOut={search?.checkOut} onReservationCreated={() => setReservationsRefreshKey(prev => prev + 1)} />
+             <ReservationForm key={route.roomTypeId ?? 0} token={token} initialRoomTypeId={route.roomTypeId} initialCheckIn={search?.checkIn} initialCheckOut={search?.checkOut} initialGuests={search?.guests} onReservationCreated={() => setReservationsRefreshKey(prev => prev + 1)} />
           </div>
         </div>
       ) : token && !isOwner && route.view === 'reservations' ? (

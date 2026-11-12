@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { checkAvailability, calculatePrice, createReservation } from '../../api/reservationApi';
 import { getRoomTypes, getAdditionalServices } from '../../api/adminApi';
 import { errorMessage } from '../../api/apiErrors';
-import { formatDate, toInputDate } from '../../utils/format';
+import { formatDate, toInputDate, personsLabel } from '../../utils/format';
 import AlternativeStays from '../rooms/AlternativeStays';
 
 // Sprawdzenie dostępności i ceny pobytu - wspólne dla przycisku "Sprawdź cenę i dostępność"
@@ -23,11 +23,13 @@ const checkStay = async (roomTypeId, checkInDate, checkOutDate, additionalServic
   return { isAvailable: true, totalPrice: priceData.totalPrice, message: 'Pokój dostępny! Możesz dokończyć rezerwację.' };
 };
 
-export default function ReservationForm({ token, onReservationCreated, initialRoomTypeId, initialCheckIn, initialCheckOut }) {
+export default function ReservationForm({ token, onReservationCreated, initialRoomTypeId, initialCheckIn, initialCheckOut, initialGuests }) {
   const [roomTypes, setRoomTypes] = useState([]);
   const [services, setServices] = useState([]);
 
   const [roomTypeId, setRoomTypeId] = useState(0);
+  // Liczba gości z wyszukiwarki; bez wyszukiwania ustawiana po wczytaniu pokoi (2 osoby albo mniej, jeśli pokój jest mniejszy)
+  const [numberOfGuests, setNumberOfGuests] = useState(initialGuests ?? null);
   const [checkInDate, setCheckInDate] = useState(initialCheckIn ?? '');
   const [checkOutDate, setCheckOutDate] = useState(initialCheckOut ?? '');
   const [additionalServiceIds, setAdditionalServiceIds] = useState([]);
@@ -45,13 +47,17 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
         setRoomTypes(types);
         // Typ pokoju wybrany na stronie pokoju (przycisk "Zarezerwuj ten pokój") albo pierwszy z listy
         const preselected = types.find(rt => rt.roomTypeId === initialRoomTypeId);
-        if (types.length > 0) setRoomTypeId(preselected ? preselected.roomTypeId : types[0].roomTypeId);
+        const selected = preselected ?? types[0];
+        if (selected) setRoomTypeId(selected.roomTypeId);
+        if (initialGuests == null) setNumberOfGuests(selected ? Math.min(2, selected.maxOccupancy) : 1);
 
         const servicesData = await getAdditionalServices();
         setServices(servicesData);
 
         // Pokój i termin wybrane w wyszukiwarce - od razu pokazujemy dostępność i cenę, gość tylko potwierdza
-        if (preselected && initialCheckIn && initialCheckOut && initialCheckIn < initialCheckOut) {
+        // (o ile pokój mieści tylu gości, ilu wybrano w wyszukiwarce)
+        const fits = initialGuests == null || (preselected && initialGuests <= preselected.maxOccupancy);
+        if (preselected && fits && initialCheckIn && initialCheckOut && initialCheckIn < initialCheckOut) {
           setStatusMessage('Sprawdzanie dostępności...');
           const result = await checkStay(preselected.roomTypeId, initialCheckIn, initialCheckOut, []);
           setIsAvailable(result.isAvailable);
@@ -64,7 +70,13 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
       }
     };
     loadData();
-  }, [initialRoomTypeId, initialCheckIn, initialCheckOut]);
+  }, [initialRoomTypeId, initialCheckIn, initialCheckOut, initialGuests]);
+
+  const selectedRoomType = roomTypes.find(rt => rt.roomTypeId === roomTypeId);
+  // Pokój musi pomieścić wszystkich gości - tę samą regułę sprawdza API przy tworzeniu rezerwacji
+  const fitsGuests = !selectedRoomType || numberOfGuests === null || numberOfGuests <= selectedRoomType.maxOccupancy;
+  // Lista liczby gości: do największego pokoju w hotelu (co najmniej 4, jak w wyszukiwarce)
+  const maxGuests = Math.max(4, ...roomTypes.map(rt => rt.maxOccupancy));
 
   // Zmiana parametrów unieważnia poprzednio wyliczoną cenę - trzeba sprawdzić ponownie
   const resetCheck = () => {
@@ -111,7 +123,12 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
       setStatusMessage('Data wymeldowania musi być późniejsza niż data zameldowania.');
       return;
     }
-    
+
+    if (!fitsGuests) {
+      setStatusMessage(`Ten pokój mieści maksymalnie ${personsLabel(selectedRoomType.maxOccupancy)}. Wybierz większy pokój.`);
+      return;
+    }
+
     try {
       setIsError(false);
       setStatusMessage('Sprawdzanie dostępności...');
@@ -144,6 +161,7 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
         roomTypeId,
         checkInDate,
         checkOutDate,
+        numberOfGuests,
         additionalServiceIds
       };
       await createReservation(payload, token);
@@ -177,14 +195,35 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
       
       <div className="space-y-4">
         <div>
+          <label className="block text-sm font-medium text-slate-700">Liczba gości</label>
+          <select
+            value={numberOfGuests ?? ''}
+            onChange={(e) => { setNumberOfGuests(Number(e.target.value)); resetCheck(); }}
+            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+          >
+            {Array.from({ length: maxGuests }, (_, i) => i + 1).map(n => <option key={n} value={n}>{personsLabel(n)}</option>)}
+          </select>
+        </div>
+
+        <div>
           <label className="block text-sm font-medium text-slate-700">Typ Pokoju</label>
-          <select 
-            value={roomTypeId} 
+          <select
+            value={roomTypeId}
             onChange={(e) => { setRoomTypeId(Number(e.target.value)); resetCheck(); }}
             className="w-full mt-1 px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500"
           >
-            {roomTypes.map(rt => <option key={rt.roomTypeId} value={rt.roomTypeId}>{rt.name} (od {rt.basePrice} PLN/noc, max {rt.maxOccupancy} os.)</option>)}
+            {roomTypes.map(rt => (
+              // Pokoje za małe dla wybranej liczby gości są nieaktywne
+              <option key={rt.roomTypeId} value={rt.roomTypeId} disabled={numberOfGuests !== null && rt.maxOccupancy < numberOfGuests}>
+                {rt.name} (od {rt.basePrice} PLN/noc, max {rt.maxOccupancy} os.){numberOfGuests !== null && rt.maxOccupancy < numberOfGuests ? ' - za mały' : ''}
+              </option>
+            ))}
           </select>
+          {!fitsGuests && (
+            <p className="mt-1 text-sm font-medium text-amber-700">
+              Ten pokój mieści maksymalnie {personsLabel(selectedRoomType.maxOccupancy)}. Wybierz większy pokój albo zmniejsz liczbę gości.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -215,7 +254,7 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
           </div>
         )}
 
-        <button onClick={handleCheck} className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700 transition-colors">
+        <button onClick={handleCheck} disabled={!fitsGuests} className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
           Sprawdź cenę i dostępność
         </button>
       </div>
@@ -238,6 +277,7 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
           <div className="text-sm text-slate-600 space-y-1">
             <div>Pokój: <span className="font-medium text-slate-800">{roomTypes.find(rt => rt.roomTypeId === roomTypeId)?.name}</span></div>
             <div>Termin: <span className="font-medium text-slate-800">{formatDate(checkInDate)} - {formatDate(checkOutDate)}</span></div>
+            <div>Goście: <span className="font-medium text-slate-800">{personsLabel(numberOfGuests)}</span></div>
             <div>Usługi: <span className="font-medium text-slate-800">{additionalServiceIds.length > 0 ? services.filter(s => additionalServiceIds.includes(s.serviceId)).map(s => s.name).join(', ') : 'brak'}</span></div>
           </div>
           <div className="flex justify-between items-center text-xl font-bold text-emerald-600">
