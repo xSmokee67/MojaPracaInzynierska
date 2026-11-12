@@ -57,6 +57,19 @@ public class ReservationService : IReservationService
     // Termin w treści powiadomień, np. "10.11.2026 - 13.11.2026"
     private static string StayDates(DateTime checkIn, DateTime checkOut) => $"{checkIn:dd.MM.yyyy} - {checkOut:dd.MM.yyyy}";
 
+    // Informacja dla gościa o zwrocie po anulowaniu (paid - saldo wpłat, fee - opłata zatrzymana przez hotel)
+    private static string RefundInfo(decimal paid, decimal fee)
+    {
+        if (paid <= 0)
+        {
+            return "Nie było wpłat, więc nie ma nic do zwrotu.";
+        }
+
+        return fee > 0
+            ? $"Hotel zwróci {paid - fee:0.00} PLN z wpłaconych {paid:0.00} PLN - zatrzymuje {fee:0.00} PLN opłaty za anulowanie później niż {CancellationPolicy.FreeCancellationDays} dni przed przyjazdem."
+            : $"Hotel zwróci całą wpłatę: {paid:0.00} PLN.";
+    }
+
     // Komunikaty dla gościa po zmianie statusu przez hotel
     private static readonly Dictionary<string, string> StatusMessages = new()
     {
@@ -108,8 +121,10 @@ public class ReservationService : IReservationService
                 await _context.SaveChangesAsync();
 
                 var deadline = $"{reservation.PaymentDeadline:dd.MM.yyyy}";
-                await _notificationService.NotifyUserAsync(reservation.GuestId, $"Rezerwacja #{reservation.ReservationId} ({stay}) została automatycznie anulowana - nie została opłacona do {deadline}. Ewentualne wpłaty zwróci hotel.", reservation.ReservationId);
-                await _notificationService.NotifyOwnersAsync($"Rezerwacja #{reservation.ReservationId} ({stay}) nie została opłacona do {deadline} - anulowano automatycznie, pokój wrócił do puli wolnych.", reservation.ReservationId);
+                var paid = await GetPaidAmountAsync(reservation.ReservationId);
+                await _notificationService.NotifyUserAsync(reservation.GuestId, $"Rezerwacja #{reservation.ReservationId} ({stay}) została automatycznie anulowana - nie została opłacona w całości do {deadline}. {RefundInfo(paid, 0)}", reservation.ReservationId);
+                await _notificationService.NotifyOwnersAsync($"Rezerwacja #{reservation.ReservationId} ({stay}) nie została opłacona do {deadline} - anulowano automatycznie, pokój wrócił do puli wolnych." +
+                    (paid > 0 ? $" Do zwrotu: {paid:0.00} PLN." : ""), reservation.ReservationId);
             }
         }
 
@@ -330,10 +345,11 @@ public class ReservationService : IReservationService
         reservation.Status = status;
         await _context.SaveChangesAsync();
 
-        // Status zmienia właściciel - informacja dla gościa
+        // Status zmienia właściciel - informacja dla gościa (przy anulowaniu przez hotel: zwrot całej wpłaty, bez opłaty)
         if (statusChanged)
         {
-            await _notificationService.NotifyUserAsync(reservation.GuestId, $"Rezerwacja #{reservation.ReservationId} ({StayDates(reservation.CheckInDate, reservation.CheckOutDate)}) {StatusMessages[status]}", reservation.ReservationId);
+            var refundInfo = status == ReservationStatus.Cancelled ? " " + RefundInfo(await GetPaidAmountAsync(reservationId), 0) : "";
+            await _notificationService.NotifyUserAsync(reservation.GuestId, $"Rezerwacja #{reservation.ReservationId} ({StayDates(reservation.CheckInDate, reservation.CheckOutDate)}) {StatusMessages[status]}{refundInfo}", reservation.ReservationId);
         }
 
         return true;
@@ -359,6 +375,8 @@ public class ReservationService : IReservationService
 
         var details = _mapper.Map<ReservationDetailsDto>(reservation);
         details.Payments = details.Payments.OrderByDescending(p => p.PaymentDate).ToList();
+        details.FreeCancellationUntil = CancellationPolicy.FreeCancellationUntil(reservation.CheckInDate);
+        details.CancellationFeeIfCancelledToday = CancellationPolicy.Fee(reservation.CheckInDate, reservation.TotalPrice, details.PaidAmount, DateTime.Today);
 
         return details;
     }
@@ -381,10 +399,20 @@ public class ReservationService : IReservationService
             throw new ArgumentException("Rezerwację można anulować najpóźniej dzień przed zameldowaniem.");
         }
 
+        // Polityka anulowania: bezpłatnie do 7 dni przed przyjazdem, później hotel zatrzymuje 30% ceny z wpłaconej kwoty
+        var paid = await GetPaidAmountAsync(reservationId);
+        var fee = CancellationPolicy.Fee(reservation.CheckInDate, reservation.TotalPrice, paid, DateTime.Today);
+
         reservation.Status = ReservationStatus.Cancelled;
+        reservation.CancellationFee = fee;
         await _context.SaveChangesAsync();
 
-        await _notificationService.NotifyOwnersAsync($"Gość anulował rezerwację #{reservation.ReservationId} ({StayDates(reservation.CheckInDate, reservation.CheckOutDate)}).", reservation.ReservationId);
+        var stay = StayDates(reservation.CheckInDate, reservation.CheckOutDate);
+        var refund = paid - fee;
+        await _notificationService.NotifyUserAsync(reservation.GuestId, $"Rezerwacja #{reservation.ReservationId} ({stay}) została anulowana. {RefundInfo(paid, fee)}", reservation.ReservationId);
+        await _notificationService.NotifyOwnersAsync($"Gość anulował rezerwację #{reservation.ReservationId} ({stay}). " +
+            (paid > 0 ? $"Do zwrotu: {refund:0.00} PLN" + (fee > 0 ? $" (zatrzymana opłata za anulowanie: {fee:0.00} PLN)." : ".") : "Brak wpłat - nic do zwrotu."),
+            reservation.ReservationId);
 
         return true;
     }
@@ -541,9 +569,13 @@ public class ReservationService : IReservationService
                 : $"Kwota przekracza pozostałą do zapłaty ({remaining:0.00} PLN).");
         }
 
-        if (status == PaymentStatus.Refunded && dto.Amount > balance)
+        // Przy anulowanej rezerwacji opłata za anulowanie (CancellationPolicy) zostaje w hotelu - do zwrotu jest saldo minus opłata
+        var refundable = reservation.Status == ReservationStatus.Cancelled ? balance - reservation.CancellationFee : balance;
+        if (status == PaymentStatus.Refunded && dto.Amount > refundable)
         {
-            throw new ArgumentException($"Zwrot nie może przekraczać wpłaconej kwoty ({Math.Max(balance, 0):0.00} PLN).");
+            throw new ArgumentException(reservation.Status == ReservationStatus.Cancelled && reservation.CancellationFee > 0
+                ? $"Do zwrotu zostało {Math.Max(refundable, 0):0.00} PLN - hotel zatrzymuje {reservation.CancellationFee:0.00} PLN opłaty za anulowanie."
+                : $"Zwrot nie może przekraczać wpłaconej kwoty ({Math.Max(refundable, 0):0.00} PLN).");
         }
 
         var payment = new Payment

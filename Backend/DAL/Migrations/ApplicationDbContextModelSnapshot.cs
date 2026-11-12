@@ -350,6 +350,9 @@ namespace DAL.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ReservationId"));
 
+                    b.Property<decimal>("CancellationFee")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("CheckInDate")
                         .HasColumnType("datetime2");
 

@@ -15,6 +15,8 @@ public class Reservation
     public decimal TotalPrice {get; set; }
     // Do końca tego dnia rezerwacja musi być opłacona w całości - inaczej zadanie w tle ją anuluje
     public DateTime PaymentDeadline {get; set; }
+    // Kwota zatrzymana przez hotel przy anulowaniu przez gościa później niż 7 dni przed przyjazdem (CancellationPolicy)
+    public decimal CancellationFee {get; set; }
 
     public virtual Guest Guest { get; set; } = null!;
     public virtual Room Room { get; set; } = null!;

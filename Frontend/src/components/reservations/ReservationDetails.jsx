@@ -25,7 +25,7 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
         setDetails(data);
         // Podpowiedź w formularzu płatności: brakująca kwota, a dla anulowanej rezerwacji - zwrot wpłaconej kwoty
         setNewPayment(prev => data.status === 'cancelled'
-          ? { ...prev, amount: Math.max(data.paidAmount, 0), status: 'refunded' }
+          ? { ...prev, amount: Math.max(data.paidAmount - data.cancellationFee, 0), status: 'refunded' }
           : { ...prev, amount: Math.max(data.totalPrice - data.paidAmount, 0) });
         setNewDates({ checkInDate: data.checkInDate.slice(0, 10), checkOutDate: data.checkOutDate.slice(0, 10) });
         setError('');
@@ -52,7 +52,14 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
 
   // Handler dla Gościa
   const handleCancel = async () => {
-    if (!window.confirm('Na pewno anulować rezerwację? Tej operacji nie można cofnąć.')) return;
+    // W potwierdzeniu konkretne kwoty według polityki anulowania (bezpłatnie do 7 dni przed przyjazdem, później 30%)
+    const fee = details.cancellationFeeIfCancelledToday;
+    const refundText = details.paidAmount <= 0
+      ? 'Nie było wpłat, więc nie ma nic do zwrotu.'
+      : fee > 0
+        ? `Hotel zwróci ${(details.paidAmount - fee).toFixed(2)} PLN z wpłaconych ${details.paidAmount.toFixed(2)} PLN i zatrzyma ${fee.toFixed(2)} PLN opłaty za anulowanie.`
+        : `Hotel zwróci całą wpłatę: ${details.paidAmount.toFixed(2)} PLN.`;
+    if (!window.confirm(`Na pewno anulować rezerwację? ${refundText} Tej operacji nie można cofnąć.`)) return;
     await runAction(() => cancelReservation(reservationId, token), 'Rezerwacja została anulowana.');
   };
 
@@ -131,6 +138,14 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
                 <span className="block text-xs font-semibold text-slate-500 uppercase">Rozliczenie</span>
                 <span className="font-bold text-emerald-600">{details.totalPrice.toFixed(2)} PLN</span> <span className="text-sm text-slate-500">(wpłacono {details.paidAmount.toFixed(2)} PLN{details.refundedAmount > 0 && <> – po odjęciu zwrotów {details.refundedAmount.toFixed(2)} PLN</>})</span>
                 {/* Oczekująca = jeszcze nieopłacona w całości: termin płatności i brakująca kwota */}
+                {details.status === 'cancelled' && details.paidAmount > 0 && (
+                  <div className="mt-1 text-sm font-medium text-amber-700">
+                    {details.cancellationFee > 0 && <>Opłata za anulowanie (zostaje w hotelu): {details.cancellationFee.toFixed(2)} PLN. </>}
+                    {details.paidAmount - details.cancellationFee > 0
+                      ? <>Do zwrotu gościowi: {(details.paidAmount - details.cancellationFee).toFixed(2)} PLN.</>
+                      : <>Rozliczone – nic więcej do zwrotu.</>}
+                  </div>
+                )}
                 {details.status === 'pending' && (
                   <div className="mt-1 text-sm font-medium text-amber-700">
                     Do zapłaty {Math.max(details.totalPrice - details.paidAmount, 0).toFixed(2)} PLN do {formatDate(details.paymentDeadline)} - po zaksięgowaniu wpłaty rezerwacja zostanie potwierdzona, nieopłacona zostanie automatycznie anulowana.
@@ -159,13 +174,21 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
             )}
 
             {!isOwner && canCancel && (
-              <button onClick={handleCancel} className="w-full py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">Anuluj rezerwację</button>
+              <div className="space-y-2">
+                {/* Warunki anulowania (CancellationPolicy w API) */}
+                <p className="text-sm text-slate-600">
+                  Bezpłatne anulowanie do <span className="font-semibold">{formatDate(details.freeCancellationUntil)}</span> (7 dni przed przyjazdem).
+                  Później, najpóźniej dzień przed przyjazdem, hotel zatrzymuje 30% ceny pobytu z wpłaconej kwoty, a resztę zwraca.
+                  {details.cancellationFeeIfCancelledToday > 0 && <span className="block font-medium text-amber-700">Anulowanie teraz: opłata {details.cancellationFeeIfCancelledToday.toFixed(2)} PLN, zwrot {(details.paidAmount - details.cancellationFeeIfCancelledToday).toFixed(2)} PLN.</span>}
+                </p>
+                <button onClick={handleCancel} className="w-full py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">Anuluj rezerwację</button>
+              </div>
             )}
 
             {/* --- PŁATNOŚCI --- */}
             <div className="space-y-4">
               <h3 className="font-bold text-slate-700 text-lg">Płatności</h3>
-              {isOwner && details.status !== 'cancelled' && (
+              {isOwner && (details.status !== 'cancelled' || details.paidAmount - details.cancellationFee > 0) && (
                 <form onSubmit={handleAddPayment} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border items-end">
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 uppercase">Kwota (PLN)</label>
@@ -180,7 +203,8 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 uppercase">Status</label>
                     <select value={newPayment.status} onChange={e => setNewPayment({...newPayment, status: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white">
-                      {Object.entries(paymentStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      {/* Do anulowanej rezerwacji API przyjmuje tylko zwrot */}
+                      {Object.entries(paymentStatusLabels).filter(([value]) => details.status !== 'cancelled' || value === 'refunded').map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                     </select>
                   </div>
                   <div>

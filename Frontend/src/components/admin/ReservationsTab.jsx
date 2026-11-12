@@ -34,7 +34,7 @@ export default function ReservationsTab({ token, selectedReservationId, onSelect
   const showSuccess = (text) => { setMessage(text); setError(''); };
 
   const handleChangeStatus = async (id, status) => {
-    if (status === 'cancelled' && !window.confirm('Na pewno anulować tę rezerwację? Tej operacji nie można cofnąć.')) return;
+    if (status === 'cancelled' && !window.confirm('Na pewno anulować tę rezerwację? Przy anulowaniu przez hotel gościowi należy się zwrot całej wpłaty (zwrot zarejestruj w szczegółach rezerwacji). Tej operacji nie można cofnąć.')) return;
     try { await updateReservationStatus(id, { status }, token); showSuccess(`Status rezerwacji #${id} został zmieniony.`); reload(); } catch (err) { setError(errorMessage(err)); }
   };
 

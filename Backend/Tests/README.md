@@ -22,7 +22,7 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 - **EF Core InMemory**: baza danych w pamięci zamiast SQL Servera
 - **AutoMapper**: ten sam profil `ReservationMappingProfile` co w aplikacji
 
-### Zakres (122 przypadków testowych)
+### Zakres (130 przypadków testowych)
 
 | Plik | Co jest testowane | Przypadki |
 |------|-------------------|-----------|
@@ -30,6 +30,7 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 | `ReservationServicePriceTests.cs` | Wyliczanie ceny (`CalculateTotalPriceAsync`): cena bazowa, sezonowa, pobyt na przełomie sezonu, usługi dodatkowe według sposobu naliczania (raz za pobyt, za noc, za osobę, za osobę za noc), liczba gości nie zmienia ceny noclegu | 14 |
 | `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji (w tym liczba gości względem pojemności pokoju i liczba naliczeń usług), zmiana terminu (przeliczenie usług naliczanych za noc), zmiana statusu, anulowanie przez gościa, płatności, faktury (kolejna numeracja w serii miesiąca) | 34 |
 | `StayRulesTests.cs` | Wspólna reguła terminu pobytu (`StayRules`): przyjazd nie w przeszłości i przed wyjazdem, maks. 60 nocy – także przy tworzeniu rezerwacji i zmianie terminu | 10 |
+| `CancellationPolicyTests.cs` | Polityka anulowania: bezpłatnie do 7 dni przed przyjazdem, później hotel zatrzymuje 30% ceny (nie więcej niż wpłacono), limit zwrotu po późnym anulowaniu, anulowanie przez hotel z pełnym zwrotem | 8 |
 | `ReservationPaymentTests.cs` | Termin płatności (3 dni, najpóźniej dzień przed przyjazdem), automatyczne potwierdzenie po wpłacie całości, automatyczne anulowanie nieopłaconej rezerwacji po terminie, zakończenie pobytu po wymeldowaniu, saldo (wpłaty minus zwroty), limit wpłaty do brakującej kwoty i zwrotu do wpłaconej | 14 |
 | `AdditionalServiceServiceTests.cs` | Usługi dodatkowe w panelu: zapis i walidacja sposobu naliczania, blokada usuwania usługi zamówionej w rezerwacjach, usługa wycofana z oferty nie do zamówienia | 5 |
 | `ReservationServiceSearchTests.cs` | Wyszukiwarka na stronie głównej: liczba wolnych pokoi każdego typu, cena całego pobytu (z cennikiem sezonowym), dopasowanie do liczby gości | 9 |
@@ -99,7 +100,7 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | C2 | Gość 2 sprawdza Apartament Premium 03.04.2027 – 07.04.2027 | „Brak wolnych pokoi w wybranym terminie.” | |
 | C3 | Gość 2 sprawdza Apartament Premium 05.04.2027 – 07.04.2027 | Pokój dostępny (zameldowanie w dniu wymeldowania gościa 1) | |
 | C4 | Data wymeldowania wcześniejsza niż zameldowania | Komunikat o nieprawidłowym terminie | |
-| C5 | Gość anuluje przyszłą rezerwację z C1 (szczegóły → „Anuluj rezerwację”) | Status „Anulowana”, termin z C2 staje się dostępny | |
+| C5 | Gość anuluje przyszłą rezerwację z C1 (szczegóły → „Anuluj rezerwację”) | Przy przycisku warunki anulowania („Bezpłatne anulowanie do …”), w potwierdzeniu kwota zwrotu; po anulowaniu status „Anulowana”, termin z C2 staje się dostępny, gość i właściciel dostają powiadomienie z kwotą zwrotu | |
 | C6 | Właściciel blokuje pokój 201 (zakładka „Blokady”) 10.05.2027 – 15.05.2027, powód „remont” | Blokada na liście | |
 | C7 | Gość sprawdza Apartament Premium 12.05.2027 – 14.05.2027 | Brak wolnych pokoi | |
 | C8 | Właściciel blokuje pokój w terminie z aktywną rezerwacją | Błąd „W tym terminie pokój ma aktywne rezerwacje…” | |
@@ -114,7 +115,9 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | C17 | Właściciel → „Usługi Dodatkowe” → „Usuń” przy Śniadaniu zamówionym wcześniej w rezerwacji | Komunikat „Tej usługi nie można usunąć, bo była już zamawiana…”; usługa zostaje, rozliczenie starych rezerwacji bez zmian | |
 | C18 | „Edytuj” przy tej usłudze, odznacz „Dostępna w ofercie”, zapisz; gość otwiera formularz rezerwacji | Na liście w panelu „wycofana”; gość nie widzi usługi w formularzu; stare rezerwacje nadal ją pokazują | |
 | C19 | Szczegóły rezerwacji za 750 zł z wpłatą 750 zł → zarejestruj kolejną wpłatę 10 zł | Błąd „Rezerwacja jest już opłacona w całości.” | |
-| C20 | Anuluj rezerwację z wpłatą, w szczegółach formularz płatności | Podpowiada zwrot całej wpłaconej kwoty ze statusem „zwrócona”; zwrot większy niż wpłaty – błąd; po zwrocie „wpłacono 0.00 PLN – po odjęciu zwrotów …” | |
+| C20 | Właściciel anuluje opłaconą rezerwację, potem w szczegółach formularz płatności | „Do zwrotu gościowi: … PLN”; formularz podpowiada zwrot całej wpłaty, jedyny status to „Zwrot”; zwrot większy niż wpłaty – błąd; po zwrocie „Rozliczone – nic więcej do zwrotu.”, a formularz znika | |
+| C21 | Gość opłaca w całości rezerwację z przyjazdem za 3 dni i ją anuluje | Przed anulowaniem: „Anulowanie teraz: opłata 30% ceny, zwrot reszty”; po anulowaniu: „Opłata za anulowanie (zostaje w hotelu): …”, „Do zwrotu gościowi: …” (70% ceny) | |
+| C22 | Właściciel próbuje zwrócić w C21 całą wpłatę | Błąd „Do zwrotu zostało … PLN - hotel zatrzymuje … PLN opłaty za anulowanie.”; zwrot 70% ceny przechodzi | |
 
 ### Scenariusz D: bezpieczeństwo i sesja
 
