@@ -20,6 +20,7 @@ Projekt realizowany w ramach pracy inżynierskiej. Aplikacja webowa do przegląd
 **Gość (zalogowany)**
 - rezerwacja pokoju z usługami dodatkowymi i wyliczeniem ceny (cena za pokój za noc z cennikiem sezonowym, usługi według sposobu naliczania – np. śniadanie za osobę za noc); liczba gości zapisywana w rezerwacji i sprawdzana z pojemnością pokoju (API odrzuca rezerwację, w której gości jest więcej, niż mieści pokój)
 - lista własnych rezerwacji, szczegóły (płatności, faktura), anulowanie rezerwacji
+- płatność online („Zapłać teraz” zaraz po rezerwacji albo w szczegółach rezerwacji): BLIK lub karta – symulacja bramki płatniczej; wpłata całej brakującej kwoty od razu potwierdza rezerwację
 - zmiana terminu rezerwacji (najpóźniej dzień przed zameldowaniem): sprawdzenie dostępności nowego terminu i przeliczenie ceny
 - wystawienie opinii po zakończonym pobycie, lista własnych opinii w profilu
 
@@ -29,7 +30,7 @@ Projekt realizowany w ramach pracy inżynierskiej. Aplikacja webowa do przegląd
 - typy pokoi (z opisem i zdjęciami), pokoje, udogodnienia, usługi dodatkowe (ze sposobem naliczania: raz za pobyt, za noc, za osobę, za osobę za noc), cennik sezonowy
 - blokady pokoi (remont, konserwacja); remont, wyłączenie pokoju albo blokada przenosi przyszłe rezerwacje do innych wolnych pokoi tego typu
 - wszystkie rezerwacje: zmiana statusu, zmiana terminu (także przedłużenie trwającego pobytu), rejestracja płatności, wystawianie faktur
-- płatność za rezerwację: termin 3 dni od rezerwacji (najpóźniej dzień przed przyjazdem); zarejestrowanie wpłaty całej kwoty automatycznie potwierdza rezerwację
+- płatność za rezerwację: termin 3 dni od rezerwacji (najpóźniej dzień przed przyjazdem); gość płaci online albo hotel rejestruje wpłatę (gotówka, przelew, karta w recepcji) – wpłata całej kwoty automatycznie potwierdza rezerwację
 - automatyczne statusy rezerwacji: nieopłacona w terminie → anulowana (noce wracają do puli wolnych pokoi), potwierdzona po dniu wymeldowania → zakończona
 - moderacja opinii
 
@@ -98,7 +99,7 @@ Statusy i role zapisywane w bazie jako tekst są zdefiniowane w jednym miejscu, 
 
 Automatyczne statusy rezerwacji (`ReservationService.UpdateExpiredReservationsAsync`): zadanie w tle `API/BackgroundJobs/ReservationStatusJob.cs` (`BackgroundService`) uruchamia je przy starcie API i potem co godzinę, więc zmiana daty o północy jest uwzględniana najpóźniej godzinę później. Potwierdzona rezerwacja po dniu wymeldowania staje się zakończona (gość może wystawić opinię, hotel – fakturę). Rezerwacja oczekująca, która do końca dnia terminu płatności (`Reservations.PaymentDeadline`) nie została opłacona w całości, zostaje anulowana, a jej noce wracają do puli wolnych pokoi; obie strony dostają powiadomienie. Zadanie tworzy własny zakres usług (`IServiceScopeFactory`) na każdy przebieg, bo serwisy i `DbContext` żyją w zakresie jednego żądania; błąd jednego przebiegu (np. chwilowy brak połączenia z bazą) jest zapisywany w logu i nie zatrzymuje zadania. Anulowanej rezerwacji nie da się przywrócić ręcznie – jej termin mógł zostać już zajęty.
 
-Płatności i potwierdzanie rezerwacji: nowa rezerwacja ma status „oczekująca” i termin płatności `ReservationService.PaymentDeadlineFor` – 3 dni od złożenia, ale najpóźniej dzień przed przyjazdem (przy rezerwacji na dziś lub jutro – do końca dzisiejszego dnia). Gość widzi termin i brakującą kwotę w szczegółach rezerwacji i w powiadomieniu. Gdy właściciel zarejestruje wpłaty o łącznej wartości całej ceny (`RegisterPaymentAsync`, liczą się tylko płatności zaksięgowane), rezerwacja automatycznie staje się „potwierdzona”. Przy zmianie terminu nieopłaconej rezerwacji na wcześniejszy termin płatności przesuwa się tak, by przypadał najpóźniej dzień przed nowym przyjazdem. Gość, który nie przyjechał na opłaconą rezerwację, jest obsługiwany ręcznie – właściciel anuluje rezerwację przed dniem wymeldowania (inaczej zadanie w tle oznaczy ją jako zakończoną).
+Płatności i potwierdzanie rezerwacji: nowa rezerwacja ma status „oczekująca” i termin płatności `ReservationService.PaymentDeadlineFor` – 3 dni od złożenia, ale najpóźniej dzień przed przyjazdem (przy rezerwacji na dziś lub jutro – do końca dzisiejszego dnia). Gość widzi termin i brakującą kwotę w szczegółach rezerwacji i w powiadomieniu. Gość może zapłacić online (`POST /api/Reservation/{id}/pay`, `ReservationService.PayOnlineAsync`, tylko własna rezerwacja): okno płatności (`components/reservations/OnlinePayment.jsx`) przyjmuje kod BLIK albo dane karty, sprawdza je w przeglądarce (6 cyfr BLIK; numer karty sumą kontrolną Luhna, data ważności, CVC) i wysyła do API wyłącznie metodę – dane karty nigdzie nie trafiają. API zapisuje wpłatę całej brakującej kwoty przez `RegisterPaymentAsync`, więc obowiązują te same reguły co przy wpłacie rejestrowanej przez hotel, a właściciel dostaje powiadomienie. To symulacja bramki płatniczej: projekt nie łączy się z operatorem płatności (np. Przelewy24, PayU), który w prawdziwym wdrożeniu potwierdzałby wpłatę osobnym powiadomieniem do API. Gdy wpłaty (online albo zarejestrowane przez właściciela) osiągną łączną wartość całej ceny (`RegisterPaymentAsync`, liczą się tylko płatności zaksięgowane), rezerwacja automatycznie staje się „potwierdzona”. Przy zmianie terminu nieopłaconej rezerwacji na wcześniejszy termin płatności przesuwa się tak, by przypadał najpóźniej dzień przed nowym przyjazdem. Gość, który nie przyjechał na opłaconą rezerwację, jest obsługiwany ręcznie – właściciel anuluje rezerwację przed dniem wymeldowania (inaczej zadanie w tle oznaczy ją jako zakończoną).
 
 Polityka anulowania (`Services/Validation/CancellationPolicy.cs`): gość może anulować rezerwację najpóźniej dzień przed przyjazdem – bezpłatnie do 7 dni przed przyjazdem, później hotel zatrzymuje 30% ceny pobytu z wpłaconej kwoty (nie więcej, niż gość wpłacił; kwota zapisana w `Reservations.CancellationFee`), a resztę zwraca. Gość widzi warunki i dokładne kwoty przed anulowaniem, a po anulowaniu gość i właściciel dostają powiadomienie z kwotą do zwrotu. Rezerwacja anulowana przez hotel albo automatycznie (brak wpłaty w terminie) jest zwracana w całości. Zwrot rejestruje właściciel w szczegółach rezerwacji – formularz podpowiada kwotę do zwrotu i nie pozwala zwrócić więcej.
 
@@ -186,6 +187,7 @@ Ta część prowadzi krok po kroku od pustego komputera do przetestowania najwa�
 | „Failed to fetch” albo brak pokoi na stronie głównej | API nie działa – uruchom `dotnet run` w `Backend/API`. Jeśli API działa na innym porcie, zmień `VITE_API_URL` w `Frontend/.env`. |
 | Błąd CORS w konsoli przeglądarki | Aplikacja działa pod innym adresem niż `Frontend:BaseUrl` w `appsettings.json` (domyślnie `http://localhost:5173`). `npm run dev` i `npm run preview` używają tego samego portu – nie uruchamiaj obu naraz. |
 | API nie startuje z komunikatem „Brak klucza JWT” | Nie ustawiono klucza – wykonaj `dotnet user-secrets set …` z kroku 2. |
+| API wyłącza się przy starcie z błędem `Invalid column name '…'` (np. `Area`) | Baza jest starsza niż kod – po pobraniu nowej wersji wykonaj w `Backend`: `dotnet ef database update --project DAL --startup-project API`. |
 | Chcesz zacząć od czystej bazy | W `Backend/API`: `dotnet ef database drop --project ../DAL`, potem `dotnet ef database update --project ../DAL` i `dotnet run`. |
 
 ### Krok 2. Przygotuj konta
@@ -239,17 +241,18 @@ Apartament Premium ma tylko jeden pokój (201), więc po scenariuszu B jest zaj�
 2. Kliknij jedną z propozycji. → Otwiera się strona pokoju z nowym terminem i statusem „Pokój wolny w tym terminie”.
 3. W kalendarzu pokoju noce z rezerwacji Gościa 1 są oznaczone jako „zajęte” i nie da się ich wybrać.
 
-**D. Płatność i potwierdzenie (właściciel)**
-1. Panel → Rezerwacje. → Nad tabelą informacja „1 rezerwacja czeka na wpłatę” i przycisk „Pokaż oczekujące”.
-2. Otwórz „Szczegóły” rezerwacji z B, w „Płatnościach” zostaw podpowiedzianą kwotę (cała kwota) i kliknij „Zarejestruj płatność”.
-   → Status zmienia się automatycznie na „Potwierdzona”; Gość 1 dostaje powiadomienie.
-3. Zmień status listą w tabeli na „Zrealizowana”, otwórz szczegóły i kliknij „Wystaw fakturę”. → Faktura z numerem `FV/rrrr/mm/00001`.
-4. Jako Gość 1 otwórz tę rezerwację w „Moich rezerwacjach” i dodaj opinię (ocena i komentarz). → Opinia widoczna na stronie pokoju, w profilu gościa i w panelu (Opinie).
+**D. Płatność i potwierdzenie**
+1. Jako Gość 1 otwórz rezerwację z B w „Moich rezerwacjach”. → Żółte pole „Do zapłaty … do …” z przyciskiem „Zapłać teraz” (ten sam przycisk jest na ekranie zaraz po złożeniu rezerwacji).
+2. Kliknij „Zapłać teraz”, wybierz BLIK i wpisz 5 cyfr. → Błąd „Kod BLIK ma 6 cyfr”, nic nie zostaje zapisane. Wpisz 6 cyfr (np. `123456`) i kliknij „Zapłać”.
+   → „Płatność przyjęta”, status „Potwierdzona”, w płatnościach wpłata BLIK na całą kwotę; właściciel dostaje powiadomienie. Płatność jest symulacją – pieniądze nie są pobierane, a kartą płaci się testowym numerem `4111 1111 1111 1111` (dowolna przyszła data ważności, CVC `123`).
+3. Wpłatę może też zapisać hotel (np. gotówka w recepcji): złóż drugą rezerwację, jako właściciel w Panel → Rezerwacje zobaczysz informację „1 rezerwacja czeka na wpłatę”; w „Szczegółach” zarejestruj płatność podpowiedzianą kwotą. → Status zmienia się automatycznie na „Potwierdzona”.
+4. Zmień status rezerwacji z B listą w tabeli na „Zrealizowana”, otwórz szczegóły i kliknij „Wystaw fakturę”. → Faktura z numerem `FV/rrrr/mm/00001`.
+5. Jako Gość 1 otwórz tę rezerwację w „Moich rezerwacjach” i dodaj opinię (ocena i komentarz). → Opinia widoczna na stronie pokoju, w profilu gościa i w panelu (Opinie).
 
 **E. Zmiana terminu i anulowanie (Gość 1)**
 1. Zarezerwuj „Pokój Standardowy” za 20 dni. W szczegółach rezerwacji zmień termin o 2 dni później. → Komunikat o zmianie, nowa cena; właściciel dostaje powiadomienie.
 2. Kliknij „Anuluj rezerwację”. → Okno potwierdzenia: anulowanie bezpłatne (ponad 7 dni do przyjazdu). Po anulowaniu noce wracają do puli wolnych (sprawdź w kalendarzu pokoju).
-3. Zarezerwuj pokój za 3 dni, zarejestruj jako właściciel wpłatę całości, a potem anuluj jako gość. → Okno pokazuje opłatę 30% ceny i kwotę zwrotu; właściciel widzi w szczegółach „Do zwrotu gościowi” i rejestruje zwrot (status płatności „Zwrot”).
+3. Zarezerwuj pokój za 3 dni, zapłać online („Zapłać teraz”), a potem anuluj rezerwację. → Okno pokazuje opłatę 30% ceny i kwotę zwrotu; właściciel widzi w szczegółach „Do zwrotu gościowi” i rejestruje zwrot (status płatności „Zwrot”).
 
 **F. Kalendarz dostępności i przeniesienie gości (właściciel)**
 1. Jako Gość 1 zarezerwuj „Pokój Standardowy” za 5 dni (system przydzieli wolny pokój, np. 101 – numer widać w szczegółach rezerwacji).
@@ -286,4 +289,5 @@ Opis testów jednostkowych i scenariusze testów manualnych: [Backend/Tests/READ
 - hasła hashowane przez ASP.NET Core Identity (min. 8 znaków, w tym cyfra)
 - blokada konta na 15 minut po 5 nieudanych próbach logowania
 - walidacja danych wejściowych w DTO i serwisach, kontrola rozszerzenia i rozmiaru przesyłanych zdjęć
+- płatność online (symulacja): dane karty i kod BLIK nie są wysyłane do API ani zapisywane; gość opłaca tylko własną rezerwację
 - klucz JWT poza repozytorium (User Secrets)

@@ -35,6 +35,10 @@ export const changeReservationDates = (id, dto, token) =>
 export const registerPayment = (id, dto, token) =>
   apiRequest(`/Reservation/${id}/payments`, { method: 'POST', token, body: dto }, 'Błąd rejestracji płatności');
 
+// Płatność online gościa (symulacja bramki płatniczej) - API wpłaca całą brakującą kwotę; wysyłana jest tylko metoda (card / BLIK)
+export const payOnline = (id, dto, token) =>
+  apiRequest(`/Reservation/${id}/pay`, { method: 'POST', token, body: dto }, 'Płatność nie powiodła się');
+
 export const issueInvoice = (id, token) =>
   apiRequest(`/Reservation/${id}/invoice`, { method: 'POST', token }, 'Błąd wystawiania faktury');
 

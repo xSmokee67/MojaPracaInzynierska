@@ -6,6 +6,7 @@ import { errorMessage } from '../../api/apiErrors';
 import { formatDate, formatDateTime, nightsLabel, personsLabel, toInputDate } from '../../utils/format';
 import Alert from '../common/Alert';
 import StarRating from '../common/StarRating';
+import OnlinePayment from './OnlinePayment';
 
 // Szczegóły rezerwacji: dane pobytu, rozliczenie, zmiana terminu, anulowanie, płatności, faktura i opinia.
 // Gość widzi je w panelu obok listy (inline, ze zdjęciem pokoju), właściciel - w oknie nad tabelą rezerwacji
@@ -19,6 +20,7 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
   const [newReview, setNewReview] = useState({ reservationId, rating: 5, comment: '' });
   const [newDates, setNewDates] = useState({ checkInDate: '', checkOutDate: '' });
   const [reloadKey, setReloadKey] = useState(0);
+  const [showPayment, setShowPayment] = useState(false);
   const panelRef = useRef(null);
 
   useEffect(() => {
@@ -104,6 +106,17 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
   const term = 'block text-xs font-bold uppercase tracking-[0.06em] text-brass-700';
   const subTitle = 'text-xl font-medium';
   const toPay = details ? Math.max(details.totalPrice - details.paidAmount, 0) : 0;
+  // Gość opłaca online brakującą kwotę rezerwacji oczekującej (albo potwierdzonej, której cena wzrosła po zmianie terminu)
+  const canPayOnline = !isOwner && details !== null && (details.status === 'pending' || details.status === 'confirmed') && toPay > 0;
+
+  // Płatność przyjęta - komunikat, odświeżenie szczegółów (wpłata, status) i listy rezerwacji
+  const handlePaid = (text) => {
+    setShowPayment(false);
+    setError('');
+    setMessage(text);
+    setReloadKey(key => key + 1);
+    onChanged();
+  };
 
   const content = (
     <>
@@ -156,10 +169,23 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
               )}
             </div>
 
-            {/* Oczekująca = jeszcze nieopłacona w całości: termin płatności i brakująca kwota */}
-            {details.status === 'pending' && (
+            {/* Gość: płatność online brakującej kwoty (symulacja bramki płatniczej - OnlinePayment) */}
+            {canPayOnline && (
+              <div className="flex flex-wrap items-center justify-between gap-4 p-4 md:p-5 rounded-[14px] bg-warning-50 border border-warning-100">
+                <p className="flex-[1_1_16rem] text-sm leading-relaxed text-warning-700">
+                  <strong>Do zapłaty {toPay.toFixed(2)} zł{details.status === 'pending' && ` do ${formatDate(details.paymentDeadline)}`}.</strong>{' '}
+                  {details.status === 'pending'
+                    ? 'Zapłać online kartą albo BLIK-iem - rezerwacja zostanie od razu potwierdzona. Nieopłacona w terminie zostanie automatycznie anulowana.'
+                    : 'Cena wzrosła po zmianie terminu - dopłać brakującą kwotę online.'}
+                </p>
+                <button type="button" onClick={() => setShowPayment(true)} className="btn-primary">Zapłać teraz</button>
+              </div>
+            )}
+
+            {/* Właściciel: oczekująca = jeszcze nieopłacona w całości - termin płatności i brakująca kwota */}
+            {isOwner && details.status === 'pending' && (
               <p className="text-sm leading-relaxed text-warning-700 font-medium">
-                Do zapłaty {toPay.toFixed(2)} zł do {formatDate(details.paymentDeadline)} - po zaksięgowaniu wpłaty rezerwacja zostanie potwierdzona, nieopłacona zostanie automatycznie anulowana.
+                Do zapłaty {toPay.toFixed(2)} zł do {formatDate(details.paymentDeadline)} - gość może zapłacić online albo wpłatę rejestruje hotel; po wpłacie całości rezerwacja zostanie potwierdzona, nieopłacona zostanie automatycznie anulowana.
               </p>
             )}
 
@@ -282,9 +308,13 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
     </>
   );
 
+  const paymentWindow = showPayment && details && (
+    <OnlinePayment token={token} reservationId={reservationId} amount={toPay} onPaid={handlePaid} onClose={() => setShowPayment(false)} />
+  );
+
   // Panel obok listy rezerwacji gościa
   if (inline) {
-    return <section ref={panelRef} className="card overflow-hidden shadow-[0_12px_40px_rgb(20_33_61_/_0.08)] scroll-mt-4">{content}</section>;
+    return <section ref={panelRef} className="card overflow-hidden shadow-[0_12px_40px_rgb(20_33_61_/_0.08)] scroll-mt-4">{content}{paymentWindow}</section>;
   }
 
   // Okno nad tabelą rezerwacji właściciela - kliknięcie tła zamyka

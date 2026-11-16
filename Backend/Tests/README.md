@@ -22,7 +22,7 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 - **EF Core InMemory**: baza danych w pamięci zamiast SQL Servera
 - **AutoMapper**: ten sam profil `ReservationMappingProfile` co w aplikacji
 
-### Zakres (130 przypadków testowych)
+### Zakres (135 przypadków testowych)
 
 | Plik | Co jest testowane | Przypadki |
 |------|-------------------|-----------|
@@ -31,7 +31,7 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 | `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji (w tym liczba gości względem pojemności pokoju i liczba naliczeń usług), zmiana terminu (przeliczenie usług naliczanych za noc), zmiana statusu, anulowanie przez gościa, płatności, faktury (kolejna numeracja w serii miesiąca) | 34 |
 | `StayRulesTests.cs` | Wspólna reguła terminu pobytu (`StayRules`): przyjazd nie w przeszłości i przed wyjazdem, maks. 60 nocy – także przy tworzeniu rezerwacji i zmianie terminu | 10 |
 | `CancellationPolicyTests.cs` | Polityka anulowania: bezpłatnie do 7 dni przed przyjazdem, później hotel zatrzymuje 30% ceny (nie więcej niż wpłacono), limit zwrotu po późnym anulowaniu, anulowanie przez hotel z pełnym zwrotem | 8 |
-| `ReservationPaymentTests.cs` | Termin płatności (3 dni, najpóźniej dzień przed przyjazdem), automatyczne potwierdzenie po wpłacie całości, automatyczne anulowanie nieopłaconej rezerwacji po terminie, zakończenie pobytu po wymeldowaniu, saldo (wpłaty minus zwroty), limit wpłaty do brakującej kwoty i zwrotu do wpłaconej | 14 |
+| `ReservationPaymentTests.cs` | Termin płatności (3 dni, najpóźniej dzień przed przyjazdem), automatyczne potwierdzenie po wpłacie całości, automatyczne anulowanie nieopłaconej rezerwacji po terminie, zakończenie pobytu po wymeldowaniu, saldo (wpłaty minus zwroty), limit wpłaty do brakującej kwoty i zwrotu do wpłaconej, płatność online gościa (tylko własna rezerwacja, karta lub BLIK, brakująca kwota, potwierdzenie) | 19 |
 | `AdditionalServiceServiceTests.cs` | Usługi dodatkowe w panelu: zapis i walidacja sposobu naliczania, blokada usuwania usługi zamówionej w rezerwacjach, usługa wycofana z oferty nie do zamówienia | 5 |
 | `ReservationServiceSearchTests.cs` | Wyszukiwarka na stronie głównej: liczba wolnych pokoi każdego typu, cena całego pobytu (z cennikiem sezonowym), dopasowanie do liczby gości | 9 |
 | `FileStorageServiceTests.cs` | Zapis zdjęć pokoi na dysku: dozwolone formaty, limit rozmiaru, odrzucanie plików, które nie są obrazem (sygnatura pliku zgodna z rozszerzeniem), unikalne nazwy, usuwanie, ochrona przed ścieżkami spoza katalogu | 18 |
@@ -70,7 +70,7 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | A5 | Zakładka „Zarezerwuj pobyt”: liczba gości 1, Pokój Standardowy, 10.03.2027 – 13.03.2027, zaznacz Śniadanie, „Sprawdź cenę i dostępność” | „Pokój dostępny!”, w podsumowaniu „Śniadanie: 3 × 50 PLN (za osobę za noc) = 150.00 PLN”, do zapłaty **750,00 PLN** (3 × 200 + 1 os. × 3 noce × 50) | |
 | A6 | „Potwierdź i Rezerwuj” | Ekran „Udało się!” z komunikatem „Opłać ją do …” (dziś + 3 dni) | |
 | A7 | Zakładka „Moje rezerwacje” | Rezerwacja z pokojem 101, statusem „Oczekująca” z dopiskiem „opłać do …”, ceną 750 PLN; w szczegółach „Do zapłaty 750.00 PLN do …” | |
-| A8 | Wyloguj, zaloguj jako właściciel, czerwony przycisk „Panel Właściciela” → zakładka „Rezerwacje” | Rezerwacja gościa na liście, pod statusem „wpłata do …” | |
+| A8 | Wyloguj, zaloguj jako właściciel, „Panel właściciela” w pasku nawigacji → „Rezerwacje” w menu bocznym | Rezerwacja gościa na liście, pod statusem „wpłata do …” | |
 | A9 | „Szczegóły” → zarejestruj płatność 300 zł kartą | Płatność na liście, „wpłacono 300.00 PLN”, status nadal „Oczekująca”, „Do zapłaty 450.00 PLN do …” | |
 | A10 | Zarejestruj drugą płatność (kwota podpowiada się jako 450 zł) | „wpłacono 750.00 PLN”, status zmienia się automatycznie na „Potwierdzona” | |
 | A11 | Zamknij szczegóły, lista rezerwacji | Status „Potwierdzona”, bez dopisku „wpłata do” | |
@@ -78,7 +78,7 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | A13 | Zmień status na „Zrealizowana”, w szczegółach „Wystaw fakturę” | Faktura `FV/rrrr/mm/nnnnn` na 750 zł (kolejny numer w bieżącym miesiącu – pierwsza faktura w miesiącu to `00001`), przycisk znika | |
 | A14 | Zaloguj jako gość, szczegóły rezerwacji | Widoczne płatności i faktura, formularz opinii | |
 | A15 | Dodaj opinię 5★ z komentarzem | „Dziękujemy za wystawienie opinii!”, formularz zastąpiony opinią | |
-| A16 | Zaloguj jako właściciel, „Panel Właściciela” → zakładka „Opinie” | Opinia gościa na liście, „Usuń” działa po potwierdzeniu | |
+| A16 | Zaloguj jako właściciel, „Panel właściciela” → „Opinie” | Opinia gościa na liście, „Usuń” działa po potwierdzeniu | |
 
 ### Scenariusz B: ceny sezonowe
 
@@ -118,6 +118,10 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | C20 | Właściciel anuluje opłaconą rezerwację, potem w szczegółach formularz płatności | „Do zwrotu gościowi: … PLN”; formularz podpowiada zwrot całej wpłaty, jedyny status to „Zwrot”; zwrot większy niż wpłaty – błąd; po zwrocie „Rozliczone – nic więcej do zwrotu.”, a formularz znika | |
 | C21 | Gość opłaca w całości rezerwację z przyjazdem za 3 dni i ją anuluje | Przed anulowaniem: „Anulowanie teraz: opłata 30% ceny, zwrot reszty”; po anulowaniu: „Opłata za anulowanie (zostaje w hotelu): …”, „Do zwrotu gościowi: …” (70% ceny) | |
 | C22 | Właściciel próbuje zwrócić w C21 całą wpłatę | Błąd „Do zwrotu zostało … PLN - hotel zatrzymuje … PLN opłaty za anulowanie.”; zwrot 70% ceny przechodzi | |
+| C23 | Gość w szczegółach oczekującej rezerwacji klika „Zapłać teraz”, wybiera BLIK i wpisuje kod `12345` | Błąd w formularzu „Kod BLIK ma 6 cyfr”, nic nie zostaje zapisane | |
+| C24 | Ten sam formularz: kod BLIK `123456` → „Zapłać” | „Płatność przyjęta”; w płatnościach wpłata BLIK na całą brakującą kwotę, status „Potwierdzona”, „Do zapłaty 0.00 PLN”; gość i właściciel dostają powiadomienie | |
+| C25 | Gość z zaliczką 200 zł (zarejestrowaną przez właściciela) płaci online kartą `4111 1111 1111 1111`, data ważności w przyszłości, CVC `123` | Płatność kartą tylko na brakującą kwotę; po opłaceniu przycisk „Zapłać teraz” znika | |
+| C26 | Gość wysyła `POST /api/Reservation/{id}/pay` (Swagger) dla cudzej rezerwacji albo z metodą `transfer` | 404 „Nie znaleziono rezerwacji.” / 400 „Online można zapłacić kartą albo BLIK-iem.” | |
 
 ### Scenariusz D: bezpieczeństwo i sesja
 
@@ -134,7 +138,7 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 
 | # | Krok | Oczekiwany wynik | Wynik |
 |---|------|------------------|-------|
-| E1 | Właściciel → „Panel Właściciela” → „Typy Pokoi” → „Edytuj” przy typie pokoju, uzupełnij opis, zapisz | Komunikat sukcesu, opis widoczny na stronie pokoju | |
+| E1 | Właściciel → „Panel właściciela” → „Typy pokoi” → „Edytuj” przy typie pokoju, uzupełnij opis, zapisz | Komunikat sukcesu, opis widoczny na stronie pokoju | |
 | E2 | „Zdjęcia” → „Dodaj zdjęcia”, wybierz 3 pliki JPG/PNG | Miniatury w oknie, pierwsze oznaczone jako „Główne”, w tabeli liczba zdjęć 3 | |
 | E3 | Dodaj plik GIF albo większy niż 5 MB | Komunikat o nieobsługiwanym formacie / za dużym pliku, nic nie zostaje zapisane | |
 | E3a | Swagger: `POST /api/RoomType/{id}/photos` z plikiem tekstowym albo programem przemianowanym na `.jpg` | 400 „Plik … nie jest prawidłowym obrazem JPG.”, nic nie zostaje zapisane | |
@@ -153,9 +157,9 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 
 | # | Krok | Oczekiwany wynik | Wynik |
 |---|------|------------------|-------|
-| F1 | Zaloguj się jako właściciel | Strona główna jak dla gościa, w pasku czerwony przycisk „Panel Właściciela” i „Witaj, Jan” | |
+| F1 | Zaloguj się jako właściciel | Strona główna jak dla gościa, w pasku link „Panel właściciela” i „Witaj, Jan” | |
 | F2 | Otwórz profil dowolnego pokoju | Zamiast przycisku rezerwacji: „Podgląd jako właściciel - rezerwacji dokonują goście.” | |
-| F3 | „Panel Właściciela” | Adres `#/panel`, zakładki panelu (typy pokoi, pokoje, cennik, rezerwacje…) | |
+| F3 | „Panel właściciela” | Adres `#/panel`, menu boczne z grupami Przegląd / Oferta / Obsługa (dostępność, rezerwacje, typy pokoi, pokoje, cennik…) | |
 | F3a | Kliknij zakładkę „Udogodnienia”, odśwież stronę (F5), potem „Cennik Sezonowy” i przycisk „Wstecz” przeglądarki | Adres `#/panel/udogodnienia`, po odświeżeniu ta sama zakładka; „Wstecz” wraca z `#/panel/cennik` do Udogodnień | |
 | F3b | „Rezerwacje” → „Szczegóły” przy rezerwacji | Adres `#/panel/rezerwacje/{id}`, w okruszkach „Rezerwacja #id”; po zamknięciu okna `#/panel/rezerwacje` | |
 | F4 | Zaloguj jako gość, „Mój profil” | Dane konta (imię i nazwisko, e-mail, telefon, data założenia) i lista „Moje opinie” | |

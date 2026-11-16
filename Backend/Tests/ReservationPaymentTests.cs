@@ -171,4 +171,50 @@ public class ReservationPaymentTests
 
         Assert.Equal("completed", (await context.Reservations.FindAsync(reservation.ReservationId))!.Status);
     }
+
+    [Fact(DisplayName = "Płatność online: gość płaci brakującą kwotę, rezerwacja zostaje potwierdzona")]
+    public async Task PayOnline_PaysRemaining_AndConfirms()
+    {
+        using var context = TestData.CreateContext();
+        var reservation = TestData.AddReservation(context, TestData.Room101Id, Today.AddDays(10), Today.AddDays(13), status: "pending", totalPrice: 600);
+        var service = TestData.CreateReservationService(context);
+        await service.RegisterPaymentAsync(reservation.ReservationId, new PaymentDto { Amount = 200, Method = "cash" }); // zaliczka w recepcji
+
+        var success = await service.PayOnlineAsync(reservation.ReservationId, TestData.GuestId, "BLIK");
+
+        Assert.True(success);
+        var online = await context.Payments.SingleAsync(p => p.Method == "BLIK");
+        Assert.Equal(400, online.Amount); // tylko brakująca kwota
+        Assert.Equal("completed", online.Status);
+        Assert.Equal("confirmed", (await context.Reservations.FindAsync(reservation.ReservationId))!.Status);
+    }
+
+    [Fact(DisplayName = "Płatność online: cudza rezerwacja nie jest znajdowana")]
+    public async Task PayOnline_ReturnsFalse_ForOtherGuest()
+    {
+        using var context = TestData.CreateContext();
+        var reservation = TestData.AddReservation(context, TestData.Room101Id, Today.AddDays(10), Today.AddDays(13), status: "pending");
+        var service = TestData.CreateReservationService(context);
+
+        Assert.False(await service.PayOnlineAsync(reservation.ReservationId, TestData.GuestId + 1, "card"));
+        Assert.Equal(0, await context.Payments.CountAsync());
+    }
+
+    [Theory(DisplayName = "Płatność online: odrzucana dla opłaconej, anulowanej rezerwacji i metody innej niż karta / BLIK")]
+    [InlineData("confirmed", 600, "card")]  // już opłacona w całości
+    [InlineData("cancelled", 0, "card")]    // anulowana
+    [InlineData("pending", 0, "transfer")]  // przelew nie jest płatnością online
+    public async Task PayOnline_Throws_WhenNotAllowed(string status, decimal alreadyPaid, string method)
+    {
+        using var context = TestData.CreateContext();
+        var reservation = TestData.AddReservation(context, TestData.Room101Id, Today.AddDays(10), Today.AddDays(13), status: status, totalPrice: 600);
+        if (alreadyPaid > 0)
+        {
+            context.Payments.Add(new Model.Payment { ReservationId = reservation.ReservationId, Amount = alreadyPaid, Method = "card", Status = "completed", PaymentDate = DateTime.UtcNow });
+            context.SaveChanges();
+        }
+        var service = TestData.CreateReservationService(context);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.PayOnlineAsync(reservation.ReservationId, TestData.GuestId, method));
+    }
 }

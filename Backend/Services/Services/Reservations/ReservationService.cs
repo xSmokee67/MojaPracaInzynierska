@@ -602,6 +602,41 @@ public class ReservationService : IReservationService
         return true;
     }
 
+    // Płatność online przez gościa - symulacja bramki płatniczej: gość wpłaca kartą albo BLIK-iem całą brakującą kwotę.
+    // Prawdziwa bramka (np. Przelewy24, PayU) potwierdzałaby wpłatę osobnym powiadomieniem - tu wpłata zapisuje się od razu.
+    // Zapis przechodzi przez RegisterPaymentAsync, więc obowiązują te same reguły (limit kwoty, potwierdzenie po wpłacie całości)
+    public async Task<bool> PayOnlineAsync(int reservationId, int guestId, string method)
+    {
+        if (method != PaymentMethod.Card && method != PaymentMethod.Blik)
+        {
+            throw new ArgumentException("Online można zapłacić kartą albo BLIK-iem.");
+        }
+
+        var reservation = await _context.Reservations.FindAsync(reservationId);
+        if (reservation == null || reservation.GuestId != guestId)
+        {
+            return false;
+        }
+
+        if (reservation.Status != ReservationStatus.Pending && reservation.Status != ReservationStatus.Confirmed)
+        {
+            throw new ArgumentException("Można opłacić tylko rezerwację oczekującą lub potwierdzoną.");
+        }
+
+        var remaining = reservation.TotalPrice - await GetPaidAmountAsync(reservationId);
+        if (remaining <= 0)
+        {
+            throw new ArgumentException("Rezerwacja jest już opłacona w całości.");
+        }
+
+        await RegisterPaymentAsync(reservationId, new PaymentDto { Amount = remaining, Method = method, Status = PaymentStatus.Completed });
+
+        var methodName = method == PaymentMethod.Card ? "kartą" : "BLIK-iem";
+        await _notificationService.NotifyOwnersAsync($"Gość opłacił online ({methodName}) rezerwację #{reservation.ReservationId} ({StayDates(reservation.CheckInDate, reservation.CheckOutDate)}): {remaining:0.00} PLN.", reservation.ReservationId);
+
+        return true;
+    }
+
     public async Task<bool> IssueInvoiceAsync(int reservationId)
     {
         var reservation = await _context.Reservations

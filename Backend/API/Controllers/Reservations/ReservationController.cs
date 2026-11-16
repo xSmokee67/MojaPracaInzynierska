@@ -125,7 +125,7 @@ public class ReservationController : ControllerBase
 
             // Termin płatności liczony tą samą regułą co w serwisie (3 dni, najpóźniej dzień przed przyjazdem)
             var paymentDeadline = Services.Services.ReservationService.PaymentDeadlineFor(dto.CheckInDate, DateTime.Today);
-            return Ok(new { message = $"Rezerwacja została złożona! Opłać ją do {paymentDeadline:dd.MM.yyyy} - po zaksięgowaniu wpłaty zostanie potwierdzona, a nieopłacona w terminie zostanie automatycznie anulowana." });
+            return Ok(new { message = $"Rezerwacja została złożona! Zapłać online teraz albo najpóźniej do {paymentDeadline:dd.MM.yyyy} - po opłaceniu zostanie potwierdzona, a nieopłacona w terminie zostanie automatycznie anulowana." });
         }
         catch (ArgumentException e)
         {
@@ -250,6 +250,30 @@ public class ReservationController : ControllerBase
                 return NotFound(new { error = "Nie znaleziono rezerwacji."});
 
             return Ok(new { message = "Płatność została zarejestrowana."});
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(new { error = e.Message});
+        }
+    }
+
+    // Płatność online przez gościa (symulacja bramki płatniczej) - tylko własna rezerwacja, kwota = brakująca do zapłaty
+    [HttpPost("{id}/pay")]
+    [Authorize(Roles = UserRoles.Guest)]
+    public async Task<IActionResult> PayOnline(int id, [FromBody] OnlinePaymentDto dto)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(userId, out var guestId))
+            return Unauthorized(new { error = "Nie udało się zidentyfikować zalogowanego użytkownika."});
+
+        try
+        {
+            var success = await _reservationService.PayOnlineAsync(id, guestId, dto.Method);
+
+            if (!success)
+                return NotFound(new { error = "Nie znaleziono rezerwacji."});
+
+            return Ok(new { message = "Płatność przyjęta - rezerwacja jest opłacona i potwierdzona."});
         }
         catch (ArgumentException e)
         {

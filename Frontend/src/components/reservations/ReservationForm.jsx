@@ -1,12 +1,13 @@
 // Plik: Frontend/src/components/reservations/ReservationForm.jsx
 import { useState, useEffect } from 'react';
-import { checkAvailability, calculatePrice, createReservation } from '../../api/reservationApi';
+import { checkAvailability, calculatePrice, createReservation, getMyReservations } from '../../api/reservationApi';
 import { getRoomTypes, getAdditionalServices } from '../../api/adminApi';
 import { photoUrl } from '../../api/roomApi';
 import { errorMessage } from '../../api/apiErrors';
 import { formatDate, toInputDate, personsLabel, nightsLabel } from '../../utils/format';
 import AlternativeStays from '../rooms/AlternativeStays';
 import RoomPhotoPlaceholder from '../common/RoomPhotoPlaceholder';
+import OnlinePayment from './OnlinePayment';
 import { serviceChargeTypeLabels, serviceQuantity } from '../../utils/statuses';
 
 // Sprawdzenie dostępności i ceny pobytu - wspólne dla przycisku "Sprawdź cenę i dostępność"
@@ -45,6 +46,10 @@ export default function ReservationForm({ token, onReservationCreated, onNavigat
   const [statusMessage, setStatusMessage] = useState('');
   const [isError, setIsError] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  // Złożona rezerwacja (numer i cena) - do płatności online od razu po rezerwacji
+  const [createdReservation, setCreatedReservation] = useState(null);
+  const [showPayment, setShowPayment] = useState(false);
+  const [isPaid, setIsPaid] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -176,6 +181,14 @@ export default function ReservationForm({ token, onReservationCreated, onNavigat
         additionalServiceIds
       };
       const result = await createReservation(payload, token);
+      // Numer nowej rezerwacji - najnowsza na liście gościa (API przy tworzeniu zwraca tylko komunikat)
+      try {
+        const mine = await getMyReservations(token);
+        setCreatedReservation(mine.reduce((newest, r) => (!newest || r.reservationId > newest.reservationId ? r : newest), null));
+      } catch {
+        setCreatedReservation(null); // bez numeru gość zapłaci z "Moich rezerwacji"
+      }
+      setIsPaid(false);
       setIsSuccess(true);
       setAdditionalServiceIds([]);
       resetCheck();
@@ -206,12 +219,20 @@ export default function ReservationForm({ token, onReservationCreated, onNavigat
     return (
       <div className="w-full max-w-xl py-10 md:py-16 text-center space-y-5">
         <div className="mx-auto w-16 h-16 rounded-full bg-success-50 text-success-700 text-3xl flex items-center justify-center" aria-hidden="true">✓</div>
-        <h1 className="text-3xl md:text-4xl font-medium">Rezerwacja złożona</h1>
+        <h1 className="text-3xl md:text-4xl font-medium">{isPaid ? 'Rezerwacja opłacona' : 'Rezerwacja złożona'}</h1>
         <p className="text-slate-600 leading-relaxed">{statusMessage}</p>
         <div className="flex flex-wrap justify-center gap-3 pt-2">
-          <button onClick={() => onNavigate('/moje-rezerwacje')} className="btn-primary">Przejdź do moich rezerwacji</button>
-          <button onClick={() => { setIsSuccess(false); setStatusMessage(''); }} className="btn-outline">Złóż kolejną rezerwację</button>
+          {/* Płatność online od razu po rezerwacji - opłacona rezerwacja jest potwierdzona */}
+          {createdReservation && !isPaid && <button onClick={() => setShowPayment(true)} className="btn-primary">Zapłać teraz {createdReservation.totalPrice.toFixed(2)} zł</button>}
+          <button onClick={() => onNavigate(createdReservation ? `/moje-rezerwacje/${createdReservation.reservationId}` : '/moje-rezerwacje')} className={createdReservation && !isPaid ? 'btn-outline' : 'btn-primary'}>
+            {isPaid ? 'Zobacz rezerwację' : createdReservation ? 'Zapłacę później' : 'Przejdź do moich rezerwacji'}
+          </button>
+          {isPaid && <button onClick={() => { setIsSuccess(false); setStatusMessage(''); setCreatedReservation(null); }} className="btn-outline">Złóż kolejną rezerwację</button>}
         </div>
+        {showPayment && createdReservation && (
+          <OnlinePayment token={token} reservationId={createdReservation.reservationId} amount={createdReservation.totalPrice}
+            onPaid={text => { setShowPayment(false); setIsPaid(true); setStatusMessage(text); onReservationCreated(); }} onClose={() => setShowPayment(false)} />
+        )}
       </div>
     );
   }
