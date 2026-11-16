@@ -181,47 +181,64 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
             {/* --- ANULOWANIE --- */}
             {!isOwner && canCancel && <button onClick={handleCancel} className="btn-danger">Anuluj rezerwację</button>}
 
-            {/* --- PŁATNOŚCI --- */}
-            <div className="space-y-3">
-              <h3 className={subTitle}>Płatności</h3>
-              {isOwner && (details.status !== 'cancelled' || details.paidAmount - details.cancellationFee > 0) && (
-                <form onSubmit={handleAddPayment} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end p-4 rounded-[14px] bg-sand-100">
-                  <label className="field-label">Kwota (zł)
-                    <input type="number" required min="0.01" step="0.01" value={newPayment.amount || ''} onChange={e => setNewPayment({...newPayment, amount: Number(e.target.value)})} className="field font-normal" />
-                  </label>
-                  <label className="field-label">Metoda
-                    <select value={newPayment.method} onChange={e => setNewPayment({...newPayment, method: e.target.value})} className="field font-normal">
-                      {Object.entries(paymentMethodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                    </select>
-                  </label>
-                  <label className="field-label">Status
-                    <select value={newPayment.status} onChange={e => setNewPayment({...newPayment, status: e.target.value})} className="field font-normal">
-                      {/* Do anulowanej rezerwacji API przyjmuje tylko zwrot */}
-                      {Object.entries(paymentStatusLabels).filter(([value]) => details.status !== 'cancelled' || value === 'refunded').map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                    </select>
-                  </label>
-                  <button type="submit" className="btn-primary">Zarejestruj płatność</button>
-                </form>
-              )}
-              <div className="overflow-x-auto card">
-                <table className="data-table">
-                  <thead>
-                    <tr><th className="px-4 py-3">Data</th><th className="px-4 py-3">Kwota</th><th className="px-4 py-3">Metoda</th><th className="px-4 py-3">Status</th></tr>
-                  </thead>
-                  <tbody>
-                    {details.payments.map(p => (
-                      <tr key={p.paymentId}>
-                        <td className="px-4 py-3 text-slate-600">{formatDateTime(p.paymentDate)}</td>
-                        <td className="px-4 py-3 font-semibold">{p.amount.toFixed(2)} zł</td>
-                        <td className="px-4 py-3 text-slate-600">{paymentMethodLabels[p.method] ?? p.method}</td>
-                        <td className="px-4 py-3 text-slate-600">{paymentStatusLabels[p.status] ?? p.status}</td>
-                      </tr>
-                    ))}
-                    {details.payments.length === 0 && <tr><td colSpan={4} className="px-4 py-4 text-center text-slate-500">Brak zarejestrowanych płatności.</td></tr>}
-                  </tbody>
-                </table>
+            {/* --- PŁATNOŚCI: właściciel - formularz i pełna tabela; gość - lista wpłat dopiero wtedy, gdy hotel coś zapisze --- */}
+            {isOwner ? (
+              <div className="space-y-3">
+                <h3 className={subTitle}>Płatności</h3>
+                {(details.status !== 'cancelled' || details.paidAmount - details.cancellationFee > 0) && (
+                  <form onSubmit={handleAddPayment} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end p-4 rounded-[14px] bg-sand-100">
+                    <label className="field-label">Kwota (zł)
+                      <input type="number" required min="0.01" step="0.01" value={newPayment.amount || ''} onChange={e => setNewPayment({...newPayment, amount: Number(e.target.value)})} className="field font-normal" />
+                    </label>
+                    <label className="field-label">Metoda
+                      <select value={newPayment.method} onChange={e => setNewPayment({...newPayment, method: e.target.value})} className="field font-normal">
+                        {Object.entries(paymentMethodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </label>
+                    <label className="field-label">Status
+                      <select value={newPayment.status} onChange={e => setNewPayment({...newPayment, status: e.target.value})} className="field font-normal">
+                        {/* Do anulowanej rezerwacji API przyjmuje tylko zwrot */}
+                        {Object.entries(paymentStatusLabels).filter(([value]) => details.status !== 'cancelled' || value === 'refunded').map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </label>
+                    <button type="submit" className="btn-primary">Zarejestruj płatność</button>
+                  </form>
+                )}
+                <div className="overflow-x-auto card">
+                  <table className="data-table">
+                    <thead>
+                      <tr><th className="px-4 py-3">Data</th><th className="px-4 py-3">Kwota</th><th className="px-4 py-3">Metoda</th><th className="px-4 py-3">Status</th></tr>
+                    </thead>
+                    <tbody>
+                      {details.payments.map(p => (
+                        <tr key={p.paymentId}>
+                          <td className="px-4 py-3 text-slate-600">{formatDateTime(p.paymentDate)}</td>
+                          <td className="px-4 py-3 font-semibold">{p.amount.toFixed(2)} zł</td>
+                          <td className="px-4 py-3 text-slate-600">{paymentMethodLabels[p.method] ?? p.method}</td>
+                          <td className="px-4 py-3 text-slate-600">{paymentStatusLabels[p.status] ?? p.status}</td>
+                        </tr>
+                      ))}
+                      {details.payments.length === 0 && <tr><td colSpan={4} className="px-4 py-4 text-center text-slate-500">Brak zarejestrowanych płatności.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            ) : details.payments.length > 0 && (
+              <div className="space-y-3">
+                <h3 className={subTitle}>Twoje wpłaty</h3>
+                <ul className="card px-4 divide-y divide-sand-200">
+                  {details.payments.map(p => (
+                    <li key={p.paymentId} className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-3 text-sm">
+                      <span className="text-slate-600">{formatDateTime(p.paymentDate)} · {paymentMethodLabels[p.method] ?? p.method}</span>
+                      <span>
+                        <span className="font-semibold">{p.status === 'refunded' ? '−' : ''}{p.amount.toFixed(2)} zł</span>
+                        <span className="text-slate-500"> · {paymentStatusLabels[p.status] ?? p.status}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* --- FAKTURA --- */}
             <div className="space-y-3">

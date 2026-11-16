@@ -76,7 +76,7 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | A11 | Zamknij szczegóły, lista rezerwacji | Status „Potwierdzona”, bez dopisku „wpłata do” | |
 | A12 | Spróbuj wystawić fakturę | Przycisk nieaktywny: faktura dopiero po zrealizowaniu | |
 | A13 | Zmień status na „Zrealizowana”, w szczegółach „Wystaw fakturę” | Faktura `FV/rrrr/mm/nnnnn` na 750 zł (kolejny numer w bieżącym miesiącu – pierwsza faktura w miesiącu to `00001`), przycisk znika | |
-| A14 | Zaloguj jako gość, szczegóły rezerwacji | Widoczne płatności i faktura, formularz opinii | |
+| A14 | Zaloguj jako gość, szczegóły rezerwacji | Lista „Twoje wpłaty” (obie wpłaty), faktura, formularz opinii; rezerwacja bez wpłat nie ma sekcji wpłat | |
 | A15 | Dodaj opinię 5★ z komentarzem | „Dziękujemy za wystawienie opinii!”, formularz zastąpiony opinią | |
 | A16 | Zaloguj jako właściciel, „Panel właściciela” → „Opinie” | Opinia gościa na liście, „Usuń” działa po potwierdzeniu | |
 
