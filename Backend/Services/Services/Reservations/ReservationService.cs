@@ -45,7 +45,7 @@ public class ReservationService : IReservationService
         return deadline < today.Date ? today.Date : deadline;
     }
 
-    // Saldo rezerwacji: zaksięgowane wpłaty minus zwroty (płatności oczekujące i nieudane się nie liczą)
+    // Saldo rezerwacji: wpłaty minus zwroty
     private async Task<decimal> GetPaidAmountAsync(int reservationId)
     {
         var payments = _context.Payments.Where(p => p.ReservationId == reservationId);

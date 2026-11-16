@@ -6,7 +6,7 @@ export const adminTabs = [
   { id: 'availability', slug: 'dostepnosc', group: 'Przegląd', label: 'Dostępność', title: 'Kalendarz dostępności', description: 'Pokoje × noce: wolne, zarezerwowane i zablokowane. Kliknij rezerwację, aby otworzyć szczegóły.' },
   { id: 'reservations', slug: 'rezerwacje', group: 'Przegląd', label: 'Rezerwacje', title: 'Rezerwacje', description: 'Wszystkie rezerwacje gości - w szczegółach płatności i faktura.' },
   { id: 'roomTypes', slug: 'typy-pokoi', group: 'Oferta', label: 'Typy pokoi', title: 'Typy pokoi', description: 'Oferta widoczna dla gości: nazwa, opis, cena bazowa, pojemność i zdjęcia.' },
-  { id: 'rooms', slug: 'pokoje', group: 'Oferta', label: 'Pokoje', title: 'Pokoje', description: 'Fizyczne pokoje hotelu z numerem, piętrem, statusem i udogodnieniami.' },
+  { id: 'rooms', slug: 'pokoje', group: 'Oferta', label: 'Pokoje', title: 'Pokoje', description: 'Fizyczne pokoje hotelu z numerem, typem, statusem i udogodnieniami.' },
   { id: 'amenities', slug: 'udogodnienia', group: 'Oferta', label: 'Udogodnienia', title: 'Udogodnienia', description: 'Słownik udogodnień przypisywanych do pokoi.' },
   { id: 'pricing', slug: 'cennik', group: 'Oferta', label: 'Cennik sezonowy', title: 'Cennik sezonowy', description: 'Ceny za noc w wybranych okresach - zastępują cenę bazową typu pokoju.' },
   { id: 'services', slug: 'uslugi', group: 'Oferta', label: 'Usługi dodatkowe', title: 'Usługi dodatkowe', description: 'Usługi do wyboru przy rezerwacji i sposób ich naliczania.' },

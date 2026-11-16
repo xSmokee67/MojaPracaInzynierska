@@ -234,7 +234,7 @@ export default function App() {
         )}
       </main>
 
-      <Footer isLoggedIn={token !== null} isOwner={isOwner} onNavigate={navigate} />
+      <Footer />
     </div>
   );
 }

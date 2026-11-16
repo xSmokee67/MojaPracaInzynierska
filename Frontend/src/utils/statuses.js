@@ -30,7 +30,7 @@ export const reservationStatusStyles = {
   'completed': 'bg-success-50 text-success-700'
 };
 
-// Metody i statusy płatności
+// Metody i rodzaje płatności
 export const paymentMethodLabels = {
   'card': 'Karta',
   'transfer': 'Przelew',
@@ -38,10 +38,9 @@ export const paymentMethodLabels = {
   'BLIK': 'BLIK'
 };
 
+// Rodzaj wpisu płatności: pieniądze otrzymane od gościa albo mu oddane
 export const paymentStatusLabels = {
-  'pending': 'Oczekująca',
-  'completed': 'Zaksięgowana',
-  'failed': 'Nieudana',
+  'completed': 'Wpłata',
   'refunded': 'Zwrot'
 };
 

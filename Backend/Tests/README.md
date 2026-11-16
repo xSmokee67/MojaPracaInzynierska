@@ -114,13 +114,14 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | C17 | Właściciel → „Usługi Dodatkowe” → „Usuń” przy Śniadaniu zamówionym wcześniej w rezerwacji | Komunikat „Tej usługi nie można usunąć, bo była już zamawiana…”; usługa zostaje, rozliczenie starych rezerwacji bez zmian | |
 | C18 | „Edytuj” przy tej usłudze, odznacz „Dostępna w ofercie”, zapisz; gość otwiera formularz rezerwacji | Na liście w panelu „wycofana”; gość nie widzi usługi w formularzu; stare rezerwacje nadal ją pokazują | |
 | C19 | Szczegóły rezerwacji za 750 zł z wpłatą 750 zł → zarejestruj kolejną wpłatę 10 zł | Błąd „Rezerwacja jest już opłacona w całości.” | |
-| C20 | Właściciel anuluje opłaconą rezerwację, potem w szczegółach formularz płatności | „Do zwrotu gościowi: … PLN”; formularz podpowiada zwrot całej wpłaty, jedyny status to „Zwrot”; zwrot większy niż wpłaty – błąd; po zwrocie „Rozliczone – nic więcej do zwrotu.”, a formularz znika | |
+| C20 | Właściciel anuluje opłaconą rezerwację, potem w szczegółach formularz płatności | „Do zwrotu gościowi: … PLN”; formularz podpowiada zwrot całej wpłaty, jedyny rodzaj to „Zwrot”; zwrot większy niż wpłaty – błąd; po zwrocie „Rozliczone – nic więcej do zwrotu.”, a formularz znika | |
 | C21 | Gość opłaca w całości rezerwację z przyjazdem za 3 dni i ją anuluje | Przed anulowaniem: „Anulowanie teraz: opłata 30% ceny, zwrot reszty”; po anulowaniu: „Opłata za anulowanie (zostaje w hotelu): …”, „Do zwrotu gościowi: …” (70% ceny) | |
 | C22 | Właściciel próbuje zwrócić w C21 całą wpłatę | Błąd „Do zwrotu zostało … PLN - hotel zatrzymuje … PLN opłaty za anulowanie.”; zwrot 70% ceny przechodzi | |
 | C23 | Gość w formularzu rezerwacji szybko klika dwa razy „Potwierdź rezerwację” | Przycisk od razu zmienia się na „Składanie rezerwacji...” i jest nieaktywny; powstaje jedna rezerwacja | |
 | C24 | Właściciel w dwóch oknach jednocześnie rejestruje wpłatę całej kwoty tej samej rezerwacji | Zapisuje się tylko jedna wpłata, druga dostaje błąd „Rezerwacja jest już opłacona w całości.” | |
 | C25 | Właściciel rejestruje wpłatę o 13:05 | W tabeli płatności godzina 13:05 (czas lokalny), taka sama jak w powiadomieniu | |
 | C26 | Bez logowania wywołaj `GET /api/Review` (Swagger) | 401 – lista opinii z danymi gości jest tylko dla właściciela; strona pokoju dalej pokazuje opinie („Anna N.”) | |
+| C27 | Właściciel w szczegółach rezerwacji otwiera formularz płatności | Pole „Rodzaj” ma tylko „Wpłata” i „Zwrot” (dla anulowanej – tylko „Zwrot”); API odrzuca status `pending` / `failed` („Nieprawidłowy status płatności.”) | |
 
 ### Scenariusz D: bezpieczeństwo i sesja
 
@@ -174,5 +175,5 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | G4 | Otwórz profil pokoju i wróć przyciskiem „Wstecz” | Sortowanie i zaznaczone udogodnienia zostają | |
 | G5 | Wyszukaj termin, zaznacz „Tylko dostępne” | Znikają pokoje z etykietą „Brak wolnych pokoi”; przy każdym sortowaniu dostępne pokoje są przed niedostępnymi | |
 | G6 | Filtry, przy których nic nie pasuje | „Żaden pokój nie spełnia wybranych filtrów.” z przyciskiem „Wyczyść filtry” | |
-| G7 | Stopka na dowolnej stronie | Adres, telefon, e-mail, godziny zameldowania; skróty zależne od roli (gość: „Moje rezerwacje”, właściciel: „Panel Właściciela”) | |
+| G7 | Stopka na dowolnej stronie | Nazwa i adres hotelu, telefon i e-mail (klikalne), godziny zameldowania i wymeldowania | |
 | G8 | Adres `#/cokolwiek` oraz `#/pokoj/999` | Strona 404 z przyciskiem „Wróć na stronę główną” | |

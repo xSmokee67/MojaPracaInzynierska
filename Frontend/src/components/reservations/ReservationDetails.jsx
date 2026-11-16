@@ -125,8 +125,8 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
                   <dd className="mt-1"><span className="font-medium">{details.guestName}</span> <span className="text-sm text-slate-500">({details.guestEmail})</span></dd>
                 </div>
               )}
-              <div><dt className={term}>Przyjazd</dt><dd className="mt-1">{formatDate(details.checkInDate)}<span className="block text-sm text-slate-500">od 14:00</span></dd></div>
-              <div><dt className={term}>Wyjazd</dt><dd className="mt-1">{formatDate(details.checkOutDate)}<span className="block text-sm text-slate-500">do 11:00</span></dd></div>
+              <div><dt className={term}>Przyjazd</dt><dd className="mt-1">{formatDate(details.checkInDate)}<span className="block text-sm text-slate-500">od {hotelInfo.checkIn}</span></dd></div>
+              <div><dt className={term}>Wyjazd</dt><dd className="mt-1">{formatDate(details.checkOutDate)}<span className="block text-sm text-slate-500">do {hotelInfo.checkOut}</span></dd></div>
               <div><dt className={term}>Goście</dt><dd className="mt-1">{personsLabel(details.numberOfGuests)} · {nightsLabel(nights)}</dd></div>
               <div className="col-span-full"><dt className={term}>Usługi dodatkowe</dt><dd className="mt-1">{details.additionalServices.length > 0 ? details.additionalServices.join(', ') : '—'}</dd></div>
             </dl>
@@ -195,7 +195,7 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
                         {Object.entries(paymentMethodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                       </select>
                     </label>
-                    <label className="field-label">Status
+                    <label className="field-label">Rodzaj
                       <select value={newPayment.status} onChange={e => setNewPayment({...newPayment, status: e.target.value})} className="field font-normal">
                         {/* Do anulowanej rezerwacji API przyjmuje tylko zwrot */}
                         {Object.entries(paymentStatusLabels).filter(([value]) => details.status !== 'cancelled' || value === 'refunded').map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -207,7 +207,7 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
                 <div className="overflow-x-auto card">
                   <table className="data-table">
                     <thead>
-                      <tr><th className="px-4 py-3">Data</th><th className="px-4 py-3">Kwota</th><th className="px-4 py-3">Metoda</th><th className="px-4 py-3">Status</th></tr>
+                      <tr><th className="px-4 py-3">Data</th><th className="px-4 py-3">Kwota</th><th className="px-4 py-3">Metoda</th><th className="px-4 py-3">Rodzaj</th></tr>
                     </thead>
                     <tbody>
                       {details.payments.map(p => (

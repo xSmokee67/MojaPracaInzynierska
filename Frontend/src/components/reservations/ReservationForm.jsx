@@ -7,6 +7,7 @@ import { errorMessage } from '../../api/apiErrors';
 import { formatDate, toInputDate, personsLabel, nightsLabel } from '../../utils/format';
 import AlternativeStays from '../rooms/AlternativeStays';
 import RoomPhotoPlaceholder from '../common/RoomPhotoPlaceholder';
+import { hotelInfo } from '../../utils/hotelInfo';
 import { serviceChargeTypeLabels, serviceQuantity } from '../../utils/statuses';
 
 // Sprawdzenie dostępności i ceny pobytu - wspólne dla przycisku "Sprawdź cenę i dostępność"
@@ -203,14 +204,6 @@ export default function ReservationForm({ token, onReservationCreated, onNavigat
   const selectedServicesSum = selectedServices.reduce((sum, s) => sum + servicesTotal(s), 0);
   const isChecked = isAvailable && totalPrice !== null;
 
-  // Kroki rezerwacji nad formularzem: termin sprawdzony -> usługi -> potwierdzenie
-  const steps = [
-    { label: 'Termin i pokój', done: isChecked },
-    { label: 'Usługi dodatkowe', done: false },
-    { label: 'Potwierdzenie', done: false }
-  ];
-  const currentStep = isChecked ? 1 : 0;
-
   if (isSuccess) {
     return (
       <div className="w-full max-w-xl py-10 md:py-16 text-center space-y-5">
@@ -228,17 +221,7 @@ export default function ReservationForm({ token, onReservationCreated, onNavigat
   return (
     <div className="w-full max-w-page">
       {selectedRoomType && <button type="button" onClick={() => onNavigate(`/pokoj/${selectedRoomType.roomTypeId}`)} className="text-sm text-slate-500 hover:text-brass-700 hover:underline">← Wróć do pokoju</button>}
-      <h1 className="mt-3 text-4xl md:text-[2.75rem] font-medium">Twoja rezerwacja</h1>
-
-      <ol className="flex flex-wrap items-center gap-2.5 mt-5 mb-8 text-sm font-semibold">
-        {steps.map((step, i) => (
-          <li key={step.label} className={`flex items-center gap-2 ${step.done ? 'text-success-700' : i === currentStep ? 'text-navy-900' : 'text-slate-400'}`}>
-            {i > 0 && <span className="mr-0.5 text-slate-300" aria-hidden="true">—</span>}
-            <span className={`w-[26px] h-[26px] rounded-full flex items-center justify-center ${step.done ? 'bg-success-50' : i === currentStep ? 'bg-navy-900 text-white' : 'border border-slate-300'}`}>{step.done ? '✓' : i + 1}</span>
-            {step.label}
-          </li>
-        ))}
-      </ol>
+      <h1 className="mt-3 mb-8 text-4xl md:text-[2.75rem] font-medium">Twoja rezerwacja</h1>
 
       <div className="flex flex-wrap gap-10 items-start">
         <div className="flex-[999_1_35rem] min-w-0 space-y-8">
@@ -326,7 +309,14 @@ export default function ReservationForm({ token, onReservationCreated, onNavigat
           <h2 className="text-2xl font-medium">Podsumowanie</h2>
           <div className="text-[15px] text-slate-600 space-y-1">
             <div className="font-semibold text-navy-900">{selectedRoomType?.name}</div>
-            {nights > 0 && <div>{formatDate(checkInDate)} - {formatDate(checkOutDate)} · {nightsLabel(nights)}</div>}
+            {/* Termin z godzinami zameldowania i wymeldowania hotelu */}
+            {nights > 0 && (
+              <>
+                <div>Przyjazd: {formatDate(checkInDate)}, od {hotelInfo.checkIn}</div>
+                <div>Wyjazd: {formatDate(checkOutDate)}, do {hotelInfo.checkOut}</div>
+                <div>{nightsLabel(nights)}</div>
+              </>
+            )}
             {numberOfGuests !== null && <div>{personsLabel(numberOfGuests)}</div>}
           </div>
 

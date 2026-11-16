@@ -358,10 +358,10 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
         </div>
       </div>
 
-      {/* --- INFORMACJE O POBYCIE --- */}
+      {/* --- INFORMACJE O POBYCIE (godziny zameldowania są w stopce i przy rezerwacji) --- */}
       <section className="bg-sand-100 border-b border-sand-300">
-        <div className="max-w-page mx-auto px-4 md:px-6 py-10 md:py-12 grid grid-cols-2 lg:grid-cols-4 gap-8">
-          {[['Zameldowanie', 'od 14:00'], ['Wymeldowanie', 'do 11:00'], ['Recepcja', 'czynna całą dobę'], ['Bezpłatne anulowanie', 'do 7 dni przed']].map(([label, value]) => (
+        <div className="max-w-page mx-auto px-4 md:px-6 py-10 md:py-12 grid grid-cols-2 gap-8">
+          {[['Recepcja', 'czynna całą dobę'], ['Bezpłatne anulowanie', 'do 7 dni przed przyjazdem']].map(([label, value]) => (
             <div key={label}>
               <p className="eyebrow">{label}</p>
               <p className="mt-1.5 font-display text-xl md:text-[1.625rem]">{value}</p>

@@ -9,6 +9,7 @@ import Alert from '../common/Alert';
 import StarRating from '../common/StarRating';
 import RoomAvailabilityCalendar from './RoomAvailabilityCalendar';
 import AlternativeStays from './AlternativeStays';
+import { hotelInfo } from '../../utils/hotelInfo';
 
 // Profil typu pokoju: galeria zdjęć, opis, ceny, kalendarz dostępności, udogodnienia, opinie i przycisk rezerwacji
 // canBook = false dla właściciela - przegląda stronę jak gość, ale rezerwacji dokonują tylko goście
@@ -159,8 +160,8 @@ export default function RoomTypeProfile({ roomTypeId, search, canBook, onBook, o
               {/* Wybrany termin (z kalendarza albo z wyszukiwarki na stronie głównej) */}
               {search ? (
                 <div className="grid grid-cols-2 rounded-xl border border-slate-300 overflow-hidden text-[15px] font-medium">
-                  <div className="px-4 py-2.5 border-r border-slate-300"><span className="block text-[11px] font-bold uppercase tracking-[0.06em] text-slate-500">Przyjazd</span>{formatDate(search.checkIn)}</div>
-                  <div className="px-4 py-2.5"><span className="block text-[11px] font-bold uppercase tracking-[0.06em] text-slate-500">Wyjazd</span>{formatDate(search.checkOut)}</div>
+                  <div className="px-4 py-2.5 border-r border-slate-300"><span className="block text-[11px] font-bold uppercase tracking-[0.06em] text-slate-500">Przyjazd</span>{formatDate(search.checkIn)}<span className="block text-xs font-normal text-slate-500">od {hotelInfo.checkIn}</span></div>
+                  <div className="px-4 py-2.5"><span className="block text-[11px] font-bold uppercase tracking-[0.06em] text-slate-500">Wyjazd</span>{formatDate(search.checkOut)}<span className="block text-xs font-normal text-slate-500">do {hotelInfo.checkOut}</span></div>
                   <div className="col-span-2 px-4 py-2.5 border-t border-slate-300"><span className="block text-[11px] font-bold uppercase tracking-[0.06em] text-slate-500">Goście</span>{personsLabel(search.guests)}</div>
                 </div>
               ) : (
