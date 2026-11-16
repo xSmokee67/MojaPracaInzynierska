@@ -38,7 +38,7 @@ public class AuthService : IAuthService
             LastName = dto.LastName,
             PhoneNumber = dto.PhoneNumber,
             AccountType = AccountTypes.Guest,
-            RegistrationDate = DateTime.UtcNow
+            RegistrationDate = DateTime.Now
         };
 
         var result = await _userManager.CreateAsync(guest, dto.Password);

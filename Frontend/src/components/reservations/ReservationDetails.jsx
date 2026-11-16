@@ -1,14 +1,14 @@
 // Plik: Frontend/src/components/reservations/ReservationDetails.jsx
 import { useState, useEffect, useRef } from 'react';
 import { reservationStatusLabels, reservationStatusStyles, paymentMethodLabels, paymentStatusLabels } from '../../utils/statuses';
-import { getReservationDetails, cancelReservation, changeReservationDates, registerPayment, issueInvoice, createReview } from '../../api/reservationApi';
+import { getReservationDetails, cancelReservation, registerPayment, issueInvoice, createReview } from '../../api/reservationApi';
 import { errorMessage } from '../../api/apiErrors';
-import { formatDate, formatDateTime, nightsLabel, personsLabel, toInputDate } from '../../utils/format';
+import { formatDate, formatDateTime, nightsLabel, personsLabel } from '../../utils/format';
 import Alert from '../common/Alert';
 import StarRating from '../common/StarRating';
-import OnlinePayment from './OnlinePayment';
+import { hotelInfo } from '../../utils/hotelInfo';
 
-// Szczegóły rezerwacji: dane pobytu, rozliczenie, zmiana terminu, anulowanie, płatności, faktura i opinia.
+// Szczegóły rezerwacji: dane pobytu, rozliczenie, informacja o płatności, anulowanie, płatności, faktura i opinia.
 // Gość widzi je w panelu obok listy (inline, ze zdjęciem pokoju), właściciel - w oknie nad tabelą rezerwacji
 export default function ReservationDetails({ token, reservationId, isOwner, onClose, onChanged, inline = false, photo = null }) {
   const [details, setDetails] = useState(null);
@@ -18,9 +18,7 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
   // Stany dla formularzy
   const [newPayment, setNewPayment] = useState({ amount: 0, method: 'card', status: 'completed' });
   const [newReview, setNewReview] = useState({ reservationId, rating: 5, comment: '' });
-  const [newDates, setNewDates] = useState({ checkInDate: '', checkOutDate: '' });
   const [reloadKey, setReloadKey] = useState(0);
-  const [showPayment, setShowPayment] = useState(false);
   const panelRef = useRef(null);
 
   useEffect(() => {
@@ -32,7 +30,6 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
         setNewPayment(prev => data.status === 'cancelled'
           ? { ...prev, amount: Math.max(data.paidAmount - data.cancellationFee, 0), status: 'refunded' }
           : { ...prev, amount: Math.max(data.totalPrice - data.paidAmount, 0) });
-        setNewDates({ checkInDate: data.checkInDate.slice(0, 10), checkOutDate: data.checkOutDate.slice(0, 10) });
         setError('');
       } catch (err) {
         setError(errorMessage(err));
@@ -73,13 +70,6 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
     await runAction(() => cancelReservation(reservationId, token), 'Rezerwacja została anulowana.');
   };
 
-  // Handler dla Gościa i Właściciela
-  const handleChangeDates = async (e) => {
-    e.preventDefault();
-    if (!window.confirm(`Zmienić termin na ${formatDate(newDates.checkInDate)} - ${formatDate(newDates.checkOutDate)}? Cena noclegów zostanie przeliczona.`)) return;
-    await runAction(() => changeReservationDates(reservationId, newDates, token), 'Termin rezerwacji został zmieniony. Nowy pokój i cena są widoczne powyżej.');
-  };
-
   const handleAddReview = async (e) => {
     e.preventDefault();
     await runAction(() => createReview(newReview, token), 'Dziękujemy za wystawienie opinii!');
@@ -99,24 +89,13 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const canCancel = details !== null && (details.status === 'pending' || details.status === 'confirmed') && new Date(details.checkInDate) > today;
-  // Termin zmienia gość (najpóźniej dzień przed zameldowaniem) albo właściciel (także w trakcie pobytu - np. przedłużenie)
-  const canChangeDates = details !== null && (details.status === 'pending' || details.status === 'confirmed') && (isOwner || new Date(details.checkInDate) > today);
   const nights = details ? Math.round((new Date(details.checkOutDate).getTime() - new Date(details.checkInDate).getTime()) / 86400000) : 0;
 
   const term = 'block text-xs font-bold uppercase tracking-[0.06em] text-brass-700';
   const subTitle = 'text-xl font-medium';
   const toPay = details ? Math.max(details.totalPrice - details.paidAmount, 0) : 0;
-  // Gość opłaca online brakującą kwotę rezerwacji oczekującej (albo potwierdzonej, której cena wzrosła po zmianie terminu)
-  const canPayOnline = !isOwner && details !== null && (details.status === 'pending' || details.status === 'confirmed') && toPay > 0;
-
-  // Płatność przyjęta - komunikat, odświeżenie szczegółów (wpłata, status) i listy rezerwacji
-  const handlePaid = (text) => {
-    setShowPayment(false);
-    setError('');
-    setMessage(text);
-    setReloadKey(key => key + 1);
-    onChanged();
-  };
+  // Gość widzi, ile i jak zapłacić, dopóki rezerwacja (oczekująca albo potwierdzona przez hotel przed wpłatą całości) nie jest opłacona
+  const showPaymentInfo = !isOwner && details !== null && (details.status === 'pending' || details.status === 'confirmed') && toPay > 0;
 
   const content = (
     <>
@@ -169,23 +148,24 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
               )}
             </div>
 
-            {/* Gość: płatność online brakującej kwoty (symulacja bramki płatniczej - OnlinePayment) */}
-            {canPayOnline && (
-              <div className="flex flex-wrap items-center justify-between gap-4 p-4 md:p-5 rounded-[14px] bg-warning-50 border border-warning-100">
-                <p className="flex-[1_1_16rem] text-sm leading-relaxed text-warning-700">
-                  <strong>Do zapłaty {toPay.toFixed(2)} zł{details.status === 'pending' && ` do ${formatDate(details.paymentDeadline)}`}.</strong>{' '}
-                  {details.status === 'pending'
-                    ? 'Zapłać online kartą albo BLIK-iem - rezerwacja zostanie od razu potwierdzona. Nieopłacona w terminie zostanie automatycznie anulowana.'
-                    : 'Cena wzrosła po zmianie terminu - dopłać brakującą kwotę online.'}
+            {/* Gość: ile i jak zapłacić - wpłatę (przelew albo płatność w recepcji) zapisuje w systemie hotel */}
+            {showPaymentInfo && (
+              <div className="p-4 md:p-5 rounded-[14px] bg-warning-50 border border-warning-100 text-sm leading-relaxed text-warning-700 space-y-1.5">
+                <p>
+                  <strong>Do zapłaty {toPay.toFixed(2)} zł{details.status === 'pending' && ` do ${formatDate(details.paymentDeadline)}`}.</strong>
+                  {details.status === 'pending' && ' Po zaksięgowaniu wpłaty całej kwoty rezerwacja zostanie potwierdzona, a nieopłacona w terminie - automatycznie anulowana.'}
                 </p>
-                <button type="button" onClick={() => setShowPayment(true)} className="btn-primary">Zapłać teraz</button>
+                <p>
+                  Zapłać przelewem (tytuł: <strong>Rezerwacja #{reservationId}</strong>) albo w recepcji hotelu - gotówką, kartą lub BLIK-iem.
+                  Dane do przelewu poda recepcja: <a href={`tel:${hotelInfo.phone.replace(/\s/g, '')}`} className="font-semibold underline">{hotelInfo.phone}</a>.
+                </p>
               </div>
             )}
 
             {/* Właściciel: oczekująca = jeszcze nieopłacona w całości - termin płatności i brakująca kwota */}
             {isOwner && details.status === 'pending' && (
               <p className="text-sm leading-relaxed text-warning-700 font-medium">
-                Do zapłaty {toPay.toFixed(2)} zł do {formatDate(details.paymentDeadline)} - gość może zapłacić online albo wpłatę rejestruje hotel; po wpłacie całości rezerwacja zostanie potwierdzona, nieopłacona zostanie automatycznie anulowana.
+                Do zapłaty {toPay.toFixed(2)} zł do {formatDate(details.paymentDeadline)} - po zarejestrowaniu wpłaty całości rezerwacja zostanie potwierdzona, nieopłacona zostanie automatycznie anulowana.
               </p>
             )}
 
@@ -198,23 +178,7 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
               </p>
             )}
 
-            {/* --- ZMIANA TERMINU I ANULOWANIE --- */}
-            {canChangeDates && (
-              <form onSubmit={handleChangeDates} className="space-y-3">
-                <h3 className={subTitle}>Zmiana terminu</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                  <label className="field-label">Nowy przyjazd
-                    <input type="date" required min={isOwner ? undefined : toInputDate(today)} value={newDates.checkInDate} onChange={e => setNewDates({ ...newDates, checkInDate: e.target.value })} className="field font-normal" />
-                  </label>
-                  <label className="field-label">Nowy wyjazd
-                    <input type="date" required min={newDates.checkInDate} value={newDates.checkOutDate} onChange={e => setNewDates({ ...newDates, checkOutDate: e.target.value })} className="field font-normal" />
-                  </label>
-                  <button type="submit" className="btn-outline">Zmień termin</button>
-                </div>
-                <p className="text-xs leading-relaxed text-slate-500">System sprawdzi dostępność nowego terminu i przeliczy cenę noclegów według cennika; usługi dodatkowe zostają w dotychczasowej cenie. Jeśli obecny pokój jest w nowym terminie zajęty, rezerwacja trafi do innego wolnego pokoju tego samego typu.</p>
-              </form>
-            )}
-
+            {/* --- ANULOWANIE --- */}
             {!isOwner && canCancel && <button onClick={handleCancel} className="btn-danger">Anuluj rezerwację</button>}
 
             {/* --- PŁATNOŚCI --- */}
@@ -308,13 +272,9 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
     </>
   );
 
-  const paymentWindow = showPayment && details && (
-    <OnlinePayment token={token} reservationId={reservationId} amount={toPay} onPaid={handlePaid} onClose={() => setShowPayment(false)} />
-  );
-
   // Panel obok listy rezerwacji gościa
   if (inline) {
-    return <section ref={panelRef} className="card overflow-hidden shadow-[0_12px_40px_rgb(20_33_61_/_0.08)] scroll-mt-4">{content}{paymentWindow}</section>;
+    return <section ref={panelRef} className="card overflow-hidden shadow-[0_12px_40px_rgb(20_33_61_/_0.08)] scroll-mt-4">{content}</section>;
   }
 
   // Okno nad tabelą rezerwacji właściciela - kliknięcie tła zamyka

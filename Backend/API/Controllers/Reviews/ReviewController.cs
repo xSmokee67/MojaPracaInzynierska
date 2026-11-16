@@ -18,8 +18,10 @@ public class ReviewController : ControllerBase
         _reviewService = reviewService;
     }
 
+    // Pełna lista opinii z imieniem i nazwiskiem gościa oraz numerem rezerwacji - tylko dla właściciela (panel "Opinie").
+    // Publiczna strona pokoju pokazuje opinie ze skróconym nazwiskiem ("Anna N.") w GET /api/RoomType/{id}
     [HttpGet]
-    [AllowAnonymous]
+    [Authorize(Roles = UserRoles.Owner)]
     public async Task<IActionResult> GetAll()
     {
         var reviews = await _reviewService.GetAllReviewsAsync();

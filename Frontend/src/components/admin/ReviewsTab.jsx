@@ -16,13 +16,13 @@ export default function ReviewsTab({ token }) {
   useEffect(() => {
     const loadData = async () => {
       try {
-        setReviews(await getReviews());
+        setReviews(await getReviews(token));
       } catch (err) {
         setError(errorMessage(err));
       }
     };
     loadData();
-  }, [reloadKey]);
+  }, [token, reloadKey]);
 
   const reload = () => setReloadKey(key => key + 1);
 

@@ -138,33 +138,6 @@ public class ReservationServiceWorkflowTests
         Assert.Equal(0, await context.Reservations.CountAsync());
     }
 
-    [Fact(DisplayName = "Zmiana terminu: usługi naliczane za noc są przeliczane na nową liczbę nocy (ceny z chwili rezerwacji)")]
-    public async Task ChangeDates_RecalculatesPerNightServices()
-    {
-        using var context = TestData.CreateContext();
-        var service = TestData.CreateReservationService(context);
-        await service.CreateReservationAsync(new CreateReservationDto
-        {
-            GuestId = TestData.GuestId,
-            RoomTypeId = TestData.StandardRoomTypeId,
-            CheckInDate = CheckIn,
-            CheckOutDate = CheckOut,
-            NumberOfGuests = 2,
-            AdditionalServiceIds = new List<int> { TestData.BreakfastId, TestData.ParkingId }
-        });
-        var reservation = await context.Reservations.SingleAsync();
-
-        // Po rezerwacji hotel podnosi cenę śniadania - rezerwacja zachowuje cenę z chwili rezerwacji
-        (await context.AdditionalServices.FindAsync(TestData.BreakfastId))!.Price = 80;
-        await context.SaveChangesAsync();
-
-        await service.ChangeReservationDatesAsync(reservation.ReservationId, new ChangeReservationDatesDto { CheckInDate = CheckIn, CheckOutDate = CheckIn.AddDays(5) }, null);
-
-        var updated = await context.Reservations.Include(r => r.ReservationServices).SingleAsync();
-        Assert.Equal(10, updated.ReservationServices.Single(rs => rs.ServiceId == TestData.BreakfastId).Quantity); // 2 osoby x 5 nocy
-        Assert.Equal(1650m, updated.TotalPrice); // 5 nocy x 200 zł + śniadanie 10 x 50 zł + parking 5 x 30 zł
-    }
-
     // --- ZMIANA STATUSU (WŁAŚCICIEL) ---
 
     [Fact(DisplayName = "Status: dawny status 'no-show' (niestawienie się) jest odrzucany")]
@@ -354,8 +327,7 @@ public class ReservationServiceWorkflowTests
         Assert.True(success);
         var invoice = await context.Invoices.SingleAsync();
         Assert.Equal(680m, invoice.GrossAmount);
-        var local = invoice.IssueDate.ToLocalTime();
-        Assert.Equal($"FV/{local:yyyy}/{local:MM}/00001", invoice.InvoiceNumber); // pierwsza faktura w miesiącu
+        Assert.Equal($"FV/{invoice.IssueDate:yyyy}/{invoice.IssueDate:MM}/00001", invoice.InvoiceNumber); // pierwsza faktura w miesiącu
         Assert.Equal(1, invoice.SequenceNumber);
     }
 

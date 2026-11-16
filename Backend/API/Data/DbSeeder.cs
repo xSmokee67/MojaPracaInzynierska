@@ -126,7 +126,7 @@ public static class DbSeeder
             FirstName = "Jan",
             LastName = "Kowalski",
             AccountType = AccountTypes.Owner,
-            RegistrationDate = DateTime.UtcNow
+            RegistrationDate = DateTime.Now
         };
 
         var result = await userManager.CreateAsync(owner, OwnerPassword);

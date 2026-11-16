@@ -67,17 +67,4 @@ public class StayRulesTests
 
         Assert.Equal(0, await context.Reservations.CountAsync());
     }
-
-    [Fact(DisplayName = "Termin pobytu: zmiana terminu na pobyt dłuższy niż 60 nocy jest odrzucana")]
-    public async Task ChangeDates_Throws_ForStayLongerThanLimit()
-    {
-        using var context = TestData.CreateContext();
-        var reservation = TestData.AddReservation(context, TestData.Room101Id, Today.AddDays(10), Today.AddDays(12), status: "confirmed");
-        var service = TestData.CreateReservationService(context);
-
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.ChangeReservationDatesAsync(reservation.ReservationId,
-            new ChangeReservationDatesDto { CheckInDate = Today.AddDays(10), CheckOutDate = Today.AddDays(71) }, null));
-
-        Assert.Equal(StayRules.TooLongMessage, exception.Message);
-    }
 }

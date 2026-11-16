@@ -6,7 +6,7 @@ namespace Services.Interfaces;
 public interface IAvailabilityService
 {
     // Wszystkie wolne pokoje danego typu w terminie [checkIn, checkOut) - bez rezerwacji, blokad i wyłączonych pokoi.
-    // excludedReservationId - przy zmianie terminu rezerwacja nie blokuje sama siebie
+    // excludedReservationId - przenoszona rezerwacja (remont, blokada) nie blokuje sama siebie
     Task<List<int>> GetAvailableRoomIdsAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, int? excludedReservationId = null);
 
     // Przydział pokoju do rezerwacji: pierwszy wolny pokój danego typu albo null, gdy brak miejsc

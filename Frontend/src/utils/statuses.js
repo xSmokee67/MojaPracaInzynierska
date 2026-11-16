@@ -2,17 +2,15 @@
 
 // Statusy zapisywane w bazie jako tekst (słownik danych) - polskie nazwy i kolory etykiet w interfejsie
 
-// Statusy pokoju (available / cleaning / maintenance / disabled)
+// Statusy pokoju (available / maintenance / disabled)
 export const roomStatusLabels = {
   'available': 'Dostępny',
-  'cleaning': 'Sprzątanie',
   'maintenance': 'W remoncie',
   'disabled': 'Wyłączony'
 };
 
 export const roomStatusStyles = {
   'available': 'bg-success-50 text-success-700',
-  'cleaning': 'bg-info-50 text-navy-900',
   'maintenance': 'bg-warning-50 text-warning-700',
   'disabled': 'bg-slate-100 text-slate-500'
 };

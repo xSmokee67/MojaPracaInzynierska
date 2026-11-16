@@ -47,7 +47,7 @@ export default function AuthForm({ onLoginSuccess, sessionMessage }) {
       <div className="login-photo flex-[1_1_30rem] min-h-64 md:min-h-[28rem] px-6 md:px-10 py-8 md:py-10 flex flex-col justify-end">
         <div className="max-w-md">
           <p className="font-display text-3xl md:text-[2.5rem] leading-tight text-white">Twoje rezerwacje, płatności i faktury w jednym miejscu.</p>
-          <p className="mt-3.5 text-base leading-relaxed text-white/85">Konto pozwala zarezerwować pokój, zmienić termin, anulować pobyt i wystawić opinię.</p>
+          <p className="mt-3.5 text-base leading-relaxed text-white/85">Konto pozwala zarezerwować pokój, śledzić płatności, anulować pobyt i wystawić opinię.</p>
         </div>
       </div>
 

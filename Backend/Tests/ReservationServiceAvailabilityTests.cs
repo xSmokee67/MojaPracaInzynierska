@@ -109,11 +109,10 @@ public class ReservationServiceAvailabilityTests
         Assert.Equal(TestData.Room102Id, roomId);
     }
 
-    [Theory(DisplayName = "Dostępność: pokój o statusie innym niż 'available' jest pomijany")]
+    [Theory(DisplayName = "Dostępność: pokój w remoncie albo wyłączony jest pomijany")]
     [InlineData("maintenance")]
-    [InlineData("cleaning")]
     [InlineData("disabled")]
-    public async Task SkipsRoom_WhenRoomStatusIsNotAvailable(string status)
+    public async Task SkipsRoom_WhenRoomIsOutOfService(string status)
     {
         using var context = TestData.CreateContext();
         var room = context.Rooms.Single(r => r.RoomId == TestData.Room101Id);

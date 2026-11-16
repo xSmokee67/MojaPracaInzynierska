@@ -96,8 +96,23 @@ public class ReservationService : IReservationService
             .OrderBy(r => r.ReservationId)
             .ToListAsync();
 
+        var changed = 0;
         foreach (var reservation in expired)
         {
+            // Każda rezerwacja we własnej transakcji z blokadą - wpłata zapisywana w tej samej chwili w recepcji
+            // czeka na koniec zmiany statusu albo zostaje zapisana wcześniej i wtedy rezerwacja jest potwierdzana, a nie anulowana
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            await LockReservationAsync(reservation.ReservationId);
+            await _context.Entry(reservation).ReloadAsync();
+
+            // Status zmienił się od wczytania listy (np. właściciel anulował rezerwację) - nic do zrobienia
+            var stillExpired = (reservation.Status == ReservationStatus.Confirmed && reservation.CheckOutDate < today)
+                || (reservation.Status == ReservationStatus.Pending && reservation.PaymentDeadline < today);
+            if (!stillExpired)
+            {
+                continue;
+            }
+
             var stay = StayDates(reservation.CheckInDate, reservation.CheckOutDate);
 
             if (reservation.Status == ReservationStatus.Confirmed)
@@ -126,9 +141,12 @@ public class ReservationService : IReservationService
                 await _notificationService.NotifyOwnersAsync($"Rezerwacja #{reservation.ReservationId} ({stay}) nie została opłacona do {deadline} - anulowano automatycznie, pokój wrócił do puli wolnych." +
                     (paid > 0 ? $" Do zwrotu: {paid:0.00} PLN." : ""), reservation.ReservationId);
             }
+
+            await transaction.CommitAsync();
+            changed++;
         }
 
-        return expired.Count;
+        return changed;
     }
 
     // Wyszukiwarka na stronie głównej: dostępność i cena całego pobytu dla każdego typu pokoju
@@ -383,6 +401,10 @@ public class ReservationService : IReservationService
 
     public async Task<bool> CancelReservationByGuestAsync(int reservationId, int guestId)
     {
+        // Opłata za anulowanie zależy od wpłat - blokada rezerwacji, żeby w tej samej chwili nie zapisała się nowa wpłata
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await LockReservationAsync(reservationId);
+
         var reservation = await _context.Reservations.FindAsync(reservationId);
         if (reservation == null || reservation.GuestId != guestId)
         {
@@ -414,123 +436,24 @@ public class ReservationService : IReservationService
             (paid > 0 ? $"Do zwrotu: {refund:0.00} PLN" + (fee > 0 ? $" (zatrzymana opłata za anulowanie: {fee:0.00} PLN)." : ".") : "Brak wpłat - nic do zwrotu."),
             reservation.ReservationId);
 
-        return true;
-    }
-
-    // Zmiana terminu: guestId = id gościa (tylko własna rezerwacja, najpóźniej dzień przed zameldowaniem),
-    // guestId = null - zmiana przez właściciela (dowolna rezerwacja oczekująca lub potwierdzona)
-    public async Task<bool> ChangeReservationDatesAsync(int reservationId, ChangeReservationDatesDto dto, int? guestId)
-    {
-        var reservation = await _context.Reservations
-            .Include(r => r.Room)
-            .Include(r => r.ReservationServices)
-            .FirstOrDefaultAsync(r => r.ReservationId == reservationId);
-
-        if (reservation == null || (guestId != null && reservation.GuestId != guestId))
-        {
-            return false;
-        }
-
-        if (reservation.Status != ReservationStatus.Pending && reservation.Status != ReservationStatus.Confirmed)
-        {
-            throw new ArgumentException("Termin można zmienić tylko w rezerwacji oczekującej lub potwierdzonej.");
-        }
-
-        if (guestId != null && reservation.CheckInDate.Date <= DateTime.Today)
-        {
-            throw new ArgumentException("Termin można zmienić najpóźniej dzień przed zameldowaniem.");
-        }
-
-        var newCheckIn = dto.CheckInDate.Date;
-        var newCheckOut = dto.CheckOutDate.Date;
-
-        if (newCheckIn >= newCheckOut)
-        {
-            throw new ArgumentException("Data wymeldowania musi być późniejsza niż data zameldowania.");
-        }
-
-        // Początek w przeszłości dopuszczalny tylko bez zmiany daty zameldowania - właściciel przedłuża lub skraca trwający pobyt
-        if (newCheckIn < DateTime.Today && newCheckIn != reservation.CheckInDate.Date)
-        {
-            throw new ArgumentException("Nowy termin nie może zaczynać się w przeszłości.");
-        }
-
-        if (newCheckOut < DateTime.Today)
-        {
-            throw new ArgumentException("Data wymeldowania nie może być w przeszłości.");
-        }
-
-        if ((newCheckOut - newCheckIn).Days > StayRules.MaxNights)
-        {
-            throw new ArgumentException(StayRules.TooLongMessage);
-        }
-
-        if (newCheckIn == reservation.CheckInDate.Date && newCheckOut == reservation.CheckOutDate.Date)
-        {
-            throw new ArgumentException("Nowy termin jest taki sam jak obecny.");
-        }
-
-        var roomTypeId = reservation.Room.RoomTypeId;
-
-        // Tak samo jak przy tworzeniu rezerwacji: sprawdzenie i zapis w jednej transakcji z blokadą pokoi danego typu
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-        await _availabilityService.LockRoomTypeAsync(roomTypeId);
-
-        // Wolne pokoje w nowym terminie - zmieniana rezerwacja nie blokuje sama siebie
-        var availableRoomIds = await _availabilityService.GetAvailableRoomIdsAsync(roomTypeId, newCheckIn, newCheckOut, reservation.ReservationId);
-        if (availableRoomIds.Count == 0)
-        {
-            throw new ArgumentException("W nowym terminie nie ma wolnego pokoju tego typu. Wybierz inne daty.");
-        }
-
-        // Gość zostaje w swoim pokoju, jeśli jest wolny w nowym terminie - w przeciwnym razie pierwszy wolny pokój tego typu
-        var newRoomId = availableRoomIds.Contains(reservation.RoomId) ? reservation.RoomId : availableRoomIds[0];
-
-        // Nowa cena: noclegi według cennika w nowym terminie + usługi dodatkowe w cenach z chwili rezerwacji.
-        // Usługi naliczane za noc (np. śniadanie, parking) są przeliczane na nową liczbę nocy - cena jednostkowa się nie zmienia.
-        var roomPrice = await CalculateTotalPriceAsync(roomTypeId, newCheckIn, newCheckOut, new List<int>());
-        var newNights = (newCheckOut - newCheckIn).Days;
-        foreach (var service in reservation.ReservationServices)
-        {
-            var unitPrice = service.Quantity > 0 ? service.TotalPrice / service.Quantity : service.TotalPrice;
-            service.Quantity = ServiceChargeType.Quantity(service.ChargeType, newNights, reservation.NumberOfGuests);
-            service.TotalPrice = unitPrice * service.Quantity;
-        }
-        var servicesPrice = reservation.ReservationServices.Sum(s => s.TotalPrice);
-
-        reservation.RoomId = newRoomId;
-        reservation.CheckInDate = newCheckIn;
-        reservation.CheckOutDate = newCheckOut;
-        reservation.TotalPrice = roomPrice + servicesPrice;
-
-        // Nieopłacona rezerwacja przeniesiona na wcześniejszy termin: płatność najpóźniej dzień przed nowym przyjazdem
-        if (reservation.Status == ReservationStatus.Pending)
-        {
-            var newDeadline = PaymentDeadlineFor(newCheckIn, DateTime.Today);
-            if (newDeadline < reservation.PaymentDeadline)
-            {
-                reservation.PaymentDeadline = newDeadline;
-            }
-        }
-        await _context.SaveChangesAsync();
-
-        // Zmianę wprowadza jedna strona - powiadomienie dostaje druga (gość albo właściciele)
-        var roomNumber = await _context.Rooms.Where(r => r.RoomId == reservation.RoomId).Select(r => r.RoomNumber).FirstAsync();
-        var newStay = $"{StayDates(reservation.CheckInDate, reservation.CheckOutDate)}, pokój {roomNumber}";
-        if (guestId == null)
-        {
-            await _notificationService.NotifyUserAsync(reservation.GuestId, $"Hotel zmienił termin rezerwacji #{reservation.ReservationId} na {newStay}. Nowa cena: {reservation.TotalPrice:0.00} PLN.", reservation.ReservationId);
-        }
-        else
-        {
-            await _notificationService.NotifyOwnersAsync($"Gość zmienił termin rezerwacji #{reservation.ReservationId} na {newStay}.", reservation.ReservationId);
-        }
-
         await transaction.CommitAsync();
         return true;
     }
 
+    // Wpłata albo zwrot zapisywane przez hotel (gotówka, karta lub BLIK w recepcji, przelew) - w transakcji z blokadą rezerwacji (LockReservationAsync)
     public async Task<bool> RegisterPaymentAsync(int reservationId, PaymentDto dto)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await LockReservationAsync(reservationId);
+
+        var success = await AddPaymentAsync(reservationId, dto);
+
+        await transaction.CommitAsync();
+        return success;
+    }
+
+    // Zapis wpłaty / zwrotu z kontrolą kwoty i automatycznym potwierdzeniem - wywoływany w transakcji po zablokowaniu rezerwacji
+    private async Task<bool> AddPaymentAsync(int reservationId, PaymentDto dto)
     {
         if (!PaymentMethod.All.Contains(dto.Method))
         {
@@ -582,7 +505,7 @@ public class ReservationService : IReservationService
         {
             ReservationId = reservationId,
             Amount = dto.Amount,
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now, // czas lokalny hotelu - jak w całym systemie (DateTime.Today, powiadomienia)
             Method = dto.Method,
             Status = status
         };
@@ -598,41 +521,6 @@ public class ReservationService : IReservationService
 
             await _notificationService.NotifyUserAsync(reservation.GuestId, $"Wpłata za rezerwację #{reservation.ReservationId} ({StayDates(reservation.CheckInDate, reservation.CheckOutDate)}) została zaksięgowana - rezerwacja {StatusMessages[ReservationStatus.Confirmed]}", reservation.ReservationId);
         }
-
-        return true;
-    }
-
-    // Płatność online przez gościa - symulacja bramki płatniczej: gość wpłaca kartą albo BLIK-iem całą brakującą kwotę.
-    // Prawdziwa bramka (np. Przelewy24, PayU) potwierdzałaby wpłatę osobnym powiadomieniem - tu wpłata zapisuje się od razu.
-    // Zapis przechodzi przez RegisterPaymentAsync, więc obowiązują te same reguły (limit kwoty, potwierdzenie po wpłacie całości)
-    public async Task<bool> PayOnlineAsync(int reservationId, int guestId, string method)
-    {
-        if (method != PaymentMethod.Card && method != PaymentMethod.Blik)
-        {
-            throw new ArgumentException("Online można zapłacić kartą albo BLIK-iem.");
-        }
-
-        var reservation = await _context.Reservations.FindAsync(reservationId);
-        if (reservation == null || reservation.GuestId != guestId)
-        {
-            return false;
-        }
-
-        if (reservation.Status != ReservationStatus.Pending && reservation.Status != ReservationStatus.Confirmed)
-        {
-            throw new ArgumentException("Można opłacić tylko rezerwację oczekującą lub potwierdzoną.");
-        }
-
-        var remaining = reservation.TotalPrice - await GetPaidAmountAsync(reservationId);
-        if (remaining <= 0)
-        {
-            throw new ArgumentException("Rezerwacja jest już opłacona w całości.");
-        }
-
-        await RegisterPaymentAsync(reservationId, new PaymentDto { Amount = remaining, Method = method, Status = PaymentStatus.Completed });
-
-        var methodName = method == PaymentMethod.Card ? "kartą" : "BLIK-iem";
-        await _notificationService.NotifyOwnersAsync($"Gość opłacił online ({methodName}) rezerwację #{reservation.ReservationId} ({StayDates(reservation.CheckInDate, reservation.CheckOutDate)}): {remaining:0.00} PLN.", reservation.ReservationId);
 
         return true;
     }
@@ -658,11 +546,11 @@ public class ReservationService : IReservationService
             throw new ArgumentException("Faktura dla tej rezerwacji została już wystawiona.");
         }
 
-        var issueDate = DateTime.UtcNow;
+        // Czas lokalny hotelu - data na fakturze i miesiąc serii są zgodne z kalendarzem (faktura z 1 listopada, 0:30 należy do serii listopadowej)
+        var issueDate = DateTime.Now;
 
         // Faktury są numerowane kolejno w serii miesiąca (wymóg kolejnej numeracji): FV/2026/11/00001, FV/2026/11/00002, ...
-        // Miesiąc serii według czasu lokalnego - faktura wystawiona 1 listopada o 0:30 należy do serii listopadowej.
-        var seriesPrefix = $"FV/{issueDate.ToLocalTime():yyyy}/{issueDate.ToLocalTime():MM}/";
+        var seriesPrefix = $"FV/{issueDate:yyyy}/{issueDate:MM}/";
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -689,6 +577,20 @@ public class ReservationService : IReservationService
         await transaction.CommitAsync();
 
         return true;
+    }
+
+    // Blokada pesymistyczna (SQL Server) wiersza rezerwacji do końca transakcji. Operacje zależne od salda wpłat tej samej rezerwacji
+    // (wpłata, zwrot, anulowanie przez gościa, zadanie w tle) wykonują się po kolei: druga czeka przy tym zapytaniu
+    // i liczy brakującą kwotę dopiero po zapisaniu pierwszej - dwie równoczesne wpłaty nie przekroczą ceny rezerwacji.
+    // Baza w pamięci (testy jednostkowe) nie wykonuje SQL i nie ma blokad.
+    private async Task LockReservationAsync(int reservationId)
+    {
+        if (!_context.Database.IsRelational())
+        {
+            return;
+        }
+
+        await _context.Database.ExecuteSqlAsync($"SELECT ReservationId FROM Reservations WITH (UPDLOCK) WHERE ReservationId = {reservationId}");
     }
 
     // Blokada pesymistyczna (SQL Server) na faktury danej serii: UPDLOCK + HOLDLOCK blokuje też wstawianie nowych wierszy

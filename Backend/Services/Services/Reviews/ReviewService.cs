@@ -82,7 +82,7 @@ public class ReviewService : IReviewService
             ReservationId = reservation.ReservationId,
             Rating = dto.Rating,
             Comment = dto.Comment,
-            Date = DateTime.UtcNow
+            Date = DateTime.Now
         };
 
         _context.Reviews.Add(review);

@@ -1,15 +1,5 @@
 // Plik: Frontend/src/components/common/Footer.jsx
-
-// Dane hotelu wyświetlane w stopce - jedno miejsce do podmiany
-const hotelInfo = {
-  name: 'Hotel Resort',
-  street: 'ul. Słoneczna 12',
-  city: '42-200 Częstochowa',
-  phone: '+48 34 123 45 67',
-  email: 'rezerwacje@hotel-resort.pl',
-  checkIn: '14:00',
-  checkOut: '11:00'
-};
+import { hotelInfo } from '../../utils/hotelInfo';
 
 // Stopka widoczna na każdej stronie: kontakt, zasady pobytu i skróty zależne od roli
 export default function Footer({ isLoggedIn, isOwner, onNavigate }) {

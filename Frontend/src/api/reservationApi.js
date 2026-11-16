@@ -28,16 +28,8 @@ export const getReservationDetails = (id, token) =>
 export const cancelReservation = (id, token) =>
   apiRequest(`/Reservation/${id}/cancel`, { method: 'PUT', token }, 'Nie udało się anulować rezerwacji');
 
-// Zmiana terminu (gość - własnej rezerwacji, właściciel - dowolnej); API sprawdza dostępność i przelicza cenę
-export const changeReservationDates = (id, dto, token) =>
-  apiRequest(`/Reservation/${id}/dates`, { method: 'PUT', token, body: dto }, 'Nie udało się zmienić terminu rezerwacji');
-
 export const registerPayment = (id, dto, token) =>
   apiRequest(`/Reservation/${id}/payments`, { method: 'POST', token, body: dto }, 'Błąd rejestracji płatności');
-
-// Płatność online gościa (symulacja bramki płatniczej) - API wpłaca całą brakującą kwotę; wysyłana jest tylko metoda (card / BLIK)
-export const payOnline = (id, dto, token) =>
-  apiRequest(`/Reservation/${id}/pay`, { method: 'POST', token, body: dto }, 'Płatność nie powiodła się');
 
 export const issueInvoice = (id, token) =>
   apiRequest(`/Reservation/${id}/invoice`, { method: 'POST', token }, 'Błąd wystawiania faktury');

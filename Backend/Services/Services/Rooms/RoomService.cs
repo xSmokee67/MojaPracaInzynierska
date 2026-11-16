@@ -77,7 +77,7 @@ public class RoomService : IRoomService
         var newStatus = string.IsNullOrWhiteSpace(dto.Status) ? RoomStatus.Available : dto.Status;
 
         // Remont, wyłączenie albo zmiana typu - pokój przestaje obsługiwać przyszłe rezerwacje, więc goście są przenoszeni
-        // do innych pokoi dotychczasowego typu (sprzątanie jest chwilowe i nie przenosi rezerwacji)
+        // do innych pokoi dotychczasowego typu
         var leavesService = newStatus == RoomStatus.Maintenance || newStatus == RoomStatus.Disabled || dto.RoomTypeId != room.RoomTypeId;
 
         await using var transaction = await _context.Database.BeginTransactionAsync();

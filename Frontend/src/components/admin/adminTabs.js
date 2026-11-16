@@ -4,7 +4,7 @@
 // Kolejność, grupy w menu bocznym, nazwy (menu, nagłówek strony) i krótki opis pod nagłówkiem
 export const adminTabs = [
   { id: 'availability', slug: 'dostepnosc', group: 'Przegląd', label: 'Dostępność', title: 'Kalendarz dostępności', description: 'Pokoje × noce: wolne, zarezerwowane i zablokowane. Kliknij rezerwację, aby otworzyć szczegóły.' },
-  { id: 'reservations', slug: 'rezerwacje', group: 'Przegląd', label: 'Rezerwacje', title: 'Rezerwacje', description: 'Wszystkie rezerwacje gości - w szczegółach płatności, faktura i zmiana terminu.' },
+  { id: 'reservations', slug: 'rezerwacje', group: 'Przegląd', label: 'Rezerwacje', title: 'Rezerwacje', description: 'Wszystkie rezerwacje gości - w szczegółach płatności i faktura.' },
   { id: 'roomTypes', slug: 'typy-pokoi', group: 'Oferta', label: 'Typy pokoi', title: 'Typy pokoi', description: 'Oferta widoczna dla gości: nazwa, opis, cena bazowa, pojemność i zdjęcia.' },
   { id: 'rooms', slug: 'pokoje', group: 'Oferta', label: 'Pokoje', title: 'Pokoje', description: 'Fizyczne pokoje hotelu z numerem, piętrem, statusem i udogodnieniami.' },
   { id: 'amenities', slug: 'udogodnienia', group: 'Oferta', label: 'Udogodnienia', title: 'Udogodnienia', description: 'Słownik udogodnień przypisywanych do pokoi.' },

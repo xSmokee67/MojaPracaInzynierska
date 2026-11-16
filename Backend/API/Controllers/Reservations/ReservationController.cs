@@ -125,7 +125,7 @@ public class ReservationController : ControllerBase
 
             // Termin płatności liczony tą samą regułą co w serwisie (3 dni, najpóźniej dzień przed przyjazdem)
             var paymentDeadline = Services.Services.ReservationService.PaymentDeadlineFor(dto.CheckInDate, DateTime.Today);
-            return Ok(new { message = $"Rezerwacja została złożona! Zapłać online teraz albo najpóźniej do {paymentDeadline:dd.MM.yyyy} - po opłaceniu zostanie potwierdzona, a nieopłacona w terminie zostanie automatycznie anulowana." });
+            return Ok(new { message = $"Rezerwacja została złożona! Opłać ją do {paymentDeadline:dd.MM.yyyy} przelewem albo w recepcji hotelu - po zaksięgowaniu wpłaty zostanie potwierdzona, a nieopłacona w terminie zostanie automatycznie anulowana." });
         }
         catch (ArgumentException e)
         {
@@ -212,32 +212,6 @@ public class ReservationController : ControllerBase
         }
     }
 
-    // Zmiana terminu: gość - tylko własna rezerwacja, właściciel - dowolna (sprawdza serwis)
-    [HttpPut("{id}/dates")]
-    [Authorize]
-    public async Task<IActionResult> ChangeDates(int id, [FromBody] ChangeReservationDatesDto dto)
-    {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!int.TryParse(userId, out var currentUserId))
-            return Unauthorized(new { error = "Nie udało się zidentyfikować zalogowanego użytkownika."});
-
-        int? guestId = User.IsInRole(UserRoles.Owner) ? null : currentUserId;
-
-        try
-        {
-            var success = await _reservationService.ChangeReservationDatesAsync(id, dto, guestId);
-
-            if (!success)
-                return NotFound(new { error = "Nie znaleziono rezerwacji."});
-
-            return Ok(new { message = "Termin rezerwacji został zmieniony."});
-        }
-        catch (ArgumentException e)
-        {
-            return BadRequest(new { error = e.Message});
-        }
-    }
-
     [HttpPost("{id}/payments")]
     [Authorize(Roles = UserRoles.Owner)]
     public async Task<IActionResult> RegisterPayment(int id, [FromBody] PaymentDto dto)
@@ -250,30 +224,6 @@ public class ReservationController : ControllerBase
                 return NotFound(new { error = "Nie znaleziono rezerwacji."});
 
             return Ok(new { message = "Płatność została zarejestrowana."});
-        }
-        catch (ArgumentException e)
-        {
-            return BadRequest(new { error = e.Message});
-        }
-    }
-
-    // Płatność online przez gościa (symulacja bramki płatniczej) - tylko własna rezerwacja, kwota = brakująca do zapłaty
-    [HttpPost("{id}/pay")]
-    [Authorize(Roles = UserRoles.Guest)]
-    public async Task<IActionResult> PayOnline(int id, [FromBody] OnlinePaymentDto dto)
-    {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!int.TryParse(userId, out var guestId))
-            return Unauthorized(new { error = "Nie udało się zidentyfikować zalogowanego użytkownika."});
-
-        try
-        {
-            var success = await _reservationService.PayOnlineAsync(id, guestId, dto.Method);
-
-            if (!success)
-                return NotFound(new { error = "Nie znaleziono rezerwacji."});
-
-            return Ok(new { message = "Płatność przyjęta - rezerwacja jest opłacona i potwierdzona."});
         }
         catch (ArgumentException e)
         {

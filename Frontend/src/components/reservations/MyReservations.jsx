@@ -114,7 +114,7 @@ export default function MyReservations({ token, refreshKey, selectedReservationI
           ) : (
             <div className="hidden lg:flex flex-col items-center justify-center gap-2 min-h-80 rounded-2xl border border-dashed border-sand-400 p-8 text-center text-slate-500">
               <span className="font-display text-xl text-navy-900">Wybierz rezerwację z listy</span>
-              <span className="text-sm">Zobaczysz rozliczenie, zmienisz termin, anulujesz pobyt albo wystawisz opinię.</span>
+              <span className="text-sm">Zobaczysz rozliczenie i sposób płatności, anulujesz pobyt albo wystawisz opinię.</span>
             </div>
           )}
         </div>

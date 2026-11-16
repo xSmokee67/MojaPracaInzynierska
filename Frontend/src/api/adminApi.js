@@ -82,8 +82,9 @@ export const getAvailabilityCalendar = (from, to, token) =>
   apiRequest(`/Availability/calendar?from=${from}&to=${to}`, { token }, 'Błąd pobierania kalendarza dostępności');
 
 // --- OPINIE (MODERACJA) ---
-export const getReviews = () =>
-  apiRequest('/Review', {}, 'Błąd pobierania opinii');
+// Wszystkie opinie z danymi gości - tylko dla właściciela
+export const getReviews = (token) =>
+  apiRequest('/Review', { token }, 'Błąd pobierania opinii');
 
 export const deleteReview = (id, token) =>
   apiRequest(`/Review/${id}`, { method: 'DELETE', token }, 'Błąd usuwania opinii');

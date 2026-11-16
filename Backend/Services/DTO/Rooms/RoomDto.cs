@@ -11,7 +11,7 @@ public class RoomDto
     [Required(ErrorMessage = "Numer pokoju jest wymagany.")]
     [StringLength(10, ErrorMessage = "Numer pokoju może mieć maksymalnie 10 znaków.")]
     public string RoomNumber {get; set; } = string.Empty;
-    [RegularExpression("^(available|cleaning|maintenance|disabled)?$", ErrorMessage = "Nieprawidłowy status pokoju.")]
+    [RegularExpression("^(available|maintenance|disabled)?$", ErrorMessage = "Nieprawidłowy status pokoju.")]
     public string Status {get; set; } = string.Empty;
     public List<int> AmenityIds {get; set; } = new ();
     public List<string> AmenityNames {get; set; } = new ();

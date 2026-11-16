@@ -22,16 +22,16 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 - **EF Core InMemory**: baza danych w pamięci zamiast SQL Servera
 - **AutoMapper**: ten sam profil `ReservationMappingProfile` co w aplikacji
 
-### Zakres (135 przypadków testowych)
+### Zakres (127 przypadków testowych)
 
 | Plik | Co jest testowane | Przypadki |
 |------|-------------------|-----------|
-| `ReservationServiceAvailabilityTests.cs` | Sprawdzanie dostępności pokoju w module dostępności (`AvailabilityService.GetAvailableRoomIdAsync`): nakładające się terminy, terminy stykające się, rezerwacje anulowane (zwalniają pokój), blokady pokoi, status pokoju | 18 |
+| `ReservationServiceAvailabilityTests.cs` | Sprawdzanie dostępności pokoju w module dostępności (`AvailabilityService.GetAvailableRoomIdAsync`): nakładające się terminy, terminy stykające się, rezerwacje anulowane (zwalniają pokój), blokady pokoi, status pokoju (remont i wyłączenie zamykają pokój) | 17 |
 | `ReservationServicePriceTests.cs` | Wyliczanie ceny (`CalculateTotalPriceAsync`): cena bazowa, sezonowa, pobyt na przełomie sezonu, usługi dodatkowe według sposobu naliczania (raz za pobyt, za noc, za osobę, za osobę za noc), liczba gości nie zmienia ceny noclegu | 14 |
-| `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji (w tym liczba gości względem pojemności pokoju i liczba naliczeń usług), zmiana terminu (przeliczenie usług naliczanych za noc), zmiana statusu, anulowanie przez gościa, płatności, faktury (kolejna numeracja w serii miesiąca) | 34 |
-| `StayRulesTests.cs` | Wspólna reguła terminu pobytu (`StayRules`): przyjazd nie w przeszłości i przed wyjazdem, maks. 60 nocy – także przy tworzeniu rezerwacji i zmianie terminu | 10 |
+| `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji (w tym liczba gości względem pojemności pokoju i liczba naliczeń usług), zmiana statusu, anulowanie przez gościa, płatności, faktury (kolejna numeracja w serii miesiąca) | 33 |
+| `StayRulesTests.cs` | Wspólna reguła terminu pobytu (`StayRules`): przyjazd nie w przeszłości i przed wyjazdem, maks. 60 nocy – także przy tworzeniu rezerwacji | 9 |
 | `CancellationPolicyTests.cs` | Polityka anulowania: bezpłatnie do 7 dni przed przyjazdem, później hotel zatrzymuje 30% ceny (nie więcej niż wpłacono), limit zwrotu po późnym anulowaniu, anulowanie przez hotel z pełnym zwrotem | 8 |
-| `ReservationPaymentTests.cs` | Termin płatności (3 dni, najpóźniej dzień przed przyjazdem), automatyczne potwierdzenie po wpłacie całości, automatyczne anulowanie nieopłaconej rezerwacji po terminie, zakończenie pobytu po wymeldowaniu, saldo (wpłaty minus zwroty), limit wpłaty do brakującej kwoty i zwrotu do wpłaconej, płatność online gościa (tylko własna rezerwacja, karta lub BLIK, brakująca kwota, potwierdzenie) | 19 |
+| `ReservationPaymentTests.cs` | Termin płatności (3 dni, najpóźniej dzień przed przyjazdem), automatyczne potwierdzenie po wpłacie całości, automatyczne anulowanie nieopłaconej rezerwacji po terminie, zakończenie pobytu po wymeldowaniu, saldo (wpłaty minus zwroty), limit wpłaty do brakującej kwoty i zwrotu do wpłaconej | 14 |
 | `AdditionalServiceServiceTests.cs` | Usługi dodatkowe w panelu: zapis i walidacja sposobu naliczania, blokada usuwania usługi zamówionej w rezerwacjach, usługa wycofana z oferty nie do zamówienia | 5 |
 | `ReservationServiceSearchTests.cs` | Wyszukiwarka na stronie głównej: liczba wolnych pokoi każdego typu, cena całego pobytu (z cennikiem sezonowym), dopasowanie do liczby gości | 9 |
 | `FileStorageServiceTests.cs` | Zapis zdjęć pokoi na dysku: dozwolone formaty, limit rozmiaru, odrzucanie plików, które nie są obrazem (sygnatura pliku zgodna z rozszerzeniem), unikalne nazwy, usuwanie, ochrona przed ścieżkami spoza katalogu | 18 |
@@ -90,7 +90,6 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | B4 | Apartament Premium, 10.03.2027 – 12.03.2027, liczba gości 1, potem 4 (bez usług) | Za każdym razem 1000 PLN - cena za pokój, nie za osobę | |
 | B5 | Jak B4 dla 4 gości, zaznacz Śniadanie i Parking | 1460 PLN (1000 + śniadanie 4 os. × 2 noce × 50 + parking 2 noce × 30); w podsumowaniu każda usługa rozpisana | |
 | B6 | Właściciel → „Usługi Dodatkowe”: dodaj „Transfer z lotniska”, 120 zł, naliczanie „raz za pobyt” | Usługa na liście z kolumną „Naliczanie”; w formularzu rezerwacji „+120 PLN raz za pobyt” i doliczane 120 zł niezależnie od nocy i osób | |
-| B7 | Rezerwacja z B5 → szczegóły → właściciel zmienia termin na 10.03.2027 – 13.03.2027 | Usługi przeliczone na 3 noce („Śniadanie × 12”, „Parking × 3”), cena 1500 + 600 + 90 = 2190 PLN | |
 
 ### Scenariusz C: dostępność i przypadki brzegowe
 
@@ -118,10 +117,10 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | C20 | Właściciel anuluje opłaconą rezerwację, potem w szczegółach formularz płatności | „Do zwrotu gościowi: … PLN”; formularz podpowiada zwrot całej wpłaty, jedyny status to „Zwrot”; zwrot większy niż wpłaty – błąd; po zwrocie „Rozliczone – nic więcej do zwrotu.”, a formularz znika | |
 | C21 | Gość opłaca w całości rezerwację z przyjazdem za 3 dni i ją anuluje | Przed anulowaniem: „Anulowanie teraz: opłata 30% ceny, zwrot reszty”; po anulowaniu: „Opłata za anulowanie (zostaje w hotelu): …”, „Do zwrotu gościowi: …” (70% ceny) | |
 | C22 | Właściciel próbuje zwrócić w C21 całą wpłatę | Błąd „Do zwrotu zostało … PLN - hotel zatrzymuje … PLN opłaty za anulowanie.”; zwrot 70% ceny przechodzi | |
-| C23 | Gość w szczegółach oczekującej rezerwacji klika „Zapłać teraz”, wybiera BLIK i wpisuje kod `12345` | Błąd w formularzu „Kod BLIK ma 6 cyfr”, nic nie zostaje zapisane | |
-| C24 | Ten sam formularz: kod BLIK `123456` → „Zapłać” | „Płatność przyjęta”; w płatnościach wpłata BLIK na całą brakującą kwotę, status „Potwierdzona”, „Do zapłaty 0.00 PLN”; gość i właściciel dostają powiadomienie | |
-| C25 | Gość z zaliczką 200 zł (zarejestrowaną przez właściciela) płaci online kartą `4111 1111 1111 1111`, data ważności w przyszłości, CVC `123` | Płatność kartą tylko na brakującą kwotę; po opłaceniu przycisk „Zapłać teraz” znika | |
-| C26 | Gość wysyła `POST /api/Reservation/{id}/pay` (Swagger) dla cudzej rezerwacji albo z metodą `transfer` | 404 „Nie znaleziono rezerwacji.” / 400 „Online można zapłacić kartą albo BLIK-iem.” | |
+| C23 | Gość w formularzu rezerwacji szybko klika dwa razy „Potwierdź rezerwację” | Przycisk od razu zmienia się na „Składanie rezerwacji...” i jest nieaktywny; powstaje jedna rezerwacja | |
+| C24 | Właściciel w dwóch oknach jednocześnie rejestruje wpłatę całej kwoty tej samej rezerwacji | Zapisuje się tylko jedna wpłata, druga dostaje błąd „Rezerwacja jest już opłacona w całości.” | |
+| C25 | Właściciel rejestruje wpłatę o 13:05 | W tabeli płatności godzina 13:05 (czas lokalny), taka sama jak w powiadomieniu | |
+| C26 | Bez logowania wywołaj `GET /api/Review` (Swagger) | 401 – lista opinii z danymi gości jest tylko dla właściciela; strona pokoju dalej pokazuje opinie („Anna N.”) | |
 
 ### Scenariusz D: bezpieczeństwo i sesja
 

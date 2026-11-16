@@ -9,7 +9,7 @@ using System.Linq.Expressions;
 namespace Services.Services;
 
 // Moduł zarządzania dostępnością. Pokój jest wolny w terminie, gdy:
-// - ma status "available" (nie jest sprzątany, w remoncie ani wyłączony),
+// - ma status "available" (nie jest w remoncie ani wyłączony),
 // - nie ma rezerwacji nachodzącej na termin (anulowana nie zajmuje pokoju),
 // - nie ma blokady nachodzącej na termin.
 // Terminy to przedziały [początek, koniec) - dzień wymeldowania / koniec blokady jest już wolny dla kolejnego gościa.
@@ -59,7 +59,7 @@ public class AvailabilityService : IAvailabilityService
     {
         var reservations = _context.Reservations.AsQueryable();
 
-        // Przy zmianie terminu pomijamy zmienianą rezerwację - jej obecne noce nie zajmują pokoju dla nowego terminu
+        // Przy przenoszeniu rezerwacji do innego pokoju pomijamy ją samą - jej noce nie zajmują pokoju, do którego trafia
         if (excludedReservationId != null)
         {
             reservations = reservations.Where(r => r.ReservationId != excludedReservationId);
@@ -91,7 +91,7 @@ public class AvailabilityService : IAvailabilityService
     }
 
     // Blokada pesymistyczna (SQL Server): SELECT z UPDLOCK zakłada na wiersze pokoi danego typu blokadę aktualizacji,
-    // która trwa do końca transakcji. Drugie równoczesne żądanie dla tych pokoi (rezerwacja, zmiana terminu, blokada,
+    // która trwa do końca transakcji. Drugie równoczesne żądanie dla tych pokoi (rezerwacja, blokada,
     // remont pokoju) czeka przy tym zapytaniu, aż pierwsze się zakończy, i dopiero potem sprawdza dostępność - na aktualnych danych.
     public async Task LockRoomTypeAsync(int roomTypeId)
     {
