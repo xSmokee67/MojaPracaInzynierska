@@ -66,9 +66,9 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | A1 | Zarejestruj gościa z hasłem `abc` | Formularz nie wysyła się, komunikat o min. 8 znakach i cyfrze | |
 | A2 | Zarejestruj gościa z poprawnymi danymi (np. `anna@test.pl` / `Haslo1234`) | „Rejestracja zakończona sukcesem! Możesz się teraz zalogować.” | |
 | A3 | Zarejestruj drugi raz ten sam e-mail | Błąd „Użytkownik o podanym emailu już istnieje.” | |
-| A4 | Zaloguj się jako gość | Strona główna, w prawym górnym rogu „Witaj, Anna” i przycisk „Mój profil” | |
-| A5 | Zakładka „Zarezerwuj pobyt”: liczba gości 1, Pokój Standardowy, 10.03.2027 – 13.03.2027, zaznacz Śniadanie, „Sprawdź cenę i dostępność” | „Pokój dostępny!”, w podsumowaniu „Śniadanie: 3 × 50 PLN (za osobę za noc) = 150.00 PLN”, do zapłaty **750,00 PLN** (3 × 200 + 1 os. × 3 noce × 50) | |
-| A6 | „Potwierdź i Rezerwuj” | Ekran „Udało się!” z komunikatem „Opłać ją do …” (dziś + 3 dni) | |
+| A4 | Zaloguj się jako gość | Strona główna, w pasku „Pokoje”, „Moje rezerwacje”, dzwonek i „Witaj, Anna” | |
+| A5 | Strona główna → „Pokój Standardowy” → „Zarezerwuj ten pokój”; w formularzu liczba gości 1, 10.03.2027 – 13.03.2027, zaznacz Śniadanie, „Sprawdź cenę i dostępność” | „Pokój dostępny!”, w podsumowaniu „Śniadanie: 3 × 50 PLN (za osobę za noc) = 150.00 PLN”, do zapłaty **750,00 PLN** (3 × 200 + 1 os. × 3 noce × 50) | |
+| A6 | „Potwierdź rezerwację” | Ekran „Rezerwacja złożona” z komunikatem „Opłać ją do …” (dziś + 3 dni) | |
 | A7 | Zakładka „Moje rezerwacje” | Rezerwacja z pokojem 101, statusem „Oczekująca” z dopiskiem „opłać do …”, ceną 750 PLN; w szczegółach „Do zapłaty 750.00 PLN do …” | |
 | A8 | Wyloguj, zaloguj jako właściciel, „Panel właściciela” w pasku nawigacji → „Rezerwacje” w menu bocznym | Rezerwacja gościa na liście, pod statusem „wpłata do …” | |
 | A9 | „Szczegóły” → zarejestruj płatność 300 zł kartą | Płatność na liście, „wpłacono 300.00 PLN”, status nadal „Oczekująca”, „Do zapłaty 450.00 PLN do …” | |
@@ -105,7 +105,7 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | C8 | Właściciel blokuje pokój w terminie z aktywną rezerwacją | Błąd „W tym terminie pokój ma aktywne rezerwacje…” | |
 | C9 | Właściciel dodaje wpis cennika nachodzący na sezon 01.06–31.08.2027 | Błąd „Okres nakłada się na istniejący wpis cennika…” | |
 | C10 | Właściciel zmienia status anulowanej rezerwacji na „Potwierdzona” | Lista statusów nieaktywna (takiej rezerwacji nie da się przywrócić - jej noce wróciły do puli wolnych) | |
-| C11 | Formularz „Zarezerwuj pobyt”: liczba gości 3 | Pokój Standardowy (max 2 os.) nieaktywny na liście z dopiskiem „za mały”; gdy był wybrany - komunikat i nieaktywny przycisk „Sprawdź cenę i dostępność” | |
+| C11 | Formularz rezerwacji (strona pokoju → „Zarezerwuj”): liczba gości 3 | Pokój Standardowy (max 2 os.) nieaktywny na liście z dopiskiem „za mały”; gdy był wybrany - komunikat i nieaktywny przycisk „Sprawdź cenę i dostępność” | |
 | C12 | `POST /api/Reservation/create` (Swagger, token gościa) dla Pokoju Standardowego z `numberOfGuests: 3` | 400 „Liczba gości musi wynosić od 1 do 2 - tyle osób mieści wybrany pokój.” | |
 | C13 | Rezerwacja Apartamentu Premium dla 4 osób, potem szczegóły rezerwacji (gość) i zakładka „Rezerwacje” (właściciel) | Rezerwacja utworzona; liczba gości „4 osoby” widoczna w szczegółach i na liście w panelu | |
 | C14 | Gość składa rezerwację i jej nie opłaca; w bazie (SSMS) ustaw tej rezerwacji `PaymentDeadline` na wczorajszą datę i uruchom ponownie API | Status „Anulowana”; gość i właściciel dostają powiadomienie o anulowaniu z powodu braku wpłaty; termin znów dostępny w wyszukiwarce | |

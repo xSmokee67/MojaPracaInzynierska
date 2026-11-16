@@ -178,8 +178,8 @@ export default function App() {
 
           {/* Menu nawigacji - gość (także niezalogowany) i właściciel widzą tę samą stronę główną */}
           <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[15px] order-3 w-full md:order-none md:w-auto md:mr-auto">
-            <button onClick={() => navigate('/')} className={navLink(route.view === 'rooms' || route.view === 'room')}>Pokoje</button>
-            {token && !isOwner && <button onClick={() => navigate('/rezerwacja')} className={navLink(route.view === 'book')}>Zarezerwuj pobyt</button>}
+            {/* Rezerwację zaczyna się od pokoju (strona pokoju -> "Zarezerwuj"), więc formularz rezerwacji też podświetla "Pokoje" */}
+            <button onClick={() => navigate('/')} className={navLink(route.view === 'rooms' || route.view === 'room' || route.view === 'book')}>Pokoje</button>
             {token && !isOwner && <button onClick={() => navigate('/moje-rezerwacje')} className={navLink(route.view === 'reservations')}>Moje rezerwacje</button>}
             {token && isOwner && <button onClick={() => navigate('/panel')} className={navLink(route.view === 'panel')}>Panel właściciela</button>}
           </nav>
