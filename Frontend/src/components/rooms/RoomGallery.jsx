@@ -31,7 +31,7 @@ const loadFilters = () => {
 };
 
 // Strona główna: zdjęcie hotelu z wyszukiwarką, a pod nią kafelki typów pokoi (bez wyszukiwania)
-// albo lista wyników z filtrami z boku i ceną całego pobytu (po wyszukiwaniu). Kliknięcie pokoju otwiera jego profil
+// albo lista wyników z ceną całego pobytu (po wyszukiwaniu); filtry zawsze w kolumnie po lewej. Kliknięcie pokoju otwiera jego profil
 export default function RoomGallery({ search, onSearch, onClearSearch, onSelect }) {
   const [roomTypes, setRoomTypes] = useState([]);
   const [searchResults, setSearchResults] = useState(null);
@@ -147,7 +147,7 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
     ? <><StarRating rating={rt.averageRating} /> <span className="font-semibold text-navy-900">{rt.averageRating.toLocaleString('pl-PL', { minimumFractionDigits: 1 })}</span> · {reviewsLabel(rt.reviewCount)}</>
     : 'Brak opinii';
 
-  // Przełączniki sortowania i udogodnień - w rzędzie nad kafelkami albo w kolumnie obok wyników
+  // Przełączniki sortowania i udogodnień - w kolumnie filtrów po lewej
   const sortChips = (
     <div className="flex flex-wrap gap-2">
       {Object.entries(sortLabels).map(([value, label]) => (
@@ -166,7 +166,7 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
   );
   const amenitiesToggle = allAmenities.length > 0 && (
     <button type="button" onClick={() => setShowAmenities(show => !show)} aria-expanded={showAmenities} className="chip md:hidden">
-      {showAmenities ? 'Ukryj udogodnienia' : `Udogodnienia${activeAmenities.length > 0 ? ` (${activeAmenities.length})` : ''}`} {showAmenities ? '▴' : '▾'}
+      {showAmenities ? 'Ukryj listę' : `Pokaż listę${activeAmenities.length > 0 ? ` (wybrane: ${activeAmenities.length})` : ''}`} {showAmenities ? '▴' : '▾'}
     </button>
   );
   const clearFiltersButton = hasActiveFilters && (
@@ -221,18 +221,19 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
         {error && <Alert type="error" message={error} />}
         {isLoading && <p className="text-slate-500">Ładowanie pokoi...</p>}
 
-        {search && results ? (
-          // --- WYNIKI WYSZUKIWANIA: filtry z boku, lista pokoi z ceną całego pobytu ---
-          <div className="flex flex-wrap gap-8 items-start">
-            <aside className="flex-[1_1_15rem] lg:max-w-[17.5rem] space-y-7">
-              <div className="flex justify-between items-baseline gap-3">
-                <h2 className="text-2xl font-medium">Filtry</h2>
-                <button type="button" onClick={onClearSearch} className="link text-sm">Wyczyść wyszukiwanie</button>
-              </div>
-              <div className="space-y-2.5">
-                <p className="eyebrow">Sortuj</p>
-                {sortChips}
-              </div>
+        {/* Filtry zawsze w kolumnie po lewej, pokoje po prawej (na wąskim ekranie filtry są nad listą) */}
+        <div className="flex flex-wrap gap-8 items-start">
+          <aside className="flex-[1_1_15rem] lg:max-w-[17.5rem] space-y-7 lg:sticky lg:top-6">
+            <div className="flex justify-between items-baseline gap-3">
+              <h2 className="text-2xl font-medium">Filtry</h2>
+              {search && <button type="button" onClick={onClearSearch} className="link text-sm">Wyczyść wyszukiwanie</button>}
+            </div>
+            <div className="space-y-2.5">
+              <p className="eyebrow">Sortuj</p>
+              {sortChips}
+            </div>
+            {/* Dostępność ma sens tylko po wyszukaniu terminu */}
+            {search && results && (
               <div className="space-y-2.5">
                 <p className="eyebrow">Dostępność</p>
                 <label className="flex items-center gap-2.5 rounded-[10px] bg-sand-100 px-3.5 py-3 text-[15px]">
@@ -240,126 +241,121 @@ export default function RoomGallery({ search, onSearch, onClearSearch, onSelect 
                   Tylko wolne w tym terminie
                 </label>
               </div>
-              {amenityChips && (
-                <div className="space-y-2.5">
-                  <p className="eyebrow">Udogodnienia</p>
-                  {amenitiesToggle}
-                  {amenityChips}
-                </div>
-              )}
-              {clearFiltersButton}
-            </aside>
-
-            <section className="flex-[999_1_35rem] min-w-0 space-y-5">
-              <div className="flex flex-wrap justify-between items-baseline gap-2">
-                <p className="text-slate-500"><strong className="text-navy-900">Dostępne pokoje: {availableCount}</strong> · {personsLabel(search.guests)} · {nightsLabel(nights)}</p>
-                <p className="text-sm text-slate-500">Ceny za cały pobyt, bez usług dodatkowych</p>
-              </div>
-              {(hiddenCount > 0 || visibleRoomTypes.length < fittingRoomTypes.length) && (
-                <p className="text-sm text-slate-500">
-                  {hiddenCount > 0 && `Pominięto pokoje dla mniejszej liczby osób: ${hiddenCount}. `}
-                  {visibleRoomTypes.length < fittingRoomTypes.length && `Wyświetlono ${visibleRoomTypes.length} z ${fittingRoomTypes.length}.`}
-                </p>
-              )}
-
-              {visibleRoomTypes.map(rt => {
-                const result = resultFor(rt.roomTypeId);
-                const unavailable = !result?.isAvailable;
-                return (
-                  <article key={rt.roomTypeId} className={`flex flex-wrap rounded-2xl overflow-hidden bg-white border ${unavailable ? 'border-dashed border-sand-400' : 'border-sand-300'}`}>
-                    <button type="button" onClick={() => onSelect(rt.roomTypeId)} aria-label={`${rt.name} - zobacz pokój`} className="flex-[1_1_16rem] sm:max-w-80 min-h-52 bg-sand-100">
-                      {rt.mainPhotoUrl
-                        ? <img src={photoUrl(rt.mainPhotoUrl)} alt={rt.name} loading="lazy" className={`w-full h-full object-cover ${unavailable ? 'grayscale-[0.6] opacity-80' : ''}`} />
-                        : <RoomPhotoPlaceholder />}
-                    </button>
-
-                    <div className="flex-[999_1_16rem] min-w-0 p-5 md:p-6 flex flex-col gap-2">
-                      <div className="flex flex-wrap justify-between items-baseline gap-2">
-                        <h3 className="text-2xl md:text-[1.625rem] font-medium">{rt.name}</h3>
-                        {unavailable && <span className="px-3 py-1.5 rounded-full bg-danger-50 text-danger-700 text-[13px] font-semibold">Brak wolnych pokoi w tym terminie</span>}
-                      </div>
-                      <p className="text-sm text-slate-500">do {personsLabel(rt.maxOccupancy)}{rt.area > 0 && ` · ${rt.area} m²`} · {ratingLine(rt)}</p>
-                      {unavailable ? (
-                        <div className="pt-2">
-                          <AlternativeStays roomTypeId={rt.roomTypeId} checkIn={search.checkIn} checkOut={search.checkOut} onSelectStay={(newCheckIn, newCheckOut) => handleSelectAlternative(rt.roomTypeId, newCheckIn, newCheckOut)} />
-                        </div>
-                      ) : (
-                        <>
-                          {rt.description && <p className="text-[15px] leading-relaxed text-slate-600 line-clamp-2">{rt.description}</p>}
-                          {amenitiesLine(rt) && <p className="text-sm text-slate-500">{amenitiesLine(rt)}</p>}
-                          <button type="button" onClick={() => onSelect(rt.roomTypeId)} className="mt-auto pt-2 self-start text-sm font-semibold hover:text-brass-700 hover:underline">Zdjęcia, opis i kalendarz →</button>
-                        </>
-                      )}
-                    </div>
-
-                    {!unavailable && (
-                      <div className="flex-[1_1_13rem] p-5 md:p-6 bg-sand-50 flex flex-col justify-between items-end gap-3.5 text-right">
-                        <span className="px-3 py-1.5 rounded-full bg-success-50 text-success-700 text-[13px] font-semibold">{result.availableRooms === 1 ? 'Ostatni wolny pokój' : `Wolne pokoje: ${result.availableRooms}`}</span>
-                        <div>
-                          <p className="font-display text-3xl font-semibold">{result.totalPrice} zł</p>
-                          <p className="text-[13px] text-slate-500">za {nightsLabel(result.nights)}</p>
-                        </div>
-                        <button type="button" onClick={() => onSelect(rt.roomTypeId)} className="btn-primary py-3">Wybierz pokój</button>
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
-
-              {!isLoading && visibleRoomTypes.length === 0 && (
-                fittingRoomTypes.length > 0
-                  ? <p className="text-slate-500">Żaden pokój nie spełnia wybranych filtrów. {clearFiltersButton}</p>
-                  : <p className="text-slate-500">Brak pokoi dla tylu osób. Zmień liczbę gości w wyszukiwarce.</p>
-              )}
-            </section>
-          </div>
-        ) : (
-          // --- WSZYSTKIE POKOJE (bez wyszukiwania): kafelki ze zdjęciem ---
-          <>
-            <div className="space-y-5">
-              <div>
-                <h2 className="text-3xl md:text-[2.5rem] font-medium">Nasze pokoje</h2>
-                <p className="mt-2 text-slate-500">Kliknij pokój, aby zobaczyć zdjęcia, opis, kalendarz i opinie. Wybierz daty powyżej, a zobaczysz wolne pokoje i cenę całego pobytu.</p>
-              </div>
-              {roomTypes.length > 0 && (
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                  {sortChips}
-                  {amenitiesToggle}
-                  {amenityChips}
-                  {clearFiltersButton}
-                </div>
-              )}
-              {hasActiveFilters && visibleRoomTypes.length < fittingRoomTypes.length && <p className="text-sm text-slate-500">Wyświetlono {visibleRoomTypes.length} z {fittingRoomTypes.length}</p>}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-10">
-              {visibleRoomTypes.map(rt => (
-                <button key={rt.roomTypeId} type="button" onClick={() => onSelect(rt.roomTypeId)} className="group flex flex-col gap-4 text-left">
-                  <div className="relative w-full aspect-[4/3] rounded-[14px] overflow-hidden bg-sand-100">
-                    {rt.mainPhotoUrl
-                      ? <img src={photoUrl(rt.mainPhotoUrl)} alt={rt.name} loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                      : <RoomPhotoPlaceholder />}
-                    <span className="absolute left-3 top-3 px-3 py-1.5 rounded-full bg-white/95 text-[13px] font-semibold">do {personsLabel(rt.maxOccupancy)}{rt.area > 0 && ` · ${rt.area} m²`}</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-baseline gap-3">
-                      <h3 className="text-2xl font-medium group-hover:text-brass-700 transition-colors">{rt.name}</h3>
-                      <span className="whitespace-nowrap text-[15px] text-slate-500">od <strong className="text-xl text-navy-900">{rt.basePrice} zł</strong> / noc</span>
-                    </div>
-                    {amenitiesLine(rt) && <p className="text-[15px] text-slate-500">{amenitiesLine(rt)}</p>}
-                    <p className="text-sm text-slate-500">{ratingLine(rt)}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {!isLoading && !error && visibleRoomTypes.length === 0 && (
-              roomTypes.length > 0
-                ? <p className="text-slate-500">Żaden pokój nie spełnia wybranych filtrów. {clearFiltersButton}</p>
-                : <p className="text-slate-500">Brak pokoi w ofercie.</p>
             )}
-          </>
-        )}
+            {amenityChips && (
+              <div className="space-y-2.5">
+                <p className="eyebrow">Udogodnienia</p>
+                {amenitiesToggle}
+                {amenityChips}
+              </div>
+            )}
+            {clearFiltersButton}
+          </aside>
+
+          <section className="flex-[999_1_35rem] min-w-0 space-y-5">
+            {search && results ? (
+              // --- WYNIKI WYSZUKIWANIA: lista pokoi z ceną całego pobytu ---
+              <>
+                  <div className="flex flex-wrap justify-between items-baseline gap-2">
+                    <p className="text-slate-500"><strong className="text-navy-900">Dostępne pokoje: {availableCount}</strong> · {personsLabel(search.guests)} · {nightsLabel(nights)}</p>
+                    <p className="text-sm text-slate-500">Ceny za cały pobyt, bez usług dodatkowych</p>
+                  </div>
+                  {(hiddenCount > 0 || visibleRoomTypes.length < fittingRoomTypes.length) && (
+                    <p className="text-sm text-slate-500">
+                      {hiddenCount > 0 && `Pominięto pokoje dla mniejszej liczby osób: ${hiddenCount}. `}
+                      {visibleRoomTypes.length < fittingRoomTypes.length && `Wyświetlono ${visibleRoomTypes.length} z ${fittingRoomTypes.length}.`}
+                    </p>
+                  )}
+
+                  {visibleRoomTypes.map(rt => {
+                    const result = resultFor(rt.roomTypeId);
+                    const unavailable = !result?.isAvailable;
+                    return (
+                      <article key={rt.roomTypeId} className={`flex flex-wrap rounded-2xl overflow-hidden bg-white border ${unavailable ? 'border-dashed border-sand-400' : 'border-sand-300'}`}>
+                        <button type="button" onClick={() => onSelect(rt.roomTypeId)} aria-label={`${rt.name} - zobacz pokój`} className="flex-[1_1_16rem] sm:max-w-80 min-h-52 bg-sand-100">
+                          {rt.mainPhotoUrl
+                            ? <img src={photoUrl(rt.mainPhotoUrl)} alt={rt.name} loading="lazy" className={`w-full h-full object-cover ${unavailable ? 'grayscale-[0.6] opacity-80' : ''}`} />
+                            : <RoomPhotoPlaceholder />}
+                        </button>
+
+                        <div className="flex-[999_1_16rem] min-w-0 p-5 md:p-6 flex flex-col gap-2">
+                          <div className="flex flex-wrap justify-between items-baseline gap-2">
+                            <h3 className="text-2xl md:text-[1.625rem] font-medium">{rt.name}</h3>
+                            {unavailable && <span className="px-3 py-1.5 rounded-full bg-danger-50 text-danger-700 text-[13px] font-semibold">Brak wolnych pokoi w tym terminie</span>}
+                          </div>
+                          <p className="text-sm text-slate-500">do {personsLabel(rt.maxOccupancy)}{rt.area > 0 && ` · ${rt.area} m²`} · {ratingLine(rt)}</p>
+                          {unavailable ? (
+                            <div className="pt-2">
+                              <AlternativeStays roomTypeId={rt.roomTypeId} checkIn={search.checkIn} checkOut={search.checkOut} onSelectStay={(newCheckIn, newCheckOut) => handleSelectAlternative(rt.roomTypeId, newCheckIn, newCheckOut)} />
+                            </div>
+                          ) : (
+                            <>
+                              {rt.description && <p className="text-[15px] leading-relaxed text-slate-600 line-clamp-2">{rt.description}</p>}
+                              {amenitiesLine(rt) && <p className="text-sm text-slate-500">{amenitiesLine(rt)}</p>}
+                              <button type="button" onClick={() => onSelect(rt.roomTypeId)} className="mt-auto pt-2 self-start text-sm font-semibold hover:text-brass-700 hover:underline">Zdjęcia, opis i kalendarz →</button>
+                            </>
+                          )}
+                        </div>
+
+                        {!unavailable && (
+                          <div className="flex-[1_1_13rem] p-5 md:p-6 bg-sand-50 flex flex-col justify-between items-end gap-3.5 text-right">
+                            <span className="px-3 py-1.5 rounded-full bg-success-50 text-success-700 text-[13px] font-semibold">{result.availableRooms === 1 ? 'Ostatni wolny pokój' : `Wolne pokoje: ${result.availableRooms}`}</span>
+                            <div>
+                              <p className="font-display text-3xl font-semibold">{result.totalPrice} zł</p>
+                              <p className="text-[13px] text-slate-500">za {nightsLabel(result.nights)}</p>
+                            </div>
+                            <button type="button" onClick={() => onSelect(rt.roomTypeId)} className="btn-primary py-3">Wybierz pokój</button>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+
+                  {!isLoading && visibleRoomTypes.length === 0 && (
+                    fittingRoomTypes.length > 0
+                      ? <p className="text-slate-500">Żaden pokój nie spełnia wybranych filtrów. {clearFiltersButton}</p>
+                      : <p className="text-slate-500">Brak pokoi dla tylu osób. Zmień liczbę gości w wyszukiwarce.</p>
+                  )}
+              </>
+            ) : (
+              // --- WSZYSTKIE POKOJE (bez wyszukiwania): kafelki ze zdjęciem ---
+              <>
+                <div>
+                  <h2 className="text-3xl md:text-[2.5rem] font-medium">Nasze pokoje</h2>
+                  <p className="mt-2 text-slate-500">Kliknij pokój, aby zobaczyć zdjęcia, opis, kalendarz i opinie. Wybierz daty powyżej, a zobaczysz wolne pokoje i cenę całego pobytu.</p>
+                  {hasActiveFilters && visibleRoomTypes.length < fittingRoomTypes.length && <p className="mt-2 text-sm text-slate-500">Wyświetlono {visibleRoomTypes.length} z {fittingRoomTypes.length}</p>}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-10 pt-2">
+                  {visibleRoomTypes.map(rt => (
+                    <button key={rt.roomTypeId} type="button" onClick={() => onSelect(rt.roomTypeId)} className="group flex flex-col gap-4 text-left">
+                      <div className="relative w-full aspect-[4/3] rounded-[14px] overflow-hidden bg-sand-100">
+                        {rt.mainPhotoUrl
+                          ? <img src={photoUrl(rt.mainPhotoUrl)} alt={rt.name} loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                          : <RoomPhotoPlaceholder />}
+                        <span className="absolute left-3 top-3 px-3 py-1.5 rounded-full bg-white/95 text-[13px] font-semibold">do {personsLabel(rt.maxOccupancy)}{rt.area > 0 && ` · ${rt.area} m²`}</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-baseline gap-3">
+                          <h3 className="text-2xl font-medium group-hover:text-brass-700 transition-colors">{rt.name}</h3>
+                          <span className="whitespace-nowrap text-[15px] text-slate-500">od <strong className="text-xl text-navy-900">{rt.basePrice} zł</strong> / noc</span>
+                        </div>
+                        {amenitiesLine(rt) && <p className="text-[15px] text-slate-500">{amenitiesLine(rt)}</p>}
+                        <p className="text-sm text-slate-500">{ratingLine(rt)}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {!isLoading && !error && visibleRoomTypes.length === 0 && (
+                  roomTypes.length > 0
+                    ? <p className="text-slate-500">Żaden pokój nie spełnia wybranych filtrów. {clearFiltersButton}</p>
+                    : <p className="text-slate-500">Brak pokoi w ofercie.</p>
+                )}
+              </>
+            )}
+          </section>
+        </div>
       </div>
 
       {/* --- INFORMACJE O POBYCIE --- */}
