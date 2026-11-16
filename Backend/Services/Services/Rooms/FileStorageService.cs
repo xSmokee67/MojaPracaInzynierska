@@ -34,22 +34,39 @@ public class FileStorageService : IFileStorageService
         }
     }
 
-    // Zwraca adres pliku, np. /uploads/room-types/3f2a...c1.jpg
+    // Zapisuje zdjęcie i zwraca jego adres, np. /uploads/room-types/3f2a...c1.jpg.
+    // Zawartość pliku musi zaczynać się sygnaturą formatu z rozszerzenia (pierwsze bajty JPG / PNG / WEBP) -
+    // plik o innej zawartości, np. program przemianowany na .jpg, jest odrzucany i nie trafia na dysk.
+    // Zmniejszanie zdjęć i usuwanie metadanych EXIF wykonuje przeglądarka przed wysłaniem (utils/resizeImage.js).
     public async Task<string> SaveImageAsync(Stream content, string fileName, string folder)
     {
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
-        var storedName = $"{Guid.NewGuid():N}{extension}";
 
+        using var buffer = new MemoryStream();
+        await content.CopyToAsync(buffer);
+        if (!HasImageSignature(buffer.GetBuffer().AsSpan(0, (int)buffer.Length), extension))
+        {
+            throw new ArgumentException($"Plik \"{fileName}\" nie jest prawidłowym obrazem {extension.TrimStart('.').ToUpperInvariant()}.");
+        }
+
+        var storedName = $"{Guid.NewGuid():N}{extension}";
         var directory = Path.Combine(_settings.RootPath, folder);
         Directory.CreateDirectory(directory);
 
-        await using (var file = File.Create(Path.Combine(directory, storedName)))
-        {
-            await content.CopyToAsync(file);
-        }
+        await File.WriteAllBytesAsync(Path.Combine(directory, storedName), buffer.ToArray());
 
         return $"{_settings.RequestPath}/{folder}/{storedName}";
     }
+
+    // Sygnatury formatów (tzw. magic numbers): JPEG zaczyna się od FF D8 FF, PNG od 89 50 4E 47 0D 0A 1A 0A,
+    // WEBP od "RIFF" i ma "WEBP" na bajtach 8-11
+    private static bool HasImageSignature(ReadOnlySpan<byte> header, string extension) => extension switch
+    {
+        ".jpg" or ".jpeg" => header.StartsWith(new byte[] { 0xFF, 0xD8, 0xFF }),
+        ".png" => header.StartsWith(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }),
+        ".webp" => header.Length >= 12 && header.StartsWith("RIFF"u8) && header.Slice(8, 4).SequenceEqual("WEBP"u8),
+        _ => false
+    };
 
     public void Delete(string fileUrl)
     {

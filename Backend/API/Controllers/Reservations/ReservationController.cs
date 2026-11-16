@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Services.Constants;
 using Services.DTO;
 using Services.Interfaces;
+using Services.Validation;
 using System.Globalization;
 using System.Security.Claims;
 
@@ -30,8 +31,8 @@ public class ReservationController : ControllerBase
             return BadRequest(new { error = "Nieprawidłowy format daty. Oczekiwano YYYY-MM-DD." });
         }
 
-        if (ci >= co || ci.Date < DateTime.Today)
-            return BadRequest(new { error = "Nieprawidłowy termin pobytu - data zameldowania nie może być w przeszłości i musi poprzedzać datę wymeldowania." });
+        if (StayRules.Validate(ci, co) is string stayError)
+            return BadRequest(new { error = stayError });
 
         var roomId = await _availabilityService.GetAvailableRoomIdAsync(roomTypeId, ci, co);
 
@@ -51,11 +52,8 @@ public class ReservationController : ControllerBase
             return BadRequest(new { error = "Nieprawidłowy format daty. Oczekiwano YYYY-MM-DD." });
         }
 
-        if (ci >= co || ci.Date < DateTime.Today)
-            return BadRequest(new { error = "Nieprawidłowy termin pobytu - data przyjazdu nie może być w przeszłości i musi poprzedzać datę wyjazdu." });
-
-        if ((co - ci).Days > 60)
-            return BadRequest(new { error = "Pobyt może trwać maksymalnie 60 nocy." });
+        if (StayRules.Validate(ci, co) is string stayError)
+            return BadRequest(new { error = stayError });
 
         var stays = await _reservationService.GetAlternativeStaysAsync(roomTypeId, ci, co);
         return Ok(stays);
@@ -71,11 +69,8 @@ public class ReservationController : ControllerBase
             return BadRequest(new { error = "Nieprawidłowy format daty. Oczekiwano YYYY-MM-DD." });
         }
 
-        if (ci >= co || ci.Date < DateTime.Today)
-            return BadRequest(new { error = "Nieprawidłowy termin pobytu - data przyjazdu nie może być w przeszłości i musi poprzedzać datę wyjazdu." });
-
-        if ((co - ci).Days > 60)
-            return BadRequest(new { error = "Pobyt może trwać maksymalnie 60 nocy." });
+        if (StayRules.Validate(ci, co) is string stayError)
+            return BadRequest(new { error = stayError });
 
         if (guests < 1 || guests > 20)
             return BadRequest(new { error = "Liczba gości musi mieścić się w zakresie 1 - 20." });
@@ -87,6 +82,9 @@ public class ReservationController : ControllerBase
     [HttpPost("price")]
     public async Task<IActionResult> CalculatePrice([FromBody] CreateReservationDto dto)
     {
+        if (StayRules.Validate(dto.CheckInDate, dto.CheckOutDate) is string stayError)
+            return BadRequest(new { error = stayError });
+
         try
         {
             var price = await _reservationService.CalculateTotalPriceAsync(
@@ -105,7 +103,8 @@ public class ReservationController : ControllerBase
     }
 
     [HttpPost("create")]
-    [Authorize]
+    // Rezerwację składa gość - konto właściciela nie jest gościem (rezerwacja wskazuje na tabelę Guests)
+    [Authorize(Roles = UserRoles.Guest)]
     public async Task<IActionResult> CreateReservation([FromBody] CreateReservationDto dto)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -114,8 +113,8 @@ public class ReservationController : ControllerBase
 
         dto.GuestId = guestId;
 
-        if (dto.CheckInDate >= dto.CheckOutDate || dto.CheckInDate.Date < DateTime.Today)
-            return BadRequest(new { error = "Nieprawidłowy termin pobytu - data zameldowania nie może być w przeszłości i musi poprzedzać datę wymeldowania."});
+        if (StayRules.Validate(dto.CheckInDate, dto.CheckOutDate) is string stayError)
+            return BadRequest(new { error = stayError });
 
         try
         {
@@ -124,7 +123,9 @@ public class ReservationController : ControllerBase
             if (!success)
                 return BadRequest(new { error = "Niestety, pokój został przed chwilą zarezerwowany, lub jest już niedostępny."});
 
-            return Ok(new { message = "Rezerwacja została pomyślnie utworzona!"});
+            // Termin płatności liczony tą samą regułą co w serwisie (3 dni, najpóźniej dzień przed przyjazdem)
+            var paymentDeadline = Services.Services.ReservationService.PaymentDeadlineFor(dto.CheckInDate, DateTime.Today);
+            return Ok(new { message = $"Rezerwacja została złożona! Opłać ją do {paymentDeadline:dd.MM.yyyy} - po zaksięgowaniu wpłaty zostanie potwierdzona, a nieopłacona w terminie zostanie automatycznie anulowana." });
         }
         catch (ArgumentException e)
         {

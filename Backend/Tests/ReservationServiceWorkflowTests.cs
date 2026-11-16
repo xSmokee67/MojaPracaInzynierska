@@ -6,8 +6,9 @@ namespace Tests;
 // Testy obsługi rezerwacji - tworzenie, zmiana statusu, anulowanie, płatności i faktury
 public class ReservationServiceWorkflowTests
 {
-    private static readonly DateTime CheckIn = new DateTime(2027, 3, 10);
-    private static readonly DateTime CheckOut = new DateTime(2027, 3, 13);
+    // Pobyt 10-13 marca przyszłego roku: zawsze w przyszłości (serwis odrzuca rezerwacje wstecz) i poza sezonem z cennika testowego
+    private static readonly DateTime CheckIn = new DateTime(DateTime.Today.Year + 1, 3, 10);
+    private static readonly DateTime CheckOut = CheckIn.AddDays(3);
 
     // --- TWORZENIE REZERWACJI ---
 
@@ -41,26 +42,27 @@ public class ReservationServiceWorkflowTests
         Assert.Equal(3, reservation.ReservationServices.Single(rs => rs.ServiceId == TestData.ParkingId).Quantity);
     }
 
-    [Fact(DisplayName = "Rezerwacja: utworzenie oznacza noce pobytu jako 'booked' w tabeli Availability")]
-    public async Task CreateReservation_MarksAvailabilityAsBooked()
+    [Fact(DisplayName = "Rezerwacja: noce pobytu są zajęte, a dzień wymeldowania jest wolny dla kolejnego gościa")]
+    public async Task CreateReservation_OccupiesNightsButNotCheckOutDay()
     {
         using var context = TestData.CreateContext();
         var service = TestData.CreateReservationService(context);
+        var availability = new Services.Services.AvailabilityService(context);
 
         await service.CreateReservationAsync(new CreateReservationDto
         {
             GuestId = TestData.GuestId,
-            RoomTypeId = TestData.StandardRoomTypeId,
+            RoomTypeId = TestData.PremiumRoomTypeId, // jedyny apartament: 201
             CheckInDate = CheckIn,
             CheckOutDate = CheckOut,
             NumberOfGuests = 2
         });
 
-        var entries = await context.Availabilities.Where(a => a.RoomId == TestData.Room101Id).OrderBy(a => a.Date).ToListAsync();
-        Assert.Equal(3, entries.Count); // 10, 11 i 12 marca - dzień wymeldowania pozostaje wolny
-        Assert.All(entries, a => Assert.Equal("booked", a.Status));
-        Assert.Equal(CheckIn, entries.First().Date);
-        Assert.Equal(CheckOut.AddDays(-1), entries.Last().Date);
+        // Dostępność jest liczona na bieżąco z rezerwacji - każda noc pobytu jest zajęta
+        Assert.Null(await availability.GetAvailableRoomIdAsync(TestData.PremiumRoomTypeId, CheckIn, CheckIn.AddDays(1)));
+        Assert.Null(await availability.GetAvailableRoomIdAsync(TestData.PremiumRoomTypeId, CheckOut.AddDays(-1), CheckOut));
+        // Dzień wymeldowania jest już wolny (przedziały [przyjazd, wyjazd))
+        Assert.Equal(TestData.Room201Id, await availability.GetAvailableRoomIdAsync(TestData.PremiumRoomTypeId, CheckOut, CheckOut.AddDays(2)));
     }
 
     [Fact(DisplayName = "Rezerwacja: druga rezerwacja w tym samym terminie trafia do kolejnego wolnego pokoju")]
@@ -134,7 +136,6 @@ public class ReservationServiceWorkflowTests
         }));
 
         Assert.Equal(0, await context.Reservations.CountAsync());
-        Assert.Equal(0, await context.Availabilities.CountAsync());
     }
 
     [Fact(DisplayName = "Zmiana terminu: usługi naliczane za noc są przeliczane na nową liczbę nocy (ceny z chwili rezerwacji)")]
@@ -166,10 +167,19 @@ public class ReservationServiceWorkflowTests
 
     // --- ZMIANA STATUSU (WŁAŚCICIEL) ---
 
+    [Fact(DisplayName = "Status: dawny status 'no-show' (niestawienie się) jest odrzucany")]
+    public async Task UpdateStatus_Throws_ForRemovedNoShowStatus()
+    {
+        using var context = TestData.CreateContext();
+        var reservation = TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut, status: "pending");
+        var service = TestData.CreateReservationService(context);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.UpdateReservationStatusAsync(reservation.ReservationId, "no-show"));
+    }
+
     [Theory(DisplayName = "Status: właściciel może ustawić każdy status ze słownika danych")]
     [InlineData("confirmed")]
     [InlineData("completed")]
-    [InlineData("no-show")]
     [InlineData("cancelled")]
     public async Task UpdateStatus_SetsAllowedStatus(string status)
     {
@@ -214,7 +224,7 @@ public class ReservationServiceWorkflowTests
         await Assert.ThrowsAsync<ArgumentException>(() => service.UpdateReservationStatusAsync(reservation.ReservationId, "confirmed"));
     }
 
-    [Fact(DisplayName = "Status: anulowanie przez właściciela zwalnia pokój (Availability = 'free' i pokój znów dostępny)")]
+    [Fact(DisplayName = "Status: anulowanie przez właściciela zwalnia pokój (termin znów dostępny)")]
     public async Task UpdateStatus_Cancelled_FreesRoom()
     {
         using var context = TestData.CreateContext();
@@ -224,9 +234,6 @@ public class ReservationServiceWorkflowTests
 
         await service.UpdateReservationStatusAsync(reservation.ReservationId, "cancelled");
 
-        var entries = await context.Availabilities.Where(a => a.RoomId == TestData.Room201Id).ToListAsync();
-        Assert.Equal(3, entries.Count);
-        Assert.All(entries, a => Assert.Equal("free", a.Status));
         Assert.Equal(TestData.Room201Id, await new Services.Services.AvailabilityService(context).GetAvailableRoomIdAsync(TestData.PremiumRoomTypeId, CheckIn, CheckOut));
     }
 
@@ -270,7 +277,6 @@ public class ReservationServiceWorkflowTests
 
     [Theory(DisplayName = "Anulowanie: gość może anulować tylko rezerwację oczekującą lub potwierdzoną")]
     [InlineData("completed")]
-    [InlineData("no-show")]
     [InlineData("cancelled")]
     public async Task CancelByGuest_Throws_ForFinishedReservation(string status)
     {
@@ -321,6 +327,9 @@ public class ReservationServiceWorkflowTests
     {
         using var context = TestData.CreateContext();
         var reservation = TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut, status: "cancelled");
+        // Wpłata sprzed anulowania - jest co zwrócić
+        context.Payments.Add(new Model.Payment { ReservationId = reservation.ReservationId, Amount = 100, Method = "card", Status = "completed", PaymentDate = DateTime.UtcNow });
+        context.SaveChanges();
         var service = TestData.CreateReservationService(context);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
@@ -328,7 +337,7 @@ public class ReservationServiceWorkflowTests
         var refund = await service.RegisterPaymentAsync(reservation.ReservationId, new PaymentDto { Amount = 100, Method = "transfer", Status = "refunded" });
 
         Assert.True(refund);
-        Assert.Equal("refunded", (await context.Payments.SingleAsync()).Status);
+        Assert.Equal(1, await context.Payments.CountAsync(p => p.Status == "refunded"));
     }
 
     // --- FAKTURY ---
@@ -345,7 +354,45 @@ public class ReservationServiceWorkflowTests
         Assert.True(success);
         var invoice = await context.Invoices.SingleAsync();
         Assert.Equal(680m, invoice.GrossAmount);
-        Assert.Equal($"FV/{invoice.IssueDate:yyyy}/{invoice.IssueDate:MM}/{reservation.ReservationId:D5}", invoice.InvoiceNumber);
+        var local = invoice.IssueDate.ToLocalTime();
+        Assert.Equal($"FV/{local:yyyy}/{local:MM}/00001", invoice.InvoiceNumber); // pierwsza faktura w miesiącu
+        Assert.Equal(1, invoice.SequenceNumber);
+    }
+
+    [Fact(DisplayName = "Faktura: kolejne faktury w miesiącu mają kolejne numery, niezależnie od numerów rezerwacji")]
+    public async Task IssueInvoice_NumbersInvoicesSequentiallyInMonth()
+    {
+        using var context = TestData.CreateContext();
+        var first = TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut, status: "completed");
+        TestData.AddReservation(context, TestData.Room102Id, CheckIn, CheckOut, status: "confirmed"); // bez faktury - nie tworzy luki w numeracji
+        var second = TestData.AddReservation(context, TestData.Room201Id, CheckIn, CheckOut, status: "completed");
+        var service = TestData.CreateReservationService(context);
+
+        await service.IssueInvoiceAsync(second.ReservationId);
+        await service.IssueInvoiceAsync(first.ReservationId);
+
+        var invoices = await context.Invoices.OrderBy(i => i.InvoiceId).ToListAsync();
+        Assert.EndsWith("/00001", invoices[0].InvoiceNumber);
+        Assert.Equal(second.ReservationId, invoices[0].ReservationId);
+        Assert.EndsWith("/00002", invoices[1].InvoiceNumber);
+        Assert.Equal(first.ReservationId, invoices[1].ReservationId);
+    }
+
+    [Fact(DisplayName = "Faktura: nowy miesiąc zaczyna numerację od 1 (faktury z innych miesięcy się nie liczą)")]
+    public async Task IssueInvoice_StartsNewSeriesEachMonth()
+    {
+        using var context = TestData.CreateContext();
+        var old = TestData.AddReservation(context, TestData.Room102Id, CheckIn, CheckOut, status: "completed");
+        context.Invoices.Add(new Model.Invoice { ReservationId = old.ReservationId, InvoiceNumber = "FV/2020/01/00007", SequenceNumber = 7, IssueDate = new DateTime(2020, 1, 15), GrossAmount = 600 });
+        context.SaveChanges();
+        var reservation = TestData.AddReservation(context, TestData.Room101Id, CheckIn, CheckOut, status: "completed");
+        var service = TestData.CreateReservationService(context);
+
+        await service.IssueInvoiceAsync(reservation.ReservationId);
+
+        var invoice = await context.Invoices.SingleAsync(i => i.ReservationId == reservation.ReservationId);
+        Assert.Equal(1, invoice.SequenceNumber);
+        Assert.EndsWith("/00001", invoice.InvoiceNumber);
     }
 
     [Theory(DisplayName = "Faktura: nie można wystawić faktury dla niezrealizowanej rezerwacji")]

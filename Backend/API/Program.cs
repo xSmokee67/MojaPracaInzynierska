@@ -46,7 +46,7 @@ builder.Services.AddSingleton(new FileStorageSettings { RootPath = uploadsPath, 
 // Serwisy warstwy logiki biznesowej, AutoMapper i generowanie tokenów JWT
 builder.Services.AddApplicationServices();
 
-// Automatyczne statusy rezerwacji (zakończona, niestawienie się) - przy starcie API i potem co godzinę
+// Automatyczne statusy rezerwacji (zakończona, anulowana z powodu braku wpłaty) - przy starcie API i potem co godzinę
 builder.Services.AddHostedService<ReservationStatusJob>();
 
 var app = builder.Build();

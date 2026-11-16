@@ -32,6 +32,8 @@ public class ReservationMappingProfile : Profile
 
         CreateMap<Reservation, ReservationDetailsDto>()
             .IncludeBase<Reservation, ReservationDto>()
-            .ForMember(d => d.PaidAmount, o => o.MapFrom(s => s.Payments.Where(p => p.Status == PaymentStatus.Completed).Sum(p => p.Amount)));
+            .ForMember(d => d.PaidAmount, o => o.MapFrom(s => s.Payments.Where(p => p.Status == PaymentStatus.Completed).Sum(p => p.Amount)
+                - s.Payments.Where(p => p.Status == PaymentStatus.Refunded).Sum(p => p.Amount)))
+            .ForMember(d => d.RefundedAmount, o => o.MapFrom(s => s.Payments.Where(p => p.Status == PaymentStatus.Refunded).Sum(p => p.Amount)));
     }
 }

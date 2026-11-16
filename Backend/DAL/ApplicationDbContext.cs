@@ -18,7 +18,6 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<int>, i
     public DbSet<RoomTypePhoto> RoomTypePhotos { get; set; }
     public DbSet<Room> Rooms { get; set; }
     public DbSet<Amenity> Amenities { get; set; }
-    public DbSet<Availability> Availabilities { get; set; }
     public DbSet<RoomBlock> RoomBlocks { get; set; }
     public DbSet<Reservation> Reservations { get; set; }
     public DbSet<Payment> Payments { get; set; }
@@ -43,16 +42,27 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<int>, i
             .WithMany(r => r.ReservationServices)
             .HasForeignKey(rs => rs.ReservationId);
 
+        // Usunięcie usługi nie może skasować jej pozycji w rezerwacjach (historia rozliczeń i faktur) - baza blokuje takie usunięcie
         modelBuilder.Entity<ReservationService>()
             .HasOne(rs => rs.AdditionalService)
             .WithMany(s => s.ReservationServices)
-            .HasForeignKey(rs => rs.ServiceId);
+            .HasForeignKey(rs => rs.ServiceId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Reservation>()
             .HasOne(r => r.Invoice)
             .WithOne(i => i.Reservation)
             .HasForeignKey<Invoice>(i => i.ReservationId)
             .IsRequired(false);
+
+        // Numer faktury musi być unikalny - ostatnie zabezpieczenie przed dwiema fakturami o tym samym numerze
+        modelBuilder.Entity<Invoice>()
+            .Property(i => i.InvoiceNumber)
+            .HasMaxLength(30);
+
+        modelBuilder.Entity<Invoice>()
+            .HasIndex(i => i.InvoiceNumber)
+            .IsUnique();
 
         modelBuilder.Entity<Reservation>()
             .HasOne(r => r.Review)

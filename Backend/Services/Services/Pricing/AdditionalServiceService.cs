@@ -23,7 +23,8 @@ public class AdditionalServiceService : IAdditionalServiceService
             ServiceId = s.ServiceId,
             Name = s.Name,
             Price = s.Price,
-            ChargeType = s.ChargeType
+            ChargeType = s.ChargeType,
+            IsActive = s.IsActive
         }).ToListAsync();
     }
 
@@ -35,7 +36,8 @@ public class AdditionalServiceService : IAdditionalServiceService
         {
             Name = dto.Name,
             Price = dto.Price,
-            ChargeType = dto.ChargeType
+            ChargeType = dto.ChargeType,
+            IsActive = dto.IsActive
         };
 
         _context.AdditionalServices.Add(service);
@@ -55,6 +57,7 @@ public class AdditionalServiceService : IAdditionalServiceService
         service.Name = dto.Name;
         service.Price = dto.Price;
         service.ChargeType = dto.ChargeType;
+        service.IsActive = dto.IsActive;
 
         await _context.SaveChangesAsync();
         return true;
@@ -66,6 +69,13 @@ public class AdditionalServiceService : IAdditionalServiceService
         if (service == null)
         {
             return false;
+        }
+
+        // Usługa zamówiona choć raz jest częścią historii rezerwacji (rozliczenie, faktura) - nie można jej usunąć,
+        // można ją tylko wycofać z oferty
+        if (await _context.ReservationServices.AnyAsync(rs => rs.ServiceId == serviceId))
+        {
+            throw new ArgumentException("Tej usługi nie można usunąć, bo była już zamawiana w rezerwacjach. Zamiast usuwać, wycofaj ją z oferty (odznacz „Dostępna w ofercie”).");
         }
 
         _context.AdditionalServices.Remove(service);

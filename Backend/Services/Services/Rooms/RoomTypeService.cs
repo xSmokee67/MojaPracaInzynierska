@@ -30,6 +30,7 @@ public class RoomTypeService : IRoomTypeService
             Description = rt.Description,
             BasePrice = rt.BasePrice,
             MaxOccupancy = rt.MaxOccupancy,
+            Area = rt.Area,
             MainPhotoUrl = rt.Photos.OrderBy(p => p.SortOrder).Select(p => p.PhotoUrl).FirstOrDefault(),
             PhotoCount = rt.Photos.Count
         })
@@ -87,6 +88,7 @@ public class RoomTypeService : IRoomTypeService
             Description = roomType.Description,
             BasePrice = roomType.BasePrice,
             MaxOccupancy = roomType.MaxOccupancy,
+            Area = roomType.Area,
             RoomCount = roomType.Rooms.Count(r => r.Status != RoomStatus.Disabled),
             Photos = roomType.Photos
                 .OrderBy(p => p.SortOrder)
@@ -128,7 +130,8 @@ public class RoomTypeService : IRoomTypeService
             Name = dto.Name,
             Description = dto.Description,
             BasePrice = dto.BasePrice,
-            MaxOccupancy = dto.MaxOccupancy
+            MaxOccupancy = dto.MaxOccupancy,
+            Area = dto.Area
         };
 
         _context.RoomTypes.Add(roomType);
@@ -149,6 +152,7 @@ public class RoomTypeService : IRoomTypeService
         roomType.Description = dto.Description;
         roomType.BasePrice = dto.BasePrice;
         roomType.MaxOccupancy = dto.MaxOccupancy;
+        roomType.Area = dto.Area;
 
         await _context.SaveChangesAsync();
         return true;
@@ -209,11 +213,25 @@ public class RoomTypeService : IRoomTypeService
         }
 
         var nextSortOrder = roomType.Photos.Count == 0 ? 0 : roomType.Photos.Max(p => p.SortOrder) + 1;
-        foreach (var photo in photos)
+        var savedUrls = new List<string>();
+        try
         {
-            var url = await _fileStorage.SaveImageAsync(photo.Content, photo.FileName, PhotoFolder);
+            foreach (var photo in photos)
+            {
+                var url = await _fileStorage.SaveImageAsync(photo.Content, photo.FileName, PhotoFolder);
+                savedUrls.Add(url);
 
-            roomType.Photos.Add(new RoomTypePhoto { PhotoUrl = url, SortOrder = nextSortOrder++ });
+                roomType.Photos.Add(new RoomTypePhoto { PhotoUrl = url, SortOrder = nextSortOrder++ });
+            }
+        }
+        catch (ArgumentException)
+        {
+            // Zawartość któregoś pliku nie jest obrazem - usuwamy już zapisane pliki z tego zestawu (nic nie trafia do bazy)
+            foreach (var url in savedUrls)
+            {
+                _fileStorage.Delete(url);
+            }
+            throw;
         }
 
         await _context.SaveChangesAsync();
@@ -264,6 +282,11 @@ public class RoomTypeService : IRoomTypeService
         if (dto.BasePrice <= 0 || dto.MaxOccupancy <= 0)
         {
             throw new ArgumentException("Cena bazowa i maksymalna liczba gości muszą być większe od zera.");
+        }
+
+        if (dto.Area <= 0)
+        {
+            throw new ArgumentException("Powierzchnia pokoju musi być większa od zera.");
         }
     }
 }

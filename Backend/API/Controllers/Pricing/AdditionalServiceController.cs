@@ -61,11 +61,19 @@ public class AdditionalServiceController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var success = await _additionalServiceService.DeleteAdditionalServiceAsync(id);
+        try
+        {
+            var success = await _additionalServiceService.DeleteAdditionalServiceAsync(id);
 
-        if (!success)
-            return NotFound(new { error = "Nie znaleziono usługi."});
+            if (!success)
+                return NotFound(new { error = "Nie znaleziono usługi."});
 
-        return Ok(new { message = "Usługa została usunięta."});
+            return Ok(new { message = "Usługa została usunięta."});
+        }
+        catch (ArgumentException e)
+        {
+            // Usługa użyta w rezerwacjach - można ją tylko wycofać z oferty
+            return BadRequest(new { error = e.Message });
+        }
     }
 }

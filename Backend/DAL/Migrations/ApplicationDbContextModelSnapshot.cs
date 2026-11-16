@@ -182,6 +182,9 @@ namespace DAL.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -211,31 +214,6 @@ namespace DAL.Migrations
                     b.ToTable("Amenities");
                 });
 
-            modelBuilder.Entity("Model.Availability", b =>
-                {
-                    b.Property<int>("AvailabilityId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AvailabilityId"));
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("RoomId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("AvailabilityId");
-
-                    b.HasIndex("RoomId");
-
-                    b.ToTable("Availabilities");
-                });
-
             modelBuilder.Entity("Model.Invoice", b =>
                 {
                     b.Property<int>("InvoiceId")
@@ -249,7 +227,8 @@ namespace DAL.Migrations
 
                     b.Property<string>("InvoiceNumber")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<DateTime>("IssueDate")
                         .HasColumnType("datetime2");
@@ -257,7 +236,13 @@ namespace DAL.Migrations
                     b.Property<int>("ReservationId")
                         .HasColumnType("int");
 
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("int");
+
                     b.HasKey("InvoiceId");
+
+                    b.HasIndex("InvoiceNumber")
+                        .IsUnique();
 
                     b.HasIndex("ReservationId")
                         .IsUnique();
@@ -365,6 +350,9 @@ namespace DAL.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ReservationId"));
 
+                    b.Property<decimal>("CancellationFee")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("CheckInDate")
                         .HasColumnType("datetime2");
 
@@ -376,6 +364,9 @@ namespace DAL.Migrations
 
                     b.Property<int>("NumberOfGuests")
                         .HasColumnType("int");
+
+                    b.Property<DateTime>("PaymentDeadline")
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("RoomId")
                         .HasColumnType("int");
@@ -522,6 +513,9 @@ namespace DAL.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RoomTypeId"));
 
+                    b.Property<int>("Area")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("BasePrice")
                         .HasColumnType("decimal(18,2)");
 
@@ -647,10 +641,6 @@ namespace DAL.Migrations
                 {
                     b.HasBaseType("Model.User");
 
-                    b.Property<string>("DocumentNumber")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -743,17 +733,6 @@ namespace DAL.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Model.Availability", b =>
-                {
-                    b.HasOne("Model.Room", "Room")
-                        .WithMany("Availabilities")
-                        .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Room");
-                });
-
             modelBuilder.Entity("Model.Invoice", b =>
                 {
                     b.HasOne("Model.Reservation", "Reservation")
@@ -832,7 +811,7 @@ namespace DAL.Migrations
                     b.HasOne("Model.AdditionalService", "AdditionalService")
                         .WithMany("ReservationServices")
                         .HasForeignKey("ServiceId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("AdditionalService");
@@ -871,7 +850,7 @@ namespace DAL.Migrations
             modelBuilder.Entity("Model.RoomBlock", b =>
                 {
                     b.HasOne("Model.Owner", "Owner")
-                        .WithMany("CreatedRoomBlocks")
+                        .WithMany()
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -934,8 +913,6 @@ namespace DAL.Migrations
 
             modelBuilder.Entity("Model.Room", b =>
                 {
-                    b.Navigation("Availabilities");
-
                     b.Navigation("Reservations");
 
                     b.Navigation("RoomBlocks");
@@ -955,11 +932,6 @@ namespace DAL.Migrations
                     b.Navigation("Reservations");
 
                     b.Navigation("Reviews");
-                });
-
-            modelBuilder.Entity("Model.Owner", b =>
-                {
-                    b.Navigation("CreatedRoomBlocks");
                 });
 #pragma warning restore 612, 618
         }

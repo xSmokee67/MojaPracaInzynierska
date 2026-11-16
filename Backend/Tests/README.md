@@ -14,7 +14,7 @@ dotnet test
 
 W Visual Studio: **Test → Test Explorer → Run All**. Testy mają polskie nazwy (`DisplayName`), więc w Test Explorerze od razu widać, co sprawdzają.
 
-Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w pamięci (EF Core InMemory) z tymi samymi danymi co seed w `API/Data/DbSeeder.cs` (`TestData.cs`).
+Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w pamięci (EF Core InMemory) z małym, stałym zestawem danych (`TestData.cs`: 2 typy pokoi i 3 pokoje jak Pokój Standardowy i Apartament Premium z seeda, cennik sezonowy, śniadanie i parking) – niezależnym od rozbudowanych danych startowych w `API/Data/DbSeeder.cs`.
 
 ### Technologie
 
@@ -22,17 +22,19 @@ Testy nie potrzebują SQL Servera. Każdy test dostaje osobną, pustą bazę w p
 - **EF Core InMemory**: baza danych w pamięci zamiast SQL Servera
 - **AutoMapper**: ten sam profil `ReservationMappingProfile` co w aplikacji
 
-### Zakres (97 przypadków testowych)
+### Zakres (130 przypadków testowych)
 
 | Plik | Co jest testowane | Przypadki |
 |------|-------------------|-----------|
-| `ReservationServiceAvailabilityTests.cs` | Sprawdzanie dostępności pokoju w module dostępności (`AvailabilityService.GetAvailableRoomIdAsync`): nakładające się terminy, terminy stykające się, rezerwacje anulowane i z niestawieniem się (zwalniają pokój), blokady pokoi, status pokoju | 19 |
+| `ReservationServiceAvailabilityTests.cs` | Sprawdzanie dostępności pokoju w module dostępności (`AvailabilityService.GetAvailableRoomIdAsync`): nakładające się terminy, terminy stykające się, rezerwacje anulowane (zwalniają pokój), blokady pokoi, status pokoju | 18 |
 | `ReservationServicePriceTests.cs` | Wyliczanie ceny (`CalculateTotalPriceAsync`): cena bazowa, sezonowa, pobyt na przełomie sezonu, usługi dodatkowe według sposobu naliczania (raz za pobyt, za noc, za osobę, za osobę za noc), liczba gości nie zmienia ceny noclegu | 14 |
-| `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji (w tym liczba gości względem pojemności pokoju i liczba naliczeń usług), zmiana terminu (przeliczenie usług naliczanych za noc), zmiana statusu, anulowanie przez gościa, płatności, faktury | 33 |
-| `AdditionalServiceServiceTests.cs` | Usługi dodatkowe w panelu: zapis i walidacja sposobu naliczania | 2 |
-| `AvailabilityServiceTests.cs` | Aktualizacja kalendarza dostępności (`Availability`) | 4 |
+| `ReservationServiceWorkflowTests.cs` | Tworzenie rezerwacji (w tym liczba gości względem pojemności pokoju i liczba naliczeń usług), zmiana terminu (przeliczenie usług naliczanych za noc), zmiana statusu, anulowanie przez gościa, płatności, faktury (kolejna numeracja w serii miesiąca) | 34 |
+| `StayRulesTests.cs` | Wspólna reguła terminu pobytu (`StayRules`): przyjazd nie w przeszłości i przed wyjazdem, maks. 60 nocy – także przy tworzeniu rezerwacji i zmianie terminu | 10 |
+| `CancellationPolicyTests.cs` | Polityka anulowania: bezpłatnie do 7 dni przed przyjazdem, później hotel zatrzymuje 30% ceny (nie więcej niż wpłacono), limit zwrotu po późnym anulowaniu, anulowanie przez hotel z pełnym zwrotem | 8 |
+| `ReservationPaymentTests.cs` | Termin płatności (3 dni, najpóźniej dzień przed przyjazdem), automatyczne potwierdzenie po wpłacie całości, automatyczne anulowanie nieopłaconej rezerwacji po terminie, zakończenie pobytu po wymeldowaniu, saldo (wpłaty minus zwroty), limit wpłaty do brakującej kwoty i zwrotu do wpłaconej | 14 |
+| `AdditionalServiceServiceTests.cs` | Usługi dodatkowe w panelu: zapis i walidacja sposobu naliczania, blokada usuwania usługi zamówionej w rezerwacjach, usługa wycofana z oferty nie do zamówienia | 5 |
 | `ReservationServiceSearchTests.cs` | Wyszukiwarka na stronie głównej: liczba wolnych pokoi każdego typu, cena całego pobytu (z cennikiem sezonowym), dopasowanie do liczby gości | 9 |
-| `FileStorageServiceTests.cs` | Zapis zdjęć pokoi na dysku: dozwolone formaty, limit rozmiaru, unikalne nazwy, usuwanie, ochrona przed ścieżkami spoza katalogu | 16 |
+| `FileStorageServiceTests.cs` | Zapis zdjęć pokoi na dysku: dozwolone formaty, limit rozmiaru, odrzucanie plików, które nie są obrazem (sygnatura pliku zgodna z rozszerzeniem), unikalne nazwy, usuwanie, ochrona przed ścieżkami spoza katalogu | 18 |
 
 Testy pokrywają całą logikę biznesową z warstwy `Services`. Kontrolery API są cienką warstwą (walidacja wejścia i wywołanie serwisu), więc sprawdzają je testy manualne poniżej.
 
@@ -41,9 +43,19 @@ Testy pokrywają całą logikę biznesową z warstwy `Services`. Kontrolery API 
 Dane startowe (seed w `API/Data/DbSeeder.cs`):
 
 - **Konto właściciela:** `admin@hotel.com` / `Admin123!`
-- **Pokoje:** Pokój Standardowy (200 zł/noc, pokoje 101 i 102), Apartament Premium (500 zł/noc, pokój 201)
+- **Pokoje (typ – cena – maks. gości – powierzchnia – numery):**
+  - Pokój Standardowy – 200 zł – 2 os. – 22 m² – 101, 102
+  - Apartament Premium – 500 zł – 4 os. – 48 m² – 201 (jedyny pokój tego typu – na nim opierają się scenariusze C1–C7)
+  - Pokój Jednoosobowy – 140 zł – 1 os. – 14 m² – 103, 104, 105
+  - Pokój Twin – 210 zł – 2 os. – 20 m² – 106, 107, 108
+  - Pokój Rodzinny – 360 zł – 5 os. – 34 m² – 301, 302, 303, 304
+  - Studio z Aneksem Kuchennym – 300 zł – 3 os. – 30 m² – 305, 306, 307
+  - Apartament z Jacuzzi – 750 zł – 2 os. – 55 m² – 401, 402, 403
+- **Udogodnienia:** przypisane do pokoi według typu (np. aneks kuchenny w studiu, jacuzzi w apartamencie, łóżko małżeńskie / dwa pojedyncze łóżka); pokój 101 przystosowany dla osób z niepełnosprawnościami, wybrane pokoje z balkonem / widokiem na morze
 - **Cennik sezonowy:** Pokój Standardowy 350 zł/noc od 01.06.2027 do 31.08.2027
-- **Usługi:** Śniadanie 50 zł (za osobę za noc), Parking 30 zł (za noc)
+- **Usługi:** Śniadanie 50 zł i Obiadokolacja 70 zł (za osobę za noc), Wypożyczenie roweru 35 zł (za osobę za noc), Parking 30 zł, Łóżeczko dla dziecka 25 zł, Pobyt ze zwierzęciem 40 zł, Ładowanie samochodu elektrycznego 40 zł (za noc), Wstęp do strefy SPA 45 zł (za osobę), Transfer z lotniska 120 zł, Wczesne zameldowanie 60 zł, Późne wymeldowanie 60 zł, Pakiet powitalny 90 zł (raz za pobyt)
+- **Zdjęcia:** 3–5 przykładowych zdjęć dla każdego typu pokoju (`API/Data/SeedPhotos`) – dodawane do typu, który nie ma jeszcze żadnego zdjęcia
+- Brakujące typy pokoi, pokoje, udogodnienia i usługi są dodawane przy każdym starcie API (po nazwie / numerze pokoju), także do bazy utworzonej wcześniej; istniejących danych seeder nie zmienia
 
 W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 
@@ -56,14 +68,14 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | A3 | Zarejestruj drugi raz ten sam e-mail | Błąd „Użytkownik o podanym emailu już istnieje.” | |
 | A4 | Zaloguj się jako gość | Strona główna, w prawym górnym rogu „Witaj, Anna” i przycisk „Mój profil” | |
 | A5 | Zakładka „Zarezerwuj pobyt”: liczba gości 1, Pokój Standardowy, 10.03.2027 – 13.03.2027, zaznacz Śniadanie, „Sprawdź cenę i dostępność” | „Pokój dostępny!”, w podsumowaniu „Śniadanie: 3 × 50 PLN (za osobę za noc) = 150.00 PLN”, do zapłaty **750,00 PLN** (3 × 200 + 1 os. × 3 noce × 50) | |
-| A6 | „Potwierdź i Rezerwuj” | Ekran „Udało się!” | |
-| A7 | Zakładka „Moje rezerwacje” | Rezerwacja z pokojem 101, statusem „Oczekująca”, ceną 750 PLN | |
-| A8 | Wyloguj, zaloguj jako właściciel, czerwony przycisk „Panel Właściciela” → zakładka „Rezerwacje” | Rezerwacja gościa na liście | |
-| A9 | Zmień status na „Potwierdzona” | Komunikat sukcesu, nowy status na liście | |
-| A10 | „Szczegóły” → zarejestruj płatność 300 zł kartą | Płatność na liście, „wpłacono 300,00 PLN” | |
-| A11 | Zarejestruj drugą płatność (kwota podpowiada się jako 450 zł) | „wpłacono 750,00 PLN” | |
+| A6 | „Potwierdź i Rezerwuj” | Ekran „Udało się!” z komunikatem „Opłać ją do …” (dziś + 3 dni) | |
+| A7 | Zakładka „Moje rezerwacje” | Rezerwacja z pokojem 101, statusem „Oczekująca” z dopiskiem „opłać do …”, ceną 750 PLN; w szczegółach „Do zapłaty 750.00 PLN do …” | |
+| A8 | Wyloguj, zaloguj jako właściciel, czerwony przycisk „Panel Właściciela” → zakładka „Rezerwacje” | Rezerwacja gościa na liście, pod statusem „wpłata do …” | |
+| A9 | „Szczegóły” → zarejestruj płatność 300 zł kartą | Płatność na liście, „wpłacono 300.00 PLN”, status nadal „Oczekująca”, „Do zapłaty 450.00 PLN do …” | |
+| A10 | Zarejestruj drugą płatność (kwota podpowiada się jako 450 zł) | „wpłacono 750.00 PLN”, status zmienia się automatycznie na „Potwierdzona” | |
+| A11 | Zamknij szczegóły, lista rezerwacji | Status „Potwierdzona”, bez dopisku „wpłata do” | |
 | A12 | Spróbuj wystawić fakturę | Przycisk nieaktywny: faktura dopiero po zrealizowaniu | |
-| A13 | Zmień status na „Zrealizowana”, w szczegółach „Wystaw fakturę” | Faktura `FV/rrrr/mm/000nn` na 750 zł, przycisk znika | |
+| A13 | Zmień status na „Zrealizowana”, w szczegółach „Wystaw fakturę” | Faktura `FV/rrrr/mm/nnnnn` na 750 zł (kolejny numer w bieżącym miesiącu – pierwsza faktura w miesiącu to `00001`), przycisk znika | |
 | A14 | Zaloguj jako gość, szczegóły rezerwacji | Widoczne płatności i faktura, formularz opinii | |
 | A15 | Dodaj opinię 5★ z komentarzem | „Dziękujemy za wystawienie opinii!”, formularz zastąpiony opinią | |
 | A16 | Zaloguj jako właściciel, „Panel Właściciela” → zakładka „Opinie” | Opinia gościa na liście, „Usuń” działa po potwierdzeniu | |
@@ -88,25 +100,35 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | C2 | Gość 2 sprawdza Apartament Premium 03.04.2027 – 07.04.2027 | „Brak wolnych pokoi w wybranym terminie.” | |
 | C3 | Gość 2 sprawdza Apartament Premium 05.04.2027 – 07.04.2027 | Pokój dostępny (zameldowanie w dniu wymeldowania gościa 1) | |
 | C4 | Data wymeldowania wcześniejsza niż zameldowania | Komunikat o nieprawidłowym terminie | |
-| C5 | Gość anuluje przyszłą rezerwację z C1 (szczegóły → „Anuluj rezerwację”) | Status „Anulowana”, termin z C2 staje się dostępny | |
+| C5 | Gość anuluje przyszłą rezerwację z C1 (szczegóły → „Anuluj rezerwację”) | Przy przycisku warunki anulowania („Bezpłatne anulowanie do …”), w potwierdzeniu kwota zwrotu; po anulowaniu status „Anulowana”, termin z C2 staje się dostępny, gość i właściciel dostają powiadomienie z kwotą zwrotu | |
 | C6 | Właściciel blokuje pokój 201 (zakładka „Blokady”) 10.05.2027 – 15.05.2027, powód „remont” | Blokada na liście | |
 | C7 | Gość sprawdza Apartament Premium 12.05.2027 – 14.05.2027 | Brak wolnych pokoi | |
 | C8 | Właściciel blokuje pokój w terminie z aktywną rezerwacją | Błąd „W tym terminie pokój ma aktywne rezerwacje…” | |
 | C9 | Właściciel dodaje wpis cennika nachodzący na sezon 01.06–31.08.2027 | Błąd „Okres nakłada się na istniejący wpis cennika…” | |
-| C10 | Właściciel zmienia status anulowanej rezerwacji (albo z niestawieniem się) na „Potwierdzona” | Lista statusów nieaktywna (takiej rezerwacji nie da się przywrócić - jej noce wróciły do puli wolnych) | |
+| C10 | Właściciel zmienia status anulowanej rezerwacji na „Potwierdzona” | Lista statusów nieaktywna (takiej rezerwacji nie da się przywrócić - jej noce wróciły do puli wolnych) | |
 | C11 | Formularz „Zarezerwuj pobyt”: liczba gości 3 | Pokój Standardowy (max 2 os.) nieaktywny na liście z dopiskiem „za mały”; gdy był wybrany - komunikat i nieaktywny przycisk „Sprawdź cenę i dostępność” | |
 | C12 | `POST /api/Reservation/create` (Swagger, token gościa) dla Pokoju Standardowego z `numberOfGuests: 3` | 400 „Liczba gości musi wynosić od 1 do 2 - tyle osób mieści wybrany pokój.” | |
 | C13 | Rezerwacja Apartamentu Premium dla 4 osób, potem szczegóły rezerwacji (gość) i zakładka „Rezerwacje” (właściciel) | Rezerwacja utworzona; liczba gości „4 osoby” widoczna w szczegółach i na liście w panelu | |
+| C14 | Gość składa rezerwację i jej nie opłaca; w bazie (SSMS) ustaw tej rezerwacji `PaymentDeadline` na wczorajszą datę i uruchom ponownie API | Status „Anulowana”; gość i właściciel dostają powiadomienie o anulowaniu z powodu braku wpłaty; termin znów dostępny w wyszukiwarce | |
+| C15 | Wystaw fakturę dla dwóch różnych zrealizowanych rezerwacji (np. #12, potem #5) | Numery `…/00001` i `…/00002` w kolejności wystawienia, niezależnie od numerów rezerwacji | |
+| C16 | Swagger: `POST /api/Reservation/price` z wyjazdem przed przyjazdem, potem z pobytem 61 nocy | 400 „Nieprawidłowy termin pobytu…”, potem 400 „Pobyt może trwać maksymalnie 60 nocy.” (ta sama reguła w `create`, `search`, `availability`, `alternatives`) | |
+| C17 | Właściciel → „Usługi Dodatkowe” → „Usuń” przy Śniadaniu zamówionym wcześniej w rezerwacji | Komunikat „Tej usługi nie można usunąć, bo była już zamawiana…”; usługa zostaje, rozliczenie starych rezerwacji bez zmian | |
+| C18 | „Edytuj” przy tej usłudze, odznacz „Dostępna w ofercie”, zapisz; gość otwiera formularz rezerwacji | Na liście w panelu „wycofana”; gość nie widzi usługi w formularzu; stare rezerwacje nadal ją pokazują | |
+| C19 | Szczegóły rezerwacji za 750 zł z wpłatą 750 zł → zarejestruj kolejną wpłatę 10 zł | Błąd „Rezerwacja jest już opłacona w całości.” | |
+| C20 | Właściciel anuluje opłaconą rezerwację, potem w szczegółach formularz płatności | „Do zwrotu gościowi: … PLN”; formularz podpowiada zwrot całej wpłaty, jedyny status to „Zwrot”; zwrot większy niż wpłaty – błąd; po zwrocie „Rozliczone – nic więcej do zwrotu.”, a formularz znika | |
+| C21 | Gość opłaca w całości rezerwację z przyjazdem za 3 dni i ją anuluje | Przed anulowaniem: „Anulowanie teraz: opłata 30% ceny, zwrot reszty”; po anulowaniu: „Opłata za anulowanie (zostaje w hotelu): …”, „Do zwrotu gościowi: …” (70% ceny) | |
+| C22 | Właściciel próbuje zwrócić w C21 całą wpłatę | Błąd „Do zwrotu zostało … PLN - hotel zatrzymuje … PLN opłaty za anulowanie.”; zwrot 70% ceny przechodzi | |
 
 ### Scenariusz D: bezpieczeństwo i sesja
 
 | # | Krok | Oczekiwany wynik | Wynik |
 |---|------|------------------|-------|
 | D1 | Logowanie złym hasłem | „Nieprawidłowy email lub hasło.” | |
-| D2 | Wywołanie `GET /api/Reservation/all` bez tokenu (Swagger lub `API.http`) | 401 Unauthorized | |
+| D2 | Wywołanie `GET /api/Reservation/all` bez tokenu (Swagger) | 401 Unauthorized | |
 | D3 | Wywołanie `GET /api/Reservation/all` z tokenem gościa | 403 Forbidden (tylko rola Owner) | |
 | D4 | W przeglądarce: F12 → Application → Local Storage → ustaw `token_expiration` na datę z przeszłości, odśwież stronę | Wylogowanie z komunikatem „Sesja wygasła. Zaloguj się ponownie.” | |
 | D5 | Gość otwiera szczegóły cudzej rezerwacji (`GET /api/Reservation/{id}` z jego tokenem) | 403 Forbidden | |
+| D6 | Swagger: `POST /api/Reservation/create` z tokenem właściciela | 403 Forbidden (rezerwację składa tylko gość) | |
 
 ### Scenariusz E: strona główna, wyszukiwarka, profil pokoju i zdjęcia
 
@@ -115,6 +137,8 @@ W kolumnie „Wynik” wpisz ✅ lub ❌ i opis błędu.
 | E1 | Właściciel → „Panel Właściciela” → „Typy Pokoi” → „Edytuj” przy typie pokoju, uzupełnij opis, zapisz | Komunikat sukcesu, opis widoczny na stronie pokoju | |
 | E2 | „Zdjęcia” → „Dodaj zdjęcia”, wybierz 3 pliki JPG/PNG | Miniatury w oknie, pierwsze oznaczone jako „Główne”, w tabeli liczba zdjęć 3 | |
 | E3 | Dodaj plik GIF albo większy niż 5 MB | Komunikat o nieobsługiwanym formacie / za dużym pliku, nic nie zostaje zapisane | |
+| E3a | Swagger: `POST /api/RoomType/{id}/photos` z plikiem tekstowym albo programem przemianowanym na `.jpg` | 400 „Plik … nie jest prawidłowym obrazem JPG.”, nic nie zostaje zapisane | |
+| E3b | W panelu dodaj zdjęcie z telefonu/aparatu (np. 4000 × 3000 px, nawet ponad 5 MB) | Zdjęcie przyjęte; w folderze `uploads/room-types` ma maks. 1600 px na dłuższym boku (kilkaset KB) i nie zawiera danych EXIF | |
 | E4 | „Ustaw jako główne” przy drugim zdjęciu | To zdjęcie wyświetla się na kafelku na stronie głównej | |
 | E5 | „Usuń” przy zdjęciu (po potwierdzeniu) | Zdjęcie znika z listy i z folderu `Backend/API/uploads/room-types` | |
 | E6 | Wyloguj się, otwórz stronę główną | Sekcja powitalna z wyszukiwarką; kafelki ze zdjęciem, średnią oceną (lub „Brak opinii”), do 3 udogodnień i ceną za noc | |

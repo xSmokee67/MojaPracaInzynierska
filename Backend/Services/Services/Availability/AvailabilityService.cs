@@ -10,7 +10,7 @@ namespace Services.Services;
 
 // Moduł zarządzania dostępnością. Pokój jest wolny w terminie, gdy:
 // - ma status "available" (nie jest sprzątany, w remoncie ani wyłączony),
-// - nie ma rezerwacji nachodzącej na termin (anulowana i niestawienie się nie zajmują pokoju),
+// - nie ma rezerwacji nachodzącej na termin (anulowana nie zajmuje pokoju),
 // - nie ma blokady nachodzącej na termin.
 // Terminy to przedziały [początek, koniec) - dzień wymeldowania / koniec blokady jest już wolny dla kolejnego gościa.
 public class AvailabilityService : IAvailabilityService
@@ -29,9 +29,9 @@ public class AvailabilityService : IAvailabilityService
     }
 
     // Reguła kolizji terminów - jedna dla rezerwacji i blokad: A.początek < B.koniec i A.koniec > B.początek.
-    // Rezerwacja anulowana albo z niestawieniem się gościa nie zajmuje pokoju - jej noce wracają do puli wolnych.
+    // Rezerwacja anulowana (przez gościa, hotel albo automatycznie - brak wpłaty w terminie) nie zajmuje pokoju - jej noce wracają do puli wolnych.
     private static Expression<Func<Reservation, bool>> ActiveReservationOverlaps(DateTime startDate, DateTime endDate) =>
-        r => r.Status != ReservationStatus.Cancelled && r.Status != ReservationStatus.NoShow && r.CheckInDate < endDate && r.CheckOutDate > startDate;
+        r => r.Status != ReservationStatus.Cancelled && r.CheckInDate < endDate && r.CheckOutDate > startDate;
 
     private static Expression<Func<RoomBlock, bool>> BlockOverlaps(DateTime startDate, DateTime endDate) =>
         b => b.StartDate < endDate && b.EndDate > startDate;
@@ -142,10 +142,8 @@ public class AvailabilityService : IAvailabilityService
                 continue;
             }
 
-            await UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Free);
             reservation.RoomId = newRoomId.Value;
             await _context.SaveChangesAsync();
-            await UpdateAvailabilityAsync(reservation.RoomId, reservation.CheckInDate, reservation.CheckOutDate, AvailabilityStatus.Booked);
 
             relocated.Add(new RelocatedReservationDto
             {
@@ -223,39 +221,6 @@ public class AvailabilityService : IAvailabilityService
         }
 
         return alternatives.OrderBy(a => a.CheckInDate).ToList();
-    }
-
-    // Ustawia status (free / booked / blocked) dla każdej nocy z zakresu [startDate, endDate)
-    // - tak samo jak przy rezerwacji: dzień wymeldowania / koniec blokady jest już wolny.
-    public async Task UpdateAvailabilityAsync(int roomId, DateTime startDate, DateTime endDate, string status)
-    {
-        var start = startDate.Date;
-        var end = endDate.Date;
-
-        var existingEntries = await _context.Availabilities
-            .Where(a => a.RoomId == roomId && a.Date >= start && a.Date < end)
-            .ToListAsync();
-
-        for (var date = start; date < end; date = date.AddDays(1))
-        {
-            var entry = existingEntries.FirstOrDefault(a => a.Date.Date == date);
-
-            if (entry == null)
-            {
-                _context.Availabilities.Add(new Availability
-                {
-                    RoomId = roomId,
-                    Date = date,
-                    Status = status
-                });
-            }
-            else
-            {
-                entry.Status = status;
-            }
-        }
-
-        await _context.SaveChangesAsync();
     }
 
     public async Task<List<RoomAvailabilityDto>> GetCalendarAsync(DateTime from, DateTime to)
