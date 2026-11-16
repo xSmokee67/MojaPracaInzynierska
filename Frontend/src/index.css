@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
-/* Kolory i krój marki hotelu - dostępne jako klasy Tailwinda, np. bg-navy-900, text-brass-400, font-display, bg-mist */
+/* Kolory i kroje marki hotelu - dostępne jako klasy Tailwinda, np. bg-navy-900, text-brass-700, bg-sand-100, font-display, max-w-page */
 @theme {
-  --font-display: "Fraunces Variable", Georgia, serif;
+  /* Styl szwajcarski: nagłówki krojem geometrycznym (Space Grotesk), tekst - Inter */
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+  --font-display: "Space Grotesk Variable", "Inter Variable", system-ui, sans-serif;
 
   --color-navy-950: #0c1628;
   --color-navy-900: #14213d;
@@ -12,8 +14,30 @@
   --color-brass-300: #e3c98a;
   --color-brass-400: #d4b064;
   --color-brass-500: #c49a3c;
+  --color-brass-700: #8c6a1f;
 
-  --color-mist: #eef3f7;
+  /* Ciepłe tła sekcji, pól wyszukiwarki i podsumowań cen */
+  --color-sand-50: #faf8f4;
+  --color-sand-100: #f6f3ee;
+  --color-sand-200: #eee9e0;
+  --color-sand-300: #e6e2da;
+  --color-sand-400: #d5cfc3;
+
+  /* Kolory stanów: zielony - wolne / opłacone, bursztynowy - oczekuje, ceglasty - brak miejsc / błąd, niebieskoszary - informacja */
+  --color-success-50: #e3f1e8;
+  --color-success-200: #bfdcc9;
+  --color-success-700: #1f5a3d;
+  --color-warning-50: #fbefd6;
+  --color-warning-100: #f3e3bc;
+  --color-warning-700: #7a4b00;
+  --color-danger-50: #fbede4;
+  --color-danger-200: #e7c4b4;
+  --color-danger-700: #8a3b12;
+  --color-danger-800: #9a3412;
+  --color-info-50: #e4e9f2;
+
+  /* Szerokość treści strony (1200 px) */
+  --container-page: 75rem;
 }
 
 @layer base {
@@ -22,22 +46,95 @@
     border-color: var(--color-slate-300);
   }
 
-  /* Nagłówki stron i sekcji krojem szeryfowym, tekst - bezszeryfowym */
+  body {
+    background-color: var(--color-white);
+    color: var(--color-navy-900);
+  }
+
+  /* Nagłówki stron i sekcji krojem geometrycznym, tekst - bezszeryfowym */
   h1, h2, h3 {
     font-family: var(--font-display);
     letter-spacing: -0.01em;
   }
 }
 
-/* Tło strony głównej: zdjęcie hotelu z granatowym przyciemnieniem, przechodzące w kolor strony */
-.home-backdrop {
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 40rem;
-  z-index: -1;
+/* Wspólne elementy interfejsu - te same przyciski, pola i karty na stronie gościa i w panelu właściciela */
+@layer components {
+  /* Główny przycisk akcji (granatowy) */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-navy-900 px-5 py-3 font-semibold text-white transition-colors hover:bg-navy-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500;
+  }
+
+  /* Przycisk drugorzędny (obrys) */
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-navy-900 bg-white px-5 py-3 font-semibold text-navy-900 transition-colors hover:bg-sand-100 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400 disabled:hover:bg-white;
+  }
+
+  /* Przycisk operacji nieodwracalnej (anulowanie, usunięcie) */
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-danger-200 bg-white px-5 py-3 font-semibold text-danger-800 transition-colors hover:bg-danger-50 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* Okrągły przełącznik filtra lub sortowania - aktywny dostaje klasę chip-active */
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-navy-900 transition-colors hover:border-navy-900;
+  }
+  .chip-active {
+    @apply border-navy-900 bg-navy-900 text-white;
+  }
+
+  /* Mały nagłówek nad treścią (wersaliki, kolor mosiądzu) */
+  .eyebrow {
+    @apply text-xs font-semibold tracking-[0.08em] text-brass-700 uppercase;
+  }
+
+  /* Pole formularza i jego etykieta */
+  .field {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-navy-900 outline-none transition-colors focus:border-navy-900 disabled:bg-sand-100 disabled:text-slate-500;
+  }
+  .field-label {
+    @apply flex flex-col gap-1.5 text-sm font-semibold text-navy-900;
+  }
+
+  /* Karta z cienką ramką */
+  .card {
+    @apply rounded-2xl border border-sand-300 bg-white;
+  }
+
+  /* Link tekstowy */
+  .link {
+    @apply font-semibold text-navy-900 underline decoration-brass-400 decoration-2 underline-offset-4 transition-colors hover:text-brass-700;
+  }
+
+  /* Tabele panelu właściciela: nagłówek na piaskowym tle, cienkie linie między wierszami */
+  .data-table {
+    @apply w-full text-left text-sm;
+  }
+  .data-table thead {
+    @apply bg-sand-50 text-xs font-semibold tracking-[0.06em] text-slate-500 uppercase;
+  }
+  .data-table tbody tr {
+    @apply border-t border-sand-200;
+  }
+}
+
+/* Zdjęcie hotelu z granatowym przyciemnieniem - pas pod menu na stronie głównej */
+.hero-photo {
   background:
-    linear-gradient(180deg, rgb(20 33 61 / 0.7) 0%, rgb(20 33 61 / 0.5) 45%, rgb(238 243 247 / 0.9) 88%, var(--color-mist) 100%),
+    linear-gradient(90deg, rgb(12 22 40 / 0.8) 0%, rgb(12 22 40 / 0.5) 55%, rgb(12 22 40 / 0.2) 100%),
     url('./assets/tlo-hotel.jpg') center 55% / cover no-repeat;
+}
+
+/* To samo zdjęcie w pionie - lewa połowa ekranu logowania */
+.login-photo {
+  background:
+    linear-gradient(180deg, rgb(12 22 40 / 0.25) 0%, rgb(12 22 40 / 0.85) 100%),
+    url('./assets/tlo-hotel.jpg') center / cover no-repeat;
+}
+
+/* Zablokowana noc w kalendarzu właściciela (remont, konserwacja) - szare paski */
+.stripes {
+  background: repeating-linear-gradient(45deg, #d9dde3 0 6px, #eef0f3 6px 12px);
 }
 
 /* Widoczny fokus przy obsłudze klawiaturą (pola mają klasę outline-none) - poza warstwami, więc ma pierwszeństwo */

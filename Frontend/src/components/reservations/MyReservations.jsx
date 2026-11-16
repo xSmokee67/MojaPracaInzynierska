@@ -2,14 +2,19 @@
 import { useState, useEffect } from 'react';
 import { reservationStatusLabels, reservationStatusStyles } from '../../utils/statuses';
 import { getMyReservations } from '../../api/reservationApi';
+import { getRoomTypes } from '../../api/adminApi';
+import { photoUrl } from '../../api/roomApi';
 import { errorMessage } from '../../api/apiErrors';
-import { formatDate } from '../../utils/format';
+import { formatDate, nightsLabel } from '../../utils/format';
 import ReservationDetails from './ReservationDetails';
 import Alert from '../common/Alert';
+import RoomPhotoPlaceholder from '../common/RoomPhotoPlaceholder';
 
+// Lista rezerwacji gościa z panelem szczegółów obok.
 // Szczegóły rezerwacji otwierają się pod własnym adresem (#/moje-rezerwacje/12) - także z powiadomienia
 export default function MyReservations({ token, refreshKey, selectedReservationId, onSelectReservation }) {
   const [reservations, setReservations] = useState([]);
+  const [photos, setPhotos] = useState({});
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
@@ -28,6 +33,19 @@ export default function MyReservations({ token, refreshKey, selectedReservationI
     loadData();
   }, [token, refreshKey, reloadKey]);
 
+  // Zdjęcia typów pokoi do kart rezerwacji (lista rezerwacji zawiera nazwę typu pokoju) - brak zdjęć nie blokuje listy
+  useEffect(() => {
+    const loadPhotos = async () => {
+      try {
+        const types = await getRoomTypes();
+        setPhotos(Object.fromEntries(types.filter(rt => rt.mainPhotoUrl).map(rt => [rt.name, photoUrl(rt.mainPhotoUrl)])));
+      } catch {
+        // karty pokażą obrazek zastępczy
+      }
+    };
+    loadPhotos();
+  }, []);
+
   // Aktywna = oczekująca lub potwierdzona, której termin wymeldowania jeszcze nie minął
   const isActive = (r) => {
     const today = new Date();
@@ -35,52 +53,72 @@ export default function MyReservations({ token, refreshKey, selectedReservationI
     return (r.status === 'pending' || r.status === 'confirmed') && new Date(r.checkOutDate) >= today;
   };
 
-  const filteredReservations = reservations.filter(r =>
-    filter === 'all' ? true : filter === 'active' ? isActive(r) : !isActive(r)
-  );
+  const filters = [
+    { id: 'all', label: 'Wszystkie', test: () => true },
+    { id: 'active', label: 'Nadchodzące', test: isActive },
+    { id: 'history', label: 'Historia', test: r => !isActive(r) }
+  ];
+  const filteredReservations = reservations.filter(filters.find(f => f.id === filter).test);
+  const selected = reservations.find(r => r.reservationId === selectedReservationId);
+  const nightsOf = (r) => Math.round((new Date(r.checkOutDate).getTime() - new Date(r.checkInDate).getTime()) / 86400000);
 
   return (
-    <div className="w-full max-w-5xl p-4 md:p-6 bg-white rounded-xl shadow-lg space-y-6">
-      <div className="flex flex-wrap justify-between items-center gap-4 border-b pb-4">
-        <h2 className="text-2xl font-bold text-slate-800">Moje rezerwacje</h2>
+    <div className="w-full max-w-page space-y-6">
+      <div className="flex flex-wrap justify-between items-end gap-4">
+        <h1 className="text-4xl md:text-[2.75rem] font-medium">Moje rezerwacje</h1>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${filter === 'all' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Wszystkie</button>
-          <button onClick={() => setFilter('active')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${filter === 'active' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Aktywne</button>
-          <button onClick={() => setFilter('history')} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${filter === 'history' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Historia</button>
+          {filters.map(f => (
+            <button key={f.id} onClick={() => setFilter(f.id)} aria-pressed={filter === f.id} className={`chip ${filter === f.id ? 'chip-active' : ''}`}>
+              {f.label} ({reservations.filter(f.test).length})
+            </button>
+          ))}
         </div>
       </div>
 
       {error && <Alert type="error" message={error} />}
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-100 text-slate-600 text-sm border-b">
-              <th className="p-4 font-semibold">Nr</th><th className="p-4 font-semibold">Pokój</th>
-              <th className="p-4 font-semibold">Termin pobytu</th><th className="p-4 font-semibold">Usługi dodatkowe</th>
-              <th className="p-4 font-semibold">Cena</th><th className="p-4 font-semibold">Status</th><th className="p-4 font-semibold text-right">Akcje</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredReservations.map(r => (
-              <tr key={r.reservationId} className="border-b hover:bg-slate-50">
-                <td className="p-4 text-slate-500">#{r.reservationId}</td>
-                <td className="p-4"><span className="font-bold text-slate-800">{r.roomNumber}</span> <span className="text-slate-600">({r.roomTypeName})</span></td>
-                <td className="p-4 text-slate-600">{formatDate(r.checkInDate)} - {formatDate(r.checkOutDate)}</td>
-                <td className="p-4 text-slate-600">{r.additionalServices.length > 0 ? r.additionalServices.join(', ') : '—'}</td>
-                <td className="p-4 font-bold text-emerald-600">{r.totalPrice.toFixed(2)} PLN</td>
-                <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${reservationStatusStyles[r.status] ?? 'bg-slate-100 text-slate-600'}`}>{reservationStatusLabels[r.status] ?? r.status}</span></td>
-                <td className="p-4 text-right"><button onClick={() => onSelectReservation(r.reservationId)} className="text-emerald-600 hover:text-emerald-800 font-medium text-sm">Szczegóły</button></td>
-              </tr>
-            ))}
-            {filteredReservations.length === 0 && <tr><td colSpan={7} className="p-4 text-center text-slate-500">Brak rezerwacji do wyświetlenia.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      <div className="flex flex-wrap gap-8 items-start">
+        {/* --- LISTA --- */}
+        <section className="flex-[1_1_26rem] min-w-0 space-y-3">
+          {filteredReservations.map(r => {
+            const isSelected = r.reservationId === selectedReservationId;
+            return (
+              <button key={r.reservationId} type="button" onClick={() => onSelectReservation(r.reservationId)} aria-current={isSelected}
+                className={`w-full flex gap-4 items-center text-left rounded-2xl bg-white p-3 transition-colors ${isSelected ? 'border-2 border-navy-900' : 'border border-sand-300 m-px hover:border-navy-900'}`}>
+                <span className="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-sand-100">
+                  {photos[r.roomTypeName] ? <img src={photos[r.roomTypeName]} alt="" loading="lazy" className="w-full h-full object-cover" /> : <RoomPhotoPlaceholder />}
+                </span>
+                <span className="min-w-0 flex-1 flex flex-col gap-1">
+                  <span className="flex justify-between items-center gap-2">
+                    <span className="text-[13px] text-slate-500">Rezerwacja #{r.reservationId} · pokój {r.roomNumber}</span>
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${reservationStatusStyles[r.status] ?? 'bg-slate-100 text-slate-600'}`}>{reservationStatusLabels[r.status] ?? r.status}</span>
+                  </span>
+                  <span className="font-display text-xl">{r.roomTypeName}</span>
+                  <span className="text-sm text-slate-600">{formatDate(r.checkInDate)} - {formatDate(r.checkOutDate)} · {nightsLabel(nightsOf(r))}</span>
+                  <span className="text-sm font-semibold">
+                    {r.totalPrice.toFixed(2)} zł
+                    {r.status === 'pending' && <span className="font-medium text-warning-700"> · opłać do {formatDate(r.paymentDeadline)}</span>}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+          {filteredReservations.length === 0 && <p className="p-6 rounded-2xl bg-sand-100 text-slate-600">Brak rezerwacji do wyświetlenia.</p>}
+        </section>
 
-      {selectedReservationId && (
-        <ReservationDetails token={token} reservationId={selectedReservationId} isOwner={false} onClose={() => onSelectReservation(null)} onChanged={() => setReloadKey(key => key + 1)} />
-      )}
+        {/* --- SZCZEGÓŁY WYBRANEJ REZERWACJI --- */}
+        <div className="flex-[1_1_32rem] min-w-0">
+          {selectedReservationId ? (
+            <ReservationDetails key={selectedReservationId} token={token} reservationId={selectedReservationId} isOwner={false} inline photo={selected ? photos[selected.roomTypeName] : null}
+              onClose={() => onSelectReservation(null)} onChanged={() => setReloadKey(key => key + 1)} />
+          ) : (
+            <div className="hidden lg:flex flex-col items-center justify-center gap-2 min-h-80 rounded-2xl border border-dashed border-sand-400 p-8 text-center text-slate-500">
+              <span className="font-display text-xl text-navy-900">Wybierz rezerwację z listy</span>
+              <span className="text-sm">Zobaczysz rozliczenie, zmienisz termin, anulujesz pobyt albo wystawisz opinię.</span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

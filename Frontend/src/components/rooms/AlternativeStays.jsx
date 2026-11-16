@@ -23,7 +23,7 @@ export default function AlternativeStays({ roomTypeId, checkIn, checkOut, onSele
     loadData();
   }, [roomTypeId, checkIn, checkOut]);
 
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
+  if (error) return <p className="text-sm text-danger-700">{error}</p>;
   if (stays === null) return <p className="text-sm text-slate-500">Szukamy najbliższych wolnych terminów...</p>;
 
   if (stays.length === 0) {
@@ -32,16 +32,16 @@ export default function AlternativeStays({ roomTypeId, checkIn, checkOut, onSele
 
   return (
     <div className="space-y-2">
-      <div className="text-sm font-semibold text-slate-700">Najbliższe wolne terminy tej samej długości:</div>
-      <div className="grid gap-2">
+      <div className="text-sm font-semibold">Najbliższe wolne terminy tej samej długości:</div>
+      <div className="flex flex-wrap gap-2">
         {stays.map(s => (
           <button key={s.checkInDate} type="button" onClick={() => onSelectStay(s.checkInDate.slice(0, 10), s.checkOutDate.slice(0, 10))}
-            className="flex justify-between items-center gap-3 px-3 py-2 rounded-lg border border-emerald-200 bg-white text-left text-sm hover:bg-emerald-50 hover:border-emerald-400 transition-colors">
+            className="flex-1 basis-56 flex justify-between items-center gap-3 px-3.5 py-2.5 rounded-xl border border-navy-900 bg-white text-left text-sm hover:bg-sand-100 transition-colors">
             <span>
-              <span className="font-semibold text-slate-800">{formatDate(s.checkInDate)} - {formatDate(s.checkOutDate)}</span>
+              <span className="font-semibold">{formatDate(s.checkInDate)} - {formatDate(s.checkOutDate)}</span>
               <span className="block text-xs text-slate-500">{s.availableRooms === 1 ? 'ostatni wolny pokój' : `wolne pokoje: ${s.availableRooms}`}</span>
             </span>
-            <span className="font-bold text-emerald-700 whitespace-nowrap">{s.totalPrice} PLN</span>
+            <span className="font-semibold whitespace-nowrap">{s.totalPrice} zł</span>
           </button>
         ))}
       </div>

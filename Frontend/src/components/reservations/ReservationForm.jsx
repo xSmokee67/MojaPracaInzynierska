@@ -2,9 +2,11 @@
 import { useState, useEffect } from 'react';
 import { checkAvailability, calculatePrice, createReservation } from '../../api/reservationApi';
 import { getRoomTypes, getAdditionalServices } from '../../api/adminApi';
+import { photoUrl } from '../../api/roomApi';
 import { errorMessage } from '../../api/apiErrors';
-import { formatDate, toInputDate, personsLabel } from '../../utils/format';
+import { formatDate, toInputDate, personsLabel, nightsLabel } from '../../utils/format';
 import AlternativeStays from '../rooms/AlternativeStays';
+import RoomPhotoPlaceholder from '../common/RoomPhotoPlaceholder';
 import { serviceChargeTypeLabels, serviceQuantity } from '../../utils/statuses';
 
 // Sprawdzenie dostępności i ceny pobytu - wspólne dla przycisku "Sprawdź cenę i dostępność"
@@ -26,7 +28,8 @@ const checkStay = async (roomTypeId, checkInDate, checkOutDate, additionalServic
   return { isAvailable: true, totalPrice: priceData.totalPrice, message: 'Pokój dostępny! Możesz dokończyć rezerwację.' };
 };
 
-export default function ReservationForm({ token, onReservationCreated, initialRoomTypeId, initialCheckIn, initialCheckOut, initialGuests }) {
+// Formularz rezerwacji: termin i pokój, usługi dodatkowe i podsumowanie ceny obok (onNavigate - powrót do pokoju, przejście do "Moich rezerwacji")
+export default function ReservationForm({ token, onReservationCreated, onNavigate, initialRoomTypeId, initialCheckIn, initialCheckOut, initialGuests }) {
   const [roomTypes, setRoomTypes] = useState([]);
   const [services, setServices] = useState([]);
 
@@ -55,8 +58,9 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
         const guests = initialGuests ?? (selected ? Math.min(2, selected.maxOccupancy) : 1);
         if (initialGuests == null) setNumberOfGuests(guests);
 
+        // Gościom proponujemy tylko usługi dostępne w ofercie (wycofane zostają w historii rezerwacji)
         const servicesData = await getAdditionalServices();
-        setServices(servicesData);
+        setServices(servicesData.filter(s => s.isActive));
 
         // Pokój i termin wybrane w wyszukiwarce - od razu pokazujemy dostępność i cenę, gość tylko potwierdza
         // (o ile pokój mieści tylu gości, ilu wybrano w wyszukiwarce)
@@ -171,140 +175,176 @@ export default function ReservationForm({ token, onReservationCreated, initialRo
         numberOfGuests,
         additionalServiceIds
       };
-      await createReservation(payload, token);
+      const result = await createReservation(payload, token);
       setIsSuccess(true);
       setAdditionalServiceIds([]);
       resetCheck();
       onReservationCreated();
-      setStatusMessage('Rezerwacja została pomyślnie potwierdzona!');
+      // Komunikat z API zawiera termin płatności
+      setStatusMessage(result?.message ?? 'Rezerwacja została złożona.');
     } catch (err) {
       setIsError(true);
       setStatusMessage(errorMessage(err));
     }
   };
 
+  // Usługi wybrane przez gościa z liczbą naliczeń, np. "Śniadanie: 8 × 50 zł" - do kart usług i podsumowania
+  const servicesTotal = (s) => serviceQuantity(s.chargeType, nights, numberOfGuests ?? 1) * s.price;
+  const selectedServices = services.filter(s => additionalServiceIds.includes(s.serviceId));
+  const selectedServicesSum = selectedServices.reduce((sum, s) => sum + servicesTotal(s), 0);
+  const isChecked = isAvailable && totalPrice !== null;
+
+  // Kroki rezerwacji nad formularzem: termin sprawdzony -> usługi -> potwierdzenie
+  const steps = [
+    { label: 'Termin i pokój', done: isChecked },
+    { label: 'Usługi dodatkowe', done: false },
+    { label: 'Potwierdzenie', done: false }
+  ];
+  const currentStep = isChecked ? 1 : 0;
+
   if (isSuccess) {
     return (
-      <div className="w-full max-w-lg p-8 bg-emerald-50 rounded-xl border border-emerald-200 text-center space-y-4">
-        <div className="text-5xl">🎉</div>
-        <h2 className="text-2xl font-bold text-emerald-800">Udało się!</h2>
-        <p className="text-emerald-600">{statusMessage}</p>
-        <button onClick={() => { setIsSuccess(false); setStatusMessage(''); }} className="mt-4 px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
-          Złóż kolejną rezerwację
-        </button>
+      <div className="w-full max-w-xl py-10 md:py-16 text-center space-y-5">
+        <div className="mx-auto w-16 h-16 rounded-full bg-success-50 text-success-700 text-3xl flex items-center justify-center" aria-hidden="true">✓</div>
+        <h1 className="text-3xl md:text-4xl font-medium">Rezerwacja złożona</h1>
+        <p className="text-slate-600 leading-relaxed">{statusMessage}</p>
+        <div className="flex flex-wrap justify-center gap-3 pt-2">
+          <button onClick={() => onNavigate('/moje-rezerwacje')} className="btn-primary">Przejdź do moich rezerwacji</button>
+          <button onClick={() => { setIsSuccess(false); setStatusMessage(''); }} className="btn-outline">Złóż kolejną rezerwację</button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-lg p-6 md:p-8 bg-white rounded-xl shadow-lg space-y-6">
-      <h2 className="text-2xl font-bold text-slate-800 border-b pb-2">Zarezerwuj pobyt</h2>
-      
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-700">Liczba gości</label>
-          <select
-            value={numberOfGuests ?? ''}
-            onChange={(e) => { setNumberOfGuests(Number(e.target.value)); resetCheck(); }}
-            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-          >
-            {Array.from({ length: maxGuests }, (_, i) => i + 1).map(n => <option key={n} value={n}>{personsLabel(n)}</option>)}
-          </select>
-        </div>
+    <div className="w-full max-w-page">
+      {selectedRoomType && <button type="button" onClick={() => onNavigate(`/pokoj/${selectedRoomType.roomTypeId}`)} className="text-sm text-slate-500 hover:text-brass-700 hover:underline">← Wróć do pokoju</button>}
+      <h1 className="mt-3 text-4xl md:text-[2.75rem] font-medium">Twoja rezerwacja</h1>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700">Typ Pokoju</label>
-          <select
-            value={roomTypeId}
-            onChange={(e) => { setRoomTypeId(Number(e.target.value)); resetCheck(); }}
-            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            {roomTypes.map(rt => (
-              // Pokoje za małe dla wybranej liczby gości są nieaktywne
-              <option key={rt.roomTypeId} value={rt.roomTypeId} disabled={numberOfGuests !== null && rt.maxOccupancy < numberOfGuests}>
-                {rt.name} (od {rt.basePrice} PLN/noc, max {rt.maxOccupancy} os.){numberOfGuests !== null && rt.maxOccupancy < numberOfGuests ? ' - za mały' : ''}
-              </option>
-            ))}
-          </select>
-          {!fitsGuests && (
-            <p className="mt-1 text-sm font-medium text-amber-700">
-              Ten pokój mieści maksymalnie {personsLabel(selectedRoomType.maxOccupancy)}. Wybierz większy pokój albo zmniejsz liczbę gości.
-            </p>
-          )}
-        </div>
+      <ol className="flex flex-wrap items-center gap-2.5 mt-5 mb-8 text-sm font-semibold">
+        {steps.map((step, i) => (
+          <li key={step.label} className={`flex items-center gap-2 ${step.done ? 'text-success-700' : i === currentStep ? 'text-navy-900' : 'text-slate-400'}`}>
+            {i > 0 && <span className="mr-0.5 text-slate-300" aria-hidden="true">—</span>}
+            <span className={`w-[26px] h-[26px] rounded-full flex items-center justify-center ${step.done ? 'bg-success-50' : i === currentStep ? 'bg-navy-900 text-white' : 'border border-slate-300'}`}>{step.done ? '✓' : i + 1}</span>
+            {step.label}
+          </li>
+        ))}
+      </ol>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Od (Zameldowanie)</label>
-            <input type="date" min={today} value={checkInDate} onChange={(e) => { setCheckInDate(e.target.value); resetCheck(); }} className="w-full mt-1 px-4 py-2 border rounded-lg outline-none" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Do (Wymeldowanie)</label>
-            <input type="date" min={checkInDate || today} value={checkOutDate} onChange={(e) => { setCheckOutDate(e.target.value); resetCheck(); }} className="w-full mt-1 px-4 py-2 border rounded-lg outline-none" />
-          </div>
-        </div>
-
-        {services.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Usługi dodatkowe</label>
-            <div className="mt-2 space-y-2">
-              {services.map(s => (
-                <label key={s.serviceId} className="flex items-center justify-between px-4 py-2 border rounded-lg text-sm text-slate-700 cursor-pointer hover:bg-slate-50">
-                  <span className="flex items-center gap-2">
-                    <input type="checkbox" checked={additionalServiceIds.includes(s.serviceId)} onChange={() => handleToggleService(s.serviceId)} className="accent-emerald-600" />
-                    {s.name}
-                  </span>
-                  <span className="font-medium text-slate-500">+{s.price} PLN {serviceChargeTypeLabels[s.chargeType] ?? ''}</span>
-                </label>
-              ))}
+      <div className="flex flex-wrap gap-10 items-start">
+        <div className="flex-[999_1_35rem] min-w-0 space-y-8">
+          {/* --- TERMIN I POKÓJ --- */}
+          <section className="card overflow-hidden flex flex-wrap">
+            <div className="flex-[1_1_12rem] sm:max-w-60 min-h-40 bg-sand-100">
+              {selectedRoomType?.mainPhotoUrl
+                ? <img src={photoUrl(selectedRoomType.mainPhotoUrl)} alt={selectedRoomType.name} className="w-full h-full object-cover" />
+                : <RoomPhotoPlaceholder />}
             </div>
-          </div>
-        )}
-
-        <button onClick={handleCheck} disabled={!fitsGuests} className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-          Sprawdź cenę i dostępność
-        </button>
-      </div>
-
-      {statusMessage && (
-        <div className={`p-4 rounded-lg text-sm font-medium ${isError ? 'bg-red-100 text-red-700' : isAvailable ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-          {statusMessage}
-        </div>
-      )}
-
-      {/* Brak wolnego pokoju - propozycje innych terminów tej samej długości */}
-      {isAvailable === false && !isError && (
-        <AlternativeStays roomTypeId={roomTypeId} checkIn={checkInDate} checkOut={checkOutDate} onSelectStay={handleSelectAlternative} />
-      )}
-
-      {/* Podsumowanie koszyka pokazujące wybrane opcje i koszty */}
-      {isAvailable && totalPrice !== null && (
-        <div className="p-6 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
-          <h3 className="font-bold text-slate-700 text-lg border-b pb-2">Podsumowanie kosztów</h3>
-          <div className="text-sm text-slate-600 space-y-1">
-            <div>Pokój: <span className="font-medium text-slate-800">{roomTypes.find(rt => rt.roomTypeId === roomTypeId)?.name}</span></div>
-            <div>Termin: <span className="font-medium text-slate-800">{formatDate(checkInDate)} - {formatDate(checkOutDate)}</span></div>
-            <div>Goście: <span className="font-medium text-slate-800">{personsLabel(numberOfGuests)}</span></div>
-            <div>Usługi: {additionalServiceIds.length === 0 && <span className="font-medium text-slate-800">brak</span>}</div>
-            {/* Każda usługa z liczbą naliczeń, np. "Śniadanie: 8 × 50 PLN (za osobę za noc) = 400 PLN" */}
-            {services.filter(s => additionalServiceIds.includes(s.serviceId)).map(s => {
-              const quantity = serviceQuantity(s.chargeType, nights, numberOfGuests);
-              return (
-                <div key={s.serviceId} className="pl-3">
-                  {s.name}: <span className="font-medium text-slate-800">{quantity} × {s.price} PLN</span> <span className="text-slate-500">({serviceChargeTypeLabels[s.chargeType] ?? s.chargeType})</span> = <span className="font-medium text-slate-800">{(quantity * s.price).toFixed(2)} PLN</span>
+            <div className="flex-[999_1_20rem] p-5 md:p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="field-label sm:col-span-2">Typ pokoju
+                  <select value={roomTypeId} onChange={(e) => { setRoomTypeId(Number(e.target.value)); resetCheck(); }} className="field font-normal">
+                    {roomTypes.map(rt => (
+                      // Pokoje za małe dla wybranej liczby gości są nieaktywne
+                      <option key={rt.roomTypeId} value={rt.roomTypeId} disabled={numberOfGuests !== null && rt.maxOccupancy < numberOfGuests}>
+                        {rt.name} (od {rt.basePrice} zł/noc, max {rt.maxOccupancy} os.){numberOfGuests !== null && rt.maxOccupancy < numberOfGuests ? ' - za mały' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field-label">Przyjazd
+                  <input type="date" min={today} value={checkInDate} onChange={(e) => { setCheckInDate(e.target.value); resetCheck(); }} className="field font-normal" />
+                </label>
+                <label className="field-label">Wyjazd
+                  <input type="date" min={checkInDate || today} value={checkOutDate} onChange={(e) => { setCheckOutDate(e.target.value); resetCheck(); }} className="field font-normal" />
+                </label>
+                <label className="field-label">Liczba gości
+                  <select value={numberOfGuests ?? ''} onChange={(e) => { setNumberOfGuests(Number(e.target.value)); resetCheck(); }} className="field font-normal">
+                    {Array.from({ length: maxGuests }, (_, i) => i + 1).map(n => <option key={n} value={n}>{personsLabel(n)}</option>)}
+                  </select>
+                </label>
+                <div className="flex items-end">
+                  <button onClick={handleCheck} disabled={!fitsGuests} className="btn-outline w-full">Sprawdź cenę i dostępność</button>
                 </div>
-              );
-            })}
-          </div>
-          <div className="flex justify-between items-center text-xl font-bold text-emerald-600">
-            <span>Do zapłaty:</span>
-            <span>{totalPrice.toFixed(2)} PLN</span>
-          </div>
-          <button onClick={handleBook} className="w-full py-3 bg-emerald-600 text-white rounded-lg font-bold text-lg hover:bg-emerald-700 transition-colors shadow-md">
-            Potwierdź i Rezerwuj
-          </button>
+              </div>
+              {!fitsGuests && (
+                <p className="text-sm font-medium text-warning-700">
+                  Ten pokój mieści maksymalnie {personsLabel(selectedRoomType.maxOccupancy)}. Wybierz większy pokój albo zmniejsz liczbę gości.
+                </p>
+              )}
+              {statusMessage && (
+                <p className={`text-sm font-semibold ${isError ? 'text-danger-700' : isAvailable ? 'text-success-700' : 'text-warning-700'}`}>{statusMessage}</p>
+              )}
+              {/* Brak wolnego pokoju - propozycje innych terminów tej samej długości */}
+              {isAvailable === false && !isError && (
+                <AlternativeStays roomTypeId={roomTypeId} checkIn={checkInDate} checkOut={checkOutDate} onSelectStay={handleSelectAlternative} />
+              )}
+            </div>
+          </section>
+
+          {/* --- USŁUGI DODATKOWE --- */}
+          {services.length > 0 && (
+            <section className="space-y-3.5">
+              <div>
+                <h2 className="text-2xl md:text-[1.75rem] font-medium">Usługi dodatkowe</h2>
+                <p className="mt-1.5 text-[15px] text-slate-500">Opcjonalne - cena liczy się od razu według liczby nocy i osób.</p>
+              </div>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-3">
+                {services.map(s => {
+                  const selected = additionalServiceIds.includes(s.serviceId);
+                  return (
+                    <label key={s.serviceId} className={`flex items-start gap-3.5 p-4 rounded-[14px] bg-white cursor-pointer transition-colors ${selected ? 'border-2 border-navy-900' : 'border border-slate-300 m-px hover:border-navy-900'}`}>
+                      <input type="checkbox" checked={selected} onChange={() => handleToggleService(s.serviceId)} className="mt-0.5 w-5 h-5 shrink-0 accent-navy-900" />
+                      <span className="min-w-0 flex flex-col gap-1">
+                        <span className="font-semibold">{s.name}</span>
+                        <span className="text-sm text-slate-500">{s.price} zł {serviceChargeTypeLabels[s.chargeType] ?? ''}</span>
+                      </span>
+                      {selected && nights > 0 && <span className="ml-auto text-[15px] font-semibold whitespace-nowrap">+{servicesTotal(s).toFixed(0)} zł</span>}
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          <section className="p-5 rounded-[14px] bg-sand-100 text-[15px] leading-relaxed text-slate-600">
+            <strong className="text-navy-900">Zasady anulowania.</strong> Rezerwację anulujesz bezpłatnie do 7 dni przed przyjazdem. Później opłata wynosi 30% ceny pobytu, a resztę wpłaty zwracamy.
+          </section>
         </div>
-      )}
+
+        {/* --- PODSUMOWANIE --- */}
+        <aside className="flex-[1_1_20rem] w-full lg:max-w-sm lg:sticky lg:top-6 card shadow-[0_12px_40px_rgb(20_33_61_/_0.10)] p-6 space-y-4">
+          <h2 className="text-2xl font-medium">Podsumowanie</h2>
+          <div className="text-[15px] text-slate-600 space-y-1">
+            <div className="font-semibold text-navy-900">{selectedRoomType?.name}</div>
+            {nights > 0 && <div>{formatDate(checkInDate)} - {formatDate(checkOutDate)} · {nightsLabel(nights)}</div>}
+            {numberOfGuests !== null && <div>{personsLabel(numberOfGuests)}</div>}
+          </div>
+
+          {isChecked ? (
+            <>
+              <div className="border-t border-sand-200 pt-4 space-y-2.5 text-[15px] text-slate-600">
+                <div className="flex justify-between gap-3"><span>Nocleg: {nightsLabel(nights)}</span><span>{(totalPrice - selectedServicesSum).toFixed(0)} zł</span></div>
+                {/* Każda usługa z liczbą naliczeń, np. "Śniadanie: 8 × 50 zł" */}
+                {selectedServices.map(s => (
+                  <div key={s.serviceId} className="flex justify-between gap-3">
+                    <span>{s.name}: {serviceQuantity(s.chargeType, nights, numberOfGuests)} × {s.price} zł</span>
+                    <span className="whitespace-nowrap">{servicesTotal(s).toFixed(0)} zł</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between items-baseline border-t border-sand-200 pt-3.5">
+                <span className="font-bold">Do zapłaty</span>
+                <span className="font-display text-3xl font-semibold">{totalPrice.toFixed(2)} zł</span>
+              </div>
+              <p className="text-[13px] text-slate-500">Płatność na miejscu albo przelewem - hotel zapisze wpłatę w Twojej rezerwacji.</p>
+              <button onClick={handleBook} className="btn-primary w-full py-4">Potwierdź rezerwację</button>
+            </>
+          ) : (
+            <p className="p-4 rounded-xl bg-sand-100 text-sm text-slate-600">Wybierz termin i kliknij „Sprawdź cenę i dostępność” - tu pojawi się cena całego pobytu z usługami.</p>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }

@@ -11,23 +11,21 @@ const periodOptions = [7, 14, 30];
 
 // Kolory zarezerwowanych nocy - według statusu rezerwacji
 const bookedStyles = {
-  'pending': 'bg-amber-300 hover:bg-amber-400 text-amber-900',
-  'confirmed': 'bg-sky-500 hover:bg-sky-600 text-white',
-  'completed': 'bg-sky-300 hover:bg-sky-400 text-sky-900',
-  'no-show': 'bg-slate-400 hover:bg-slate-500 text-white'
+  'pending': 'bg-warning-100 hover:brightness-95 text-warning-700',
+  'confirmed': 'bg-navy-900 hover:bg-navy-800 text-white',
+  'completed': 'bg-success-50 hover:brightness-95 text-success-700'
 };
 
 const legend = [
-  { label: 'Wolny', style: 'bg-emerald-100' },
-  { label: 'Rezerwacja oczekująca', style: 'bg-amber-300' },
-  { label: 'Rezerwacja potwierdzona', style: 'bg-sky-500' },
-  { label: 'Rezerwacja zrealizowana', style: 'bg-sky-300' },
-  { label: 'Niestawienie się', style: 'bg-slate-400' },
-  { label: 'Blokada (remont, konserwacja)', style: 'bg-red-300' },
-  { label: 'Pokój wyłączony z rezerwacji', style: 'bg-slate-200' }
+  { label: 'wolna noc', style: 'bg-white ring-1 ring-inset ring-slate-300' },
+  { label: 'oczekująca (nieopłacona)', style: 'bg-warning-100' },
+  { label: 'potwierdzona', style: 'bg-navy-900' },
+  { label: 'zrealizowana', style: 'bg-success-50 ring-1 ring-inset ring-success-200' },
+  { label: 'blokada (remont, konserwacja)', style: 'stripes' },
+  { label: 'pokój wyłączony z rezerwacji', style: 'bg-slate-100' }
 ];
 
-const cellBase = 'block w-full h-9 rounded';
+const cellBase = 'block h-10 my-1';
 
 const weekdayLabel = (value) => new Date(`${value}T00:00:00`).toLocaleDateString('pl-PL', { weekday: 'short' });
 const isWeekend = (value) => [0, 6].includes(new Date(`${value}T00:00:00`).getDay());
@@ -67,129 +65,127 @@ export default function AvailabilityTab({ token, onNavigate }) {
   const occupancy = bookedNights + freeNights > 0 ? Math.round(bookedNights * 100 / (bookedNights + freeNights)) : 0;
   const freeRoomsOn = (index) => rooms.filter(room => room.days[index] && isForSale(room, room.days[index])).length;
 
-  // Komórka jednej nocy: rezerwację i blokadę można kliknąć, opis jest w podpowiedzi po najechaniu
+  // Komórka jednej nocy: rezerwację i blokadę można kliknąć, opis jest w podpowiedzi po najechaniu.
+  // Kolejne noce tej samej rezerwacji / blokady łączą się w jeden pasek (zaokrąglony tylko na końcach)
   const renderNight = (room, day, index) => {
     const date = formatDate(day.date);
+    const previous = room.days[index - 1];
+    const next = room.days[index + 1];
+    const sameAs = (other) => other && other.status === day.status && other.reservationId === day.reservationId;
+    const startsHere = !sameAs(previous), endsHere = !sameAs(next);
+    const width = startsHere && endsHere ? 'w-[calc(100%-0.25rem)]' : startsHere || endsHere ? 'w-[calc(100%-0.125rem)]' : 'w-full';
+    const ends = `${width} ${startsHere ? 'ml-0.5 rounded-l-lg' : ''} ${endsHere ? 'mr-0.5 rounded-r-lg' : ''}`;
 
     if (day.status === 'booked') {
-      // Numer rezerwacji w pierwszej widocznej nocy pobytu
-      const isFirstNight = index === 0 || room.days[index - 1].reservationId !== day.reservationId;
+      // Numer rezerwacji w pierwszej widocznej nocy pobytu (startsHere)
       const title = `${date} · rezerwacja #${day.reservationId} (${reservationStatusLabels[day.reservationStatus] ?? day.reservationStatus}) · ${day.guestName}`;
       return (
         <button type="button" title={title} aria-label={title} onClick={() => onNavigate(`/panel/rezerwacje/${day.reservationId}`)}
-          className={`${cellBase} text-[10px] font-bold ${bookedStyles[day.reservationStatus] ?? 'bg-sky-500 text-white'}`}>
-          {isFirstNight ? `#${day.reservationId}` : ''}
+          className={`${cellBase} ${ends} px-1.5 text-left text-[11px] font-bold whitespace-nowrap overflow-hidden ${bookedStyles[day.reservationStatus] ?? bookedStyles.confirmed}`}>
+          {startsHere ? `#${day.reservationId}` : ''}
         </button>
       );
     }
 
     if (day.status === 'blocked') {
       const title = `${date} · blokada: ${day.blockReason}`;
-      return <button type="button" title={title} aria-label={title} onClick={() => onNavigate('/panel/blokady')} className={`${cellBase} bg-red-300 hover:bg-red-400`} />;
+      return <button type="button" title={title} aria-label={title} onClick={() => onNavigate('/panel/blokady')} className={`${cellBase} ${ends} stripes hover:brightness-95`} />;
     }
 
     const isBookable = room.roomStatus === 'available';
     const title = `${date} · ${isBookable ? 'wolny' : `pokój niedostępny (${roomStatusLabels[room.roomStatus] ?? room.roomStatus})`}`;
-    return <div title={title} className={`${cellBase} ${isBookable ? 'bg-emerald-100' : 'bg-slate-200'}`} />;
+    return <div title={title} className={`${cellBase} mx-0.5 rounded-lg ${isBookable ? '' : 'bg-slate-100'}`} />;
   };
+
+  const navButton = 'w-11 h-11 rounded-[10px] border border-slate-300 bg-white text-lg hover:border-navy-900';
+  const statCard = 'card p-4 md:p-5';
+  const statLabel = 'text-[13px] font-semibold text-slate-500';
+  const statValue = 'mt-1.5 font-display text-3xl font-semibold';
 
   return (
     <>
       {error && <Alert type="error" message={error} />}
 
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border items-end">
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase">Od</label>
-            <input type="date" value={from} onChange={e => { if (e.target.value) setFrom(e.target.value); }} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase">Okres</label>
-            <select value={nights} onChange={e => setNights(Number(e.target.value))} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white">
-              {periodOptions.map(n => <option key={n} value={n}>{nightsLabel(n)}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase">Typ pokoju</label>
-            <select value={roomTypeFilter} onChange={e => setRoomTypeFilter(e.target.value)} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white">
-              <option value="">Wszystkie</option>
-              {roomTypeNames.map(name => <option key={name} value={name}>{name}</option>)}
-            </select>
+      <div className="space-y-5">
+        {/* --- OKRES I FILTR --- */}
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="field-label">Od
+              <input type="date" value={from} onChange={e => { if (e.target.value) setFrom(e.target.value); }} className="field py-2.5 font-normal" />
+            </label>
+            <label className="field-label">Okres
+              <select value={nights} onChange={e => setNights(Number(e.target.value))} className="field py-2.5 font-normal">
+                {periodOptions.map(n => <option key={n} value={n}>{nightsLabel(n)}</option>)}
+              </select>
+            </label>
+            <label className="field-label">Typ pokoju
+              <select value={roomTypeFilter} onChange={e => setRoomTypeFilter(e.target.value)} className="field py-2.5 font-normal">
+                <option value="">Wszystkie</option>
+                {roomTypeNames.map(name => <option key={name} value={name}>{name}</option>)}
+              </select>
+            </label>
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setFrom(addDaysToInputDate(from, -nights))} aria-label="Poprzedni okres" className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300">‹</button>
-            <button type="button" onClick={() => setFrom(today)} className="flex-1 py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">Dziś</button>
-            <button type="button" onClick={() => setFrom(addDaysToInputDate(from, nights))} aria-label="Następny okres" className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300">›</button>
+            <button type="button" onClick={() => setFrom(addDaysToInputDate(from, -nights))} aria-label="Poprzedni okres" className={navButton}>‹</button>
+            <button type="button" onClick={() => setFrom(today)} className="h-11 px-5 rounded-[10px] bg-navy-900 text-white font-semibold hover:bg-navy-800">Dziś</button>
+            <button type="button" onClick={() => setFrom(addDaysToInputDate(from, nights))} aria-label="Następny okres" className={navButton}>›</button>
           </div>
         </div>
 
-        {/* --- PODSUMOWANIE OKRESU --- */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 rounded-lg border">
-            <div className="text-xs font-semibold text-slate-500 uppercase">Obłożenie w okresie</div>
-            <div className="text-2xl font-bold text-slate-800">{occupancy}%</div>
-          </div>
-          <div className="p-4 rounded-lg border">
-            <div className="text-xs font-semibold text-slate-500 uppercase">Wolne pokoje {formatDate(from)}</div>
-            <div className="text-2xl font-bold text-slate-800">{freeRoomsOn(0)} <span className="text-base font-medium text-slate-500">z {rooms.length}</span></div>
-          </div>
-          <div className="p-4 rounded-lg border">
-            <div className="text-xs font-semibold text-slate-500 uppercase">Noce zarezerwowane</div>
-            <div className="text-2xl font-bold text-slate-800">{bookedNights}</div>
-          </div>
-          <div className="p-4 rounded-lg border">
-            <div className="text-xs font-semibold text-slate-500 uppercase">Noce zablokowane</div>
-            <div className="text-2xl font-bold text-slate-800">{blockedNights}</div>
-          </div>
+        {/* --- PODSUMOWANIE OKRESU (liczone z siatki poniżej) --- */}
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3.5">
+          <div className={statCard}><div className={statLabel}>Obłożenie w okresie</div><div className={statValue}>{occupancy}%</div></div>
+          <div className={statCard}><div className={statLabel}>Noce zarezerwowane</div><div className={statValue}>{bookedNights}</div></div>
+          <div className={statCard}><div className={statLabel}>Noce wolne do sprzedaży</div><div className={statValue}>{freeNights}</div></div>
+          <div className={statCard}><div className={statLabel}>Noce zablokowane</div><div className={statValue}>{blockedNights}</div></div>
         </div>
 
-        <div className="space-y-2">
-          <p className="text-sm text-slate-500">
-            {formatDate(from)} - {formatDate(addDaysToInputDate(from, nights - 1))} ({nightsLabel(nights)}). Każda kolumna to jedna noc - dzień wymeldowania jest już wolny dla kolejnego gościa.
-            Kliknij rezerwację, aby otworzyć jej szczegóły, albo blokadę, aby przejść do zakładki Blokady.
-          </p>
+        <p className="text-sm text-slate-500">
+          {formatDate(from)} - {formatDate(addDaysToInputDate(from, nights - 1))} ({nightsLabel(nights)}). Każda kolumna to jedna noc - dzień wymeldowania jest już wolny dla kolejnego gościa.
+          Kliknij rezerwację, aby otworzyć jej szczegóły, albo blokadę, aby przejść do blokad.
+        </p>
 
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="bg-slate-100 text-slate-600 border-b">
-                  <th className="sticky left-0 z-10 bg-slate-100 p-3 text-left font-semibold min-w-36">Pokój</th>
-                  {dates.map(d => (
-                    <th key={d} className={`px-1 py-2 text-center min-w-9 ${isWeekend(d) ? 'bg-slate-200' : ''} ${d === today ? 'text-emerald-700' : ''}`}>
-                      <div className="text-[10px] font-medium uppercase">{weekdayLabel(d)}</div>
-                      <div className="font-bold">{Number(d.slice(8, 10))}</div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rooms.map(room => (
-                  <tr key={room.roomId} className="border-b">
-                    <th className="sticky left-0 z-10 bg-white p-3 text-left font-normal">
-                      <div className="font-bold text-slate-800">{room.roomNumber}</div>
-                      <div className="text-xs text-slate-500">{room.roomTypeName}</div>
-                      {room.roomStatus !== 'available' && (
-                        <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${roomStatusStyles[room.roomStatus] ?? 'bg-slate-100 text-slate-600'}`}>{roomStatusLabels[room.roomStatus] ?? room.roomStatus}</span>
-                      )}
-                    </th>
-                    {room.days.map((day, i) => <td key={day.date} className="p-0.5">{renderNight(room, day, i)}</td>)}
-                  </tr>
+        {/* --- SIATKA POKOJE × NOCE --- */}
+        <div className="overflow-x-auto card">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-sand-300">
+                <th className="sticky left-0 z-10 bg-white px-3.5 py-3 text-left text-xs font-bold uppercase tracking-[0.06em] text-slate-500 min-w-36">Pokój</th>
+                {dates.map(d => (
+                  <th key={d} className={`px-0.5 py-2 text-center min-w-11 ${d === today ? 'bg-navy-900 text-white rounded-t-lg' : isWeekend(d) ? 'text-brass-700' : ''}`}>
+                    <div className="text-[11px] font-medium uppercase">{weekdayLabel(d)}</div>
+                    <div className="text-[15px] font-semibold">{Number(d.slice(8, 10))}</div>
+                  </th>
                 ))}
-                {rooms.length > 0 && (
-                  <tr className="bg-slate-50 text-slate-600">
-                    <th className="sticky left-0 z-10 bg-slate-50 p-3 text-left text-xs font-semibold uppercase">Wolne pokoje</th>
-                    {dates.map((d, i) => <td key={d} className="py-2 text-center font-bold">{freeRoomsOn(i)}</td>)}
-                  </tr>
-                )}
-                {rooms.length === 0 && <tr><td className="p-4 text-center text-slate-500">Brak pokoi. Dodaj pokoje w zakładce Fizyczne Pokoje.</td></tr>}
-              </tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
+            <tbody>
+              {rooms.map(room => (
+                <tr key={room.roomId} className="border-b border-sand-200">
+                  <th className="sticky left-0 z-10 bg-white px-3.5 py-2 text-left font-normal">
+                    <div className="font-bold">{room.roomNumber}</div>
+                    <div className="text-xs text-slate-500">{room.roomTypeName}</div>
+                    {room.roomStatus !== 'available' && (
+                      <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${roomStatusStyles[room.roomStatus] ?? 'bg-slate-100 text-slate-600'}`}>{roomStatusLabels[room.roomStatus] ?? room.roomStatus}</span>
+                    )}
+                  </th>
+                  {room.days.map((day, i) => <td key={day.date} className="p-0">{renderNight(room, day, i)}</td>)}
+                </tr>
+              ))}
+              {rooms.length > 0 && (
+                <tr className="bg-sand-50 text-slate-600">
+                  <th className="sticky left-0 z-10 bg-sand-50 px-3.5 py-3 text-left text-xs font-semibold uppercase tracking-[0.06em]">Wolne pokoje</th>
+                  {dates.map((d, i) => <td key={d} className="py-2 text-center font-bold">{freeRoomsOn(i)}</td>)}
+                </tr>
+              )}
+              {rooms.length === 0 && <tr><td className="p-4 text-center text-slate-500">Brak pokoi. Dodaj pokoje w zakładce Pokoje.</td></tr>}
+            </tbody>
+          </table>
         </div>
 
-        <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-600">
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-[13px] text-slate-500">
           {legend.map(item => (
-            <span key={item.label} className="flex items-center gap-2"><span className={`w-4 h-4 rounded ${item.style}`} />{item.label}</span>
+            <span key={item.label} className="flex items-center gap-2"><span className={`w-4 h-4 rounded ${item.style}`} aria-hidden="true" />{item.label}</span>
           ))}
         </div>
       </div>

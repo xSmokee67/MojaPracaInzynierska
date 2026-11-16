@@ -81,34 +81,34 @@ export default function RoomsTab({ token }) {
       {message && !error && <Alert type="success" message={message} />}
 
       <div className="space-y-8">
-        <form onSubmit={handleAddRoom} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border">
+        <form onSubmit={handleAddRoom} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-sand-100 p-4 md:p-5 rounded-2xl">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase">Typ pokoju</label>
-            <select value={newRoom.roomTypeId} onChange={e => setNewRoom({...newRoom, roomTypeId: Number(e.target.value)})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white">
+            <label className="block text-xs font-semibold uppercase tracking-[0.06em] text-slate-500">Typ pokoju</label>
+            <select value={newRoom.roomTypeId} onChange={e => setNewRoom({...newRoom, roomTypeId: Number(e.target.value)})} className="w-full mt-1.5 px-3.5 py-2.5 border border-slate-300 rounded-[10px] outline-none bg-white focus:border-navy-900">
               {roomTypes.map(rt => <option key={rt.roomTypeId} value={rt.roomTypeId}>{rt.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase">Numer pokoju</label>
-            <input type="text" required maxLength={10} value={newRoom.roomNumber} onChange={e => setNewRoom({...newRoom, roomNumber: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+            <label className="block text-xs font-semibold uppercase tracking-[0.06em] text-slate-500">Numer pokoju</label>
+            <input type="text" required maxLength={10} value={newRoom.roomNumber} onChange={e => setNewRoom({...newRoom, roomNumber: e.target.value})} className="w-full mt-1.5 px-3.5 py-2.5 border border-slate-300 rounded-[10px] outline-none bg-white focus:border-navy-900" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase">Status</label>
-            <select value={newRoom.status} onChange={e => setNewRoom({...newRoom, status: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white">
+            <label className="block text-xs font-semibold uppercase tracking-[0.06em] text-slate-500">Status</label>
+            <select value={newRoom.status} onChange={e => setNewRoom({...newRoom, status: e.target.value})} className="w-full mt-1.5 px-3.5 py-2.5 border border-slate-300 rounded-[10px] outline-none bg-white focus:border-navy-900">
               {Object.entries(roomStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
             {editingRoomId && <p className="mt-1 text-xs text-slate-500">„W remoncie”, „Wyłączony” albo zmiana typu przeniesie przyszłe rezerwacje do innych pokoi tego typu.</p>}
           </div>
           <div className="flex items-end gap-2">
-            <button type="submit" className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">{editingRoomId ? 'Zapisz Zmiany' : 'Dodaj Pokój'}</button>
-            {editingRoomId && <button type="button" onClick={handleCancelEditRoom} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300">Anuluj</button>}
+            <button type="submit" className="w-full py-2.5 bg-navy-900 text-white rounded-[10px] font-semibold hover:bg-navy-800 transition-colors">{editingRoomId ? 'Zapisz Zmiany' : 'Dodaj Pokój'}</button>
+            {editingRoomId && <button type="button" onClick={handleCancelEditRoom} className="px-4 py-2.5 border border-slate-300 bg-white text-navy-900 rounded-[10px] font-semibold hover:border-navy-900">Anuluj</button>}
           </div>
           <div className="md:col-span-4">
-            <label className="block text-xs font-semibold text-slate-500 uppercase">Udogodnienia</label>
+            <label className="block text-xs font-semibold uppercase tracking-[0.06em] text-slate-500">Udogodnienia</label>
             <div className="flex flex-wrap gap-4 mt-2">
               {amenities.map(a => (
                 <label key={a.amenityId} className="flex items-center gap-2 text-sm text-slate-700">
-                  <input type="checkbox" checked={newRoom.amenityIds.includes(a.amenityId)} onChange={() => handleToggleRoomAmenity(a.amenityId)} className="accent-emerald-600" />
+                  <input type="checkbox" checked={newRoom.amenityIds.includes(a.amenityId)} onChange={() => handleToggleRoomAmenity(a.amenityId)} className="accent-navy-900" />
                   {a.name}
                 </label>
               ))}
@@ -119,27 +119,27 @@ export default function RoomsTab({ token }) {
 
         {rooms.some(r => r.status === 'disabled') && (
           <label className="flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" checked={showDisabledRooms} onChange={e => setShowDisabledRooms(e.target.checked)} className="accent-emerald-600" />
+            <input type="checkbox" checked={showDisabledRooms} onChange={e => setShowDisabledRooms(e.target.checked)} className="accent-navy-900" />
             Pokaż wyłączone pokoje ({rooms.filter(r => r.status === 'disabled').length})
           </label>
         )}
 
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto card">
+          <table className="data-table">
             <thead>
-              <tr className="bg-slate-100 text-slate-600 text-sm border-b">
-                <th className="p-4 font-semibold">ID</th><th className="p-4 font-semibold">Numer pokoju</th>
-                <th className="p-4 font-semibold">Przypisany Typ</th><th className="p-4 font-semibold">Udogodnienia</th><th className="p-4 font-semibold">Status</th><th className="p-4 font-semibold text-right">Akcje</th>
+              <tr>
+                <th className="px-4 py-3">ID</th><th className="px-4 py-3">Numer pokoju</th>
+                <th className="px-4 py-3">Przypisany Typ</th><th className="px-4 py-3">Udogodnienia</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Akcje</th>
               </tr>
             </thead>
             <tbody>
               {rooms.filter(r => showDisabledRooms || r.status !== 'disabled').map(r => (
-                <tr key={r.roomId} className={`border-b hover:bg-slate-50 ${r.status === 'disabled' ? 'opacity-60' : ''}`}>
-                  <td className="p-4 text-slate-500">#{r.roomId}</td><td className="p-4 font-bold text-slate-800">{r.roomNumber}</td>
-                  <td className="p-4 text-slate-600">{r.roomTypeName}</td>
-                  <td className="p-4 text-slate-600 text-sm">{r.amenityNames && r.amenityNames.length > 0 ? r.amenityNames.join(', ') : '—'}</td>
-                  <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${roomStatusStyles[r.status] ?? 'bg-slate-100 text-slate-600'}`}>{roomStatusLabels[r.status] ?? r.status}</span></td>
-                  <td className="p-4 text-right space-x-3"><button onClick={() => handleEditRoom(r)} className="text-slate-600 hover:text-slate-900 font-medium text-sm">Edytuj</button><button onClick={() => handleDeleteRoom(r)} className="text-red-500 hover:text-red-700 font-medium text-sm">Usuń</button></td>
+                <tr key={r.roomId} className={`hover:bg-sand-50 ${r.status === 'disabled' ? 'opacity-60' : ''}`}>
+                  <td className="px-4 py-3 text-slate-500">#{r.roomId}</td><td className="px-4 py-3 font-semibold">{r.roomNumber}</td>
+                  <td className="px-4 py-3 text-slate-600">{r.roomTypeName}</td>
+                  <td className="px-4 py-3 text-slate-600">{r.amenityNames && r.amenityNames.length > 0 ? r.amenityNames.join(', ') : '—'}</td>
+                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${roomStatusStyles[r.status] ?? 'bg-slate-100 text-slate-600'}`}>{roomStatusLabels[r.status] ?? r.status}</span></td>
+                  <td className="px-4 py-3 text-right space-x-4 whitespace-nowrap"><button onClick={() => handleEditRoom(r)} className="text-navy-900 hover:text-brass-700 hover:underline font-semibold text-sm">Edytuj</button><button onClick={() => handleDeleteRoom(r)} className="text-danger-800 hover:underline font-semibold text-sm">Usuń</button></td>
                 </tr>
               ))}
             </tbody>

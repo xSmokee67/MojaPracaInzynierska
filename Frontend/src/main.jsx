@@ -1,7 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-// Krój szeryfowy nagłówków (pliki czcionki w paczce - działa bez internetu)
-import '@fontsource-variable/fraunces'
+// Kroje pisma w paczkach (działają bez internetu): Inter - tekst, Space Grotesk - nagłówki
+import '@fontsource-variable/inter'
+import '@fontsource-variable/space-grotesk'
 import './index.css'
 import App from './App.jsx'
 

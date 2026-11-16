@@ -1,5 +1,5 @@
 // Plik: Frontend/src/components/reservations/ReservationDetails.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { reservationStatusLabels, reservationStatusStyles, paymentMethodLabels, paymentStatusLabels } from '../../utils/statuses';
 import { getReservationDetails, cancelReservation, changeReservationDates, registerPayment, issueInvoice, createReview } from '../../api/reservationApi';
 import { errorMessage } from '../../api/apiErrors';
@@ -7,7 +7,9 @@ import { formatDate, formatDateTime, nightsLabel, personsLabel, toInputDate } fr
 import Alert from '../common/Alert';
 import StarRating from '../common/StarRating';
 
-export default function ReservationDetails({ token, reservationId, isOwner, onClose, onChanged }) {
+// Szczegóły rezerwacji: dane pobytu, rozliczenie, zmiana terminu, anulowanie, płatności, faktura i opinia.
+// Gość widzi je w panelu obok listy (inline, ze zdjęciem pokoju), właściciel - w oknie nad tabelą rezerwacji
+export default function ReservationDetails({ token, reservationId, isOwner, onClose, onChanged, inline = false, photo = null }) {
   const [details, setDetails] = useState(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -17,13 +19,17 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
   const [newReview, setNewReview] = useState({ reservationId, rating: 5, comment: '' });
   const [newDates, setNewDates] = useState({ checkInDate: '', checkOutDate: '' });
   const [reloadKey, setReloadKey] = useState(0);
+  const panelRef = useRef(null);
 
   useEffect(() => {
     const loadData = async () => {
       try {
         const data = await getReservationDetails(reservationId, token);
         setDetails(data);
-        setNewPayment(prev => ({ ...prev, amount: Math.max(data.totalPrice - data.paidAmount, 0) }));
+        // Podpowiedź w formularzu płatności: brakująca kwota, a dla anulowanej rezerwacji - zwrot wpłaconej kwoty
+        setNewPayment(prev => data.status === 'cancelled'
+          ? { ...prev, amount: Math.max(data.paidAmount - data.cancellationFee, 0), status: 'refunded' }
+          : { ...prev, amount: Math.max(data.totalPrice - data.paidAmount, 0) });
         setNewDates({ checkInDate: data.checkInDate.slice(0, 10), checkOutDate: data.checkOutDate.slice(0, 10) });
         setError('');
       } catch (err) {
@@ -32,6 +38,11 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
     };
     loadData();
   }, [token, reservationId, reloadKey]);
+
+  // Na wąskim ekranie panel leży pod listą - po wybraniu rezerwacji przewijamy do niego
+  useEffect(() => {
+    if (inline && window.innerWidth < 1024) panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [inline, reservationId]);
 
   // Wspólna obsługa akcji: komunikat, odświeżenie szczegółów i listy
   const runAction = async (action, successMessage) => {
@@ -49,7 +60,14 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
 
   // Handler dla Gościa
   const handleCancel = async () => {
-    if (!window.confirm('Na pewno anulować rezerwację? Tej operacji nie można cofnąć.')) return;
+    // W potwierdzeniu konkretne kwoty według polityki anulowania (bezpłatnie do 7 dni przed przyjazdem, później 30%)
+    const fee = details.cancellationFeeIfCancelledToday;
+    const refundText = details.paidAmount <= 0
+      ? 'Nie było wpłat, więc nie ma nic do zwrotu.'
+      : fee > 0
+        ? `Hotel zwróci ${(details.paidAmount - fee).toFixed(2)} zł z wpłaconych ${details.paidAmount.toFixed(2)} zł i zatrzyma ${fee.toFixed(2)} zł opłaty za anulowanie.`
+        : `Hotel zwróci całą wpłatę: ${details.paidAmount.toFixed(2)} zł.`;
+    if (!window.confirm(`Na pewno anulować rezerwację? ${refundText} Tej operacji nie można cofnąć.`)) return;
     await runAction(() => cancelReservation(reservationId, token), 'Rezerwacja została anulowana.');
   };
 
@@ -83,12 +101,23 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
   const canChangeDates = details !== null && (details.status === 'pending' || details.status === 'confirmed') && (isOwner || new Date(details.checkInDate) > today);
   const nights = details ? Math.round((new Date(details.checkOutDate).getTime() - new Date(details.checkInDate).getTime()) / 86400000) : 0;
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 bg-white rounded-xl shadow-lg space-y-6" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center border-b pb-4">
-          <h2 className="text-2xl font-bold text-slate-800">Rezerwacja #{reservationId}</h2>
-          <button onClick={onClose} className="text-sm px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300">Zamknij</button>
+  const term = 'block text-xs font-bold uppercase tracking-[0.06em] text-brass-700';
+  const subTitle = 'text-xl font-medium';
+  const toPay = details ? Math.max(details.totalPrice - details.paidAmount, 0) : 0;
+
+  const content = (
+    <>
+      {inline && photo && <img src={photo} alt={details?.roomTypeName ?? ''} className="w-full h-48 md:h-52 object-cover" />}
+      <div className="p-5 md:p-7 space-y-6">
+        <div className="flex flex-wrap justify-between items-start gap-3">
+          <div>
+            <p className="text-sm text-slate-500">Rezerwacja #{reservationId}{details && ` · pokój ${details.roomNumber}`}</p>
+            <h2 className="mt-1 text-2xl md:text-3xl font-medium">{details?.roomTypeName ?? 'Rezerwacja'}</h2>
+          </div>
+          <div className="flex items-center gap-3">
+            {details && <span className={`px-3 py-1.5 rounded-full text-[13px] font-bold ${reservationStatusStyles[details.status] ?? 'bg-slate-100 text-slate-600'}`}>{reservationStatusLabels[details.status] ?? details.status}</span>}
+            <button onClick={onClose} aria-label="Zamknij szczegóły" className="w-10 h-10 rounded-full border border-slate-300 text-xl text-slate-600 hover:border-navy-900 hover:text-navy-900">×</button>
+          </div>
         </div>
 
         {error && <Alert type="error" message={error} />}
@@ -97,124 +126,126 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
         {details && (
           <>
             {/* --- DANE REZERWACJI --- */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border">
+            <dl className="grid grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))] gap-4">
               {isOwner && (
-                <div>
-                  <span className="block text-xs font-semibold text-slate-500 uppercase">Gość</span>
-                  <span className="font-medium text-slate-800">{details.guestName}</span> <span className="text-sm text-slate-500">({details.guestEmail})</span>
+                <div className="col-span-full">
+                  <dt className={term}>Gość</dt>
+                  <dd className="mt-1"><span className="font-medium">{details.guestName}</span> <span className="text-sm text-slate-500">({details.guestEmail})</span></dd>
                 </div>
               )}
-              <div>
-                <span className="block text-xs font-semibold text-slate-500 uppercase">Pokój</span>
-                <span className="font-bold text-slate-800">{details.roomNumber}</span> <span className="text-slate-600">({details.roomTypeName})</span>
-              </div>
-              <div>
-                <span className="block text-xs font-semibold text-slate-500 uppercase">Termin pobytu</span>
-                <span className="text-slate-800">{formatDate(details.checkInDate)} - {formatDate(details.checkOutDate)} ({nightsLabel(nights)})</span>
-              </div>
-              <div>
-                <span className="block text-xs font-semibold text-slate-500 uppercase">Liczba gości</span>
-                <span className="text-slate-800">{personsLabel(details.numberOfGuests)}</span>
-              </div>
-              <div>
-                <span className="block text-xs font-semibold text-slate-500 uppercase">Usługi dodatkowe</span>
-                <span className="text-slate-800">{details.additionalServices.length > 0 ? details.additionalServices.join(', ') : '—'}</span>
-              </div>
-              <div>
-                <span className="block text-xs font-semibold text-slate-500 uppercase">Status</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${reservationStatusStyles[details.status] ?? 'bg-slate-100 text-slate-600'}`}>{reservationStatusLabels[details.status] ?? details.status}</span>
-              </div>
-              <div>
-                <span className="block text-xs font-semibold text-slate-500 uppercase">Rozliczenie</span>
-                <span className="font-bold text-emerald-600">{details.totalPrice.toFixed(2)} PLN</span> <span className="text-sm text-slate-500">(wpłacono {details.paidAmount.toFixed(2)} PLN)</span>
-              </div>
+              <div><dt className={term}>Przyjazd</dt><dd className="mt-1">{formatDate(details.checkInDate)}<span className="block text-sm text-slate-500">od 14:00</span></dd></div>
+              <div><dt className={term}>Wyjazd</dt><dd className="mt-1">{formatDate(details.checkOutDate)}<span className="block text-sm text-slate-500">do 11:00</span></dd></div>
+              <div><dt className={term}>Goście</dt><dd className="mt-1">{personsLabel(details.numberOfGuests)} · {nightsLabel(nights)}</dd></div>
+              <div className="col-span-full"><dt className={term}>Usługi dodatkowe</dt><dd className="mt-1">{details.additionalServices.length > 0 ? details.additionalServices.join(', ') : '—'}</dd></div>
+            </dl>
+
+            {/* --- ROZLICZENIE --- */}
+            <div className="p-4 md:p-5 rounded-[14px] bg-sand-50 space-y-2 text-[15px] text-slate-600">
+              <div className="flex justify-between gap-3 font-bold text-navy-900"><span>Razem</span><span>{details.totalPrice.toFixed(2)} zł</span></div>
+              <div className="flex justify-between gap-3"><span>Wpłacono</span><span>{details.paidAmount.toFixed(2)} zł</span></div>
+              {details.refundedAmount > 0 && <div className="flex justify-between gap-3"><span>Zwrócono (odjęte od wpłat)</span><span>{details.refundedAmount.toFixed(2)} zł</span></div>}
+              {details.status !== 'cancelled' && <div className="flex justify-between gap-3 border-t border-sand-200 pt-2 font-bold text-navy-900"><span>Do zapłaty</span><span>{toPay.toFixed(2)} zł</span></div>}
+              {/* Anulowana z wpłatą: opłata za anulowanie i kwota do zwrotu */}
+              {details.status === 'cancelled' && details.paidAmount > 0 && (
+                <div className="border-t border-sand-200 pt-2 font-medium text-warning-700">
+                  {details.cancellationFee > 0 && <>Opłata za anulowanie (zostaje w hotelu): {details.cancellationFee.toFixed(2)} zł. </>}
+                  {details.paidAmount - details.cancellationFee > 0
+                    ? <>Do zwrotu gościowi: {(details.paidAmount - details.cancellationFee).toFixed(2)} zł.</>
+                    : <>Rozliczone – nic więcej do zwrotu.</>}
+                </div>
+              )}
             </div>
 
-            {/* --- ZMIANA TERMINU --- */}
-            {canChangeDates && (
-              <form onSubmit={handleChangeDates} className="space-y-3 bg-slate-50 p-4 rounded-lg border">
-                <h3 className="font-bold text-slate-700">Zmiana terminu</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase">Nowe zameldowanie</label>
-                    <input type="date" required min={isOwner ? undefined : toInputDate(today)} value={newDates.checkInDate} onChange={e => setNewDates({ ...newDates, checkInDate: e.target.value })} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase">Nowe wymeldowanie</label>
-                    <input type="date" required min={newDates.checkInDate} value={newDates.checkOutDate} onChange={e => setNewDates({ ...newDates, checkOutDate: e.target.value })} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white" />
-                  </div>
-                  <button type="submit" className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">Zmień termin</button>
-                </div>
-                <p className="text-xs text-slate-500">System sprawdzi dostępność nowego terminu i przeliczy cenę noclegów według cennika; usługi dodatkowe zostają w dotychczasowej cenie. Jeśli obecny pokój jest w nowym terminie zajęty, rezerwacja trafi do innego wolnego pokoju tego samego typu.</p>
-              </form>
+            {/* Oczekująca = jeszcze nieopłacona w całości: termin płatności i brakująca kwota */}
+            {details.status === 'pending' && (
+              <p className="text-sm leading-relaxed text-warning-700 font-medium">
+                Do zapłaty {toPay.toFixed(2)} zł do {formatDate(details.paymentDeadline)} - po zaksięgowaniu wpłaty rezerwacja zostanie potwierdzona, nieopłacona zostanie automatycznie anulowana.
+              </p>
             )}
 
             {!isOwner && canCancel && (
-              <button onClick={handleCancel} className="w-full py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">Anuluj rezerwację</button>
+              // Warunki anulowania (CancellationPolicy w API)
+              <p className="text-sm leading-relaxed text-slate-500">
+                Bezpłatne anulowanie do <span className="font-semibold text-navy-900">{formatDate(details.freeCancellationUntil)}</span> (7 dni przed przyjazdem).
+                Później, najpóźniej dzień przed przyjazdem, hotel zatrzymuje 30% ceny pobytu z wpłaconej kwoty, a resztę zwraca.
+                {details.cancellationFeeIfCancelledToday > 0 && <span className="block mt-1 font-medium text-warning-700">Anulowanie teraz: opłata {details.cancellationFeeIfCancelledToday.toFixed(2)} zł, zwrot {Math.max(details.paidAmount - details.cancellationFeeIfCancelledToday, 0).toFixed(2)} zł.</span>}
+              </p>
             )}
 
+            {/* --- ZMIANA TERMINU I ANULOWANIE --- */}
+            {canChangeDates && (
+              <form onSubmit={handleChangeDates} className="space-y-3">
+                <h3 className={subTitle}>Zmiana terminu</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                  <label className="field-label">Nowy przyjazd
+                    <input type="date" required min={isOwner ? undefined : toInputDate(today)} value={newDates.checkInDate} onChange={e => setNewDates({ ...newDates, checkInDate: e.target.value })} className="field font-normal" />
+                  </label>
+                  <label className="field-label">Nowy wyjazd
+                    <input type="date" required min={newDates.checkInDate} value={newDates.checkOutDate} onChange={e => setNewDates({ ...newDates, checkOutDate: e.target.value })} className="field font-normal" />
+                  </label>
+                  <button type="submit" className="btn-outline">Zmień termin</button>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-500">System sprawdzi dostępność nowego terminu i przeliczy cenę noclegów według cennika; usługi dodatkowe zostają w dotychczasowej cenie. Jeśli obecny pokój jest w nowym terminie zajęty, rezerwacja trafi do innego wolnego pokoju tego samego typu.</p>
+              </form>
+            )}
+
+            {!isOwner && canCancel && <button onClick={handleCancel} className="btn-danger">Anuluj rezerwację</button>}
+
             {/* --- PŁATNOŚCI --- */}
-            <div className="space-y-4">
-              <h3 className="font-bold text-slate-700 text-lg">Płatności</h3>
-              {isOwner && details.status !== 'cancelled' && (
-                <form onSubmit={handleAddPayment} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border items-end">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase">Kwota (PLN)</label>
-                    <input type="number" required min="0.01" step="0.01" value={newPayment.amount || ''} onChange={e => setNewPayment({...newPayment, amount: Number(e.target.value)})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase">Metoda</label>
-                    <select value={newPayment.method} onChange={e => setNewPayment({...newPayment, method: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white">
+            <div className="space-y-3">
+              <h3 className={subTitle}>Płatności</h3>
+              {isOwner && (details.status !== 'cancelled' || details.paidAmount - details.cancellationFee > 0) && (
+                <form onSubmit={handleAddPayment} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end p-4 rounded-[14px] bg-sand-100">
+                  <label className="field-label">Kwota (zł)
+                    <input type="number" required min="0.01" step="0.01" value={newPayment.amount || ''} onChange={e => setNewPayment({...newPayment, amount: Number(e.target.value)})} className="field font-normal" />
+                  </label>
+                  <label className="field-label">Metoda
+                    <select value={newPayment.method} onChange={e => setNewPayment({...newPayment, method: e.target.value})} className="field font-normal">
                       {Object.entries(paymentMethodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase">Status</label>
-                    <select value={newPayment.status} onChange={e => setNewPayment({...newPayment, status: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white">
-                      {Object.entries(paymentStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </label>
+                  <label className="field-label">Status
+                    <select value={newPayment.status} onChange={e => setNewPayment({...newPayment, status: e.target.value})} className="field font-normal">
+                      {/* Do anulowanej rezerwacji API przyjmuje tylko zwrot */}
+                      {Object.entries(paymentStatusLabels).filter(([value]) => details.status !== 'cancelled' || value === 'refunded').map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                     </select>
-                  </div>
-                  <div>
-                    <button type="submit" className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">Zarejestruj płatność</button>
-                  </div>
+                  </label>
+                  <button type="submit" className="btn-primary">Zarejestruj płatność</button>
                 </form>
               )}
-              <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full text-left border-collapse">
+              <div className="overflow-x-auto card">
+                <table className="data-table">
                   <thead>
-                    <tr className="bg-slate-100 text-slate-600 text-sm border-b">
-                      <th className="p-4 font-semibold">Data</th><th className="p-4 font-semibold">Kwota</th>
-                      <th className="p-4 font-semibold">Metoda</th><th className="p-4 font-semibold">Status</th>
-                    </tr>
+                    <tr><th className="px-4 py-3">Data</th><th className="px-4 py-3">Kwota</th><th className="px-4 py-3">Metoda</th><th className="px-4 py-3">Status</th></tr>
                   </thead>
                   <tbody>
                     {details.payments.map(p => (
-                      <tr key={p.paymentId} className="border-b hover:bg-slate-50">
-                        <td className="p-4 text-slate-600">{formatDateTime(p.paymentDate)}</td>
-                        <td className="p-4 font-bold text-slate-800">{p.amount.toFixed(2)} PLN</td>
-                        <td className="p-4 text-slate-600">{paymentMethodLabels[p.method] ?? p.method}</td>
-                        <td className="p-4 text-slate-600">{paymentStatusLabels[p.status] ?? p.status}</td>
+                      <tr key={p.paymentId}>
+                        <td className="px-4 py-3 text-slate-600">{formatDateTime(p.paymentDate)}</td>
+                        <td className="px-4 py-3 font-semibold">{p.amount.toFixed(2)} zł</td>
+                        <td className="px-4 py-3 text-slate-600">{paymentMethodLabels[p.method] ?? p.method}</td>
+                        <td className="px-4 py-3 text-slate-600">{paymentStatusLabels[p.status] ?? p.status}</td>
                       </tr>
                     ))}
-                    {details.payments.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-slate-500">Brak zarejestrowanych płatności.</td></tr>}
+                    {details.payments.length === 0 && <tr><td colSpan={4} className="px-4 py-4 text-center text-slate-500">Brak zarejestrowanych płatności.</td></tr>}
                   </tbody>
                 </table>
               </div>
             </div>
 
             {/* --- FAKTURA --- */}
-            <div className="space-y-4">
-              <h3 className="font-bold text-slate-700 text-lg">Faktura</h3>
+            <div className="space-y-3">
+              <h3 className={subTitle}>Faktura</h3>
               {details.invoice ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg border">
-                  <div><span className="block text-xs font-semibold text-slate-500 uppercase">Numer</span><span className="font-bold text-slate-800">{details.invoice.invoiceNumber}</span></div>
-                  <div><span className="block text-xs font-semibold text-slate-500 uppercase">Data wystawienia</span><span className="text-slate-800">{formatDate(details.invoice.issueDate)}</span></div>
-                  <div><span className="block text-xs font-semibold text-slate-500 uppercase">Kwota brutto</span><span className="font-bold text-emerald-600">{details.invoice.grossAmount.toFixed(2)} PLN</span></div>
-                </div>
+                <dl className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-[14px] bg-sand-50">
+                  <div><dt className={term}>Numer</dt><dd className="mt-1 font-semibold">{details.invoice.invoiceNumber}</dd></div>
+                  <div><dt className={term}>Data wystawienia</dt><dd className="mt-1">{formatDate(details.invoice.issueDate)}</dd></div>
+                  <div><dt className={term}>Kwota brutto</dt><dd className="mt-1 font-semibold">{details.invoice.grossAmount.toFixed(2)} zł</dd></div>
+                </dl>
               ) : isOwner ? (
-                <div className="flex items-center justify-between gap-4 bg-slate-50 p-4 rounded-lg border">
+                <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-[14px] bg-sand-50">
                   <span className="text-sm text-slate-600">{details.status === 'completed' ? 'Pobyt zrealizowany - można wystawić fakturę.' : 'Fakturę można wystawić po oznaczeniu rezerwacji jako zrealizowanej.'}</span>
-                  <button onClick={handleIssueInvoice} disabled={details.status !== 'completed'} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed">Wystaw fakturę</button>
+                  <button onClick={handleIssueInvoice} disabled={details.status !== 'completed'} className="btn-primary">Wystaw fakturę</button>
                 </div>
               ) : (
                 <p className="text-sm text-slate-500">Faktura zostanie wystawiona po zakończonym pobycie.</p>
@@ -222,28 +253,24 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
             </div>
 
             {/* --- OPINIA --- */}
-            <div className="space-y-4">
-              <h3 className="font-bold text-slate-700 text-lg">Opinia o pobycie</h3>
+            <div className="space-y-3">
+              <h3 className={subTitle}>Opinia o pobycie</h3>
               {details.review ? (
-                <div className="bg-slate-50 p-4 rounded-lg border space-y-1">
+                <div className="p-4 rounded-[14px] bg-sand-50 space-y-1">
                   <div className="text-lg"><StarRating rating={details.review.rating} /></div>
-                  <p className="text-slate-700">{details.review.comment || 'Brak komentarza.'}</p>
+                  <p className="text-slate-600">{details.review.comment || 'Brak komentarza.'}</p>
                 </div>
               ) : !isOwner && details.status === 'completed' ? (
-                <form onSubmit={handleAddReview} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border items-end">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase">Ocena</label>
-                    <select value={newReview.rating} onChange={e => setNewReview({...newReview, rating: Number(e.target.value)})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none bg-white">
+                <form onSubmit={handleAddReview} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                  <label className="field-label">Ocena
+                    <select value={newReview.rating} onChange={e => setNewReview({...newReview, rating: Number(e.target.value)})} className="field font-normal">
                       {[5, 4, 3, 2, 1].map(r => <option key={r} value={r}>{'★'.repeat(r)} ({r})</option>)}
                     </select>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-500 uppercase">Komentarz</label>
-                    <input type="text" maxLength={500} value={newReview.comment} onChange={e => setNewReview({...newReview, comment: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
-                  </div>
-                  <div>
-                    <button type="submit" className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">Dodaj opinię</button>
-                  </div>
+                  </label>
+                  <label className="field-label sm:col-span-2">Komentarz
+                    <input type="text" maxLength={500} value={newReview.comment} onChange={e => setNewReview({...newReview, comment: e.target.value})} className="field font-normal" />
+                  </label>
+                  <button type="submit" className="btn-primary">Dodaj opinię</button>
                 </form>
               ) : (
                 <p className="text-sm text-slate-500">{isOwner ? 'Gość nie wystawił jeszcze opinii.' : 'Opinię będzie można dodać po zakończonym pobycie.'}</p>
@@ -251,6 +278,20 @@ export default function ReservationDetails({ token, reservationId, isOwner, onCl
             </div>
           </>
         )}
+      </div>
+    </>
+  );
+
+  // Panel obok listy rezerwacji gościa
+  if (inline) {
+    return <section ref={panelRef} className="card overflow-hidden shadow-[0_12px_40px_rgb(20_33_61_/_0.08)] scroll-mt-4">{content}</section>;
+  }
+
+  // Okno nad tabelą rezerwacji właściciela - kliknięcie tła zamyka
+  return (
+    <div className="fixed inset-0 bg-navy-950/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
+        {content}
       </div>
     </div>
   );

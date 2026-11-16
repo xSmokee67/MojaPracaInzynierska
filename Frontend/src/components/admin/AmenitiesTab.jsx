@@ -53,34 +53,34 @@ export default function AmenitiesTab({ token }) {
       {message && !error && <Alert type="success" message={message} />}
 
       <div className="space-y-8">
-        <form onSubmit={handleAddAmenity} className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg border items-end">
+        <form onSubmit={handleAddAmenity} className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-sand-100 p-4 md:p-5 rounded-2xl items-end">
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-slate-500 uppercase">Nazwa udogodnienia (np. WiFi)</label>
-            <input type="text" required maxLength={100} value={newAmenity.name} onChange={e => setNewAmenity({...newAmenity, name: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg outline-none" />
+            <label className="block text-xs font-semibold uppercase tracking-[0.06em] text-slate-500">Nazwa udogodnienia (np. WiFi)</label>
+            <input type="text" required maxLength={100} value={newAmenity.name} onChange={e => setNewAmenity({...newAmenity, name: e.target.value})} className="w-full mt-1.5 px-3.5 py-2.5 border border-slate-300 rounded-[10px] outline-none bg-white focus:border-navy-900" />
           </div>
           <div className="flex gap-2">
-            <button type="submit" className="w-full py-2 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700">{editingAmenityId ? 'Zapisz Zmiany' : 'Dodaj Udogodnienie'}</button>
-            {editingAmenityId && <button type="button" onClick={handleCancelEditAmenity} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300">Anuluj</button>}
+            <button type="submit" className="w-full py-2.5 bg-navy-900 text-white rounded-[10px] font-semibold hover:bg-navy-800 transition-colors">{editingAmenityId ? 'Zapisz Zmiany' : 'Dodaj Udogodnienie'}</button>
+            {editingAmenityId && <button type="button" onClick={handleCancelEditAmenity} className="px-4 py-2.5 border border-slate-300 bg-white text-navy-900 rounded-[10px] font-semibold hover:border-navy-900">Anuluj</button>}
           </div>
         </form>
 
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto card">
+          <table className="data-table">
             <thead>
-              <tr className="bg-slate-100 text-slate-600 text-sm border-b">
-                <th className="p-4 font-semibold">ID</th><th className="p-4 font-semibold">Nazwa</th>
-                <th className="p-4 font-semibold">Liczba pokoi</th><th className="p-4 font-semibold text-right">Akcje</th>
+              <tr>
+                <th className="px-4 py-3">ID</th><th className="px-4 py-3">Nazwa</th>
+                <th className="px-4 py-3">Liczba pokoi</th><th className="px-4 py-3 text-right">Akcje</th>
               </tr>
             </thead>
             <tbody>
               {amenities.map(a => (
-                <tr key={a.amenityId} className="border-b hover:bg-slate-50">
-                  <td className="p-4 text-slate-500">#{a.amenityId}</td><td className="p-4 font-medium text-slate-800">{a.name}</td>
-                  <td className="p-4 text-slate-600">{rooms.filter(r => r.amenityIds.includes(a.amenityId)).length}</td>
-                  <td className="p-4 text-right space-x-3"><button onClick={() => handleEditAmenity(a)} className="text-slate-600 hover:text-slate-900 font-medium text-sm">Edytuj</button><button onClick={() => handleDeleteAmenity(a.amenityId)} className="text-red-500 hover:text-red-700 font-medium text-sm">Usuń</button></td>
+                <tr key={a.amenityId} className="hover:bg-sand-50">
+                  <td className="px-4 py-3 text-slate-500">#{a.amenityId}</td><td className="px-4 py-3 font-medium">{a.name}</td>
+                  <td className="px-4 py-3 text-slate-600">{rooms.filter(r => r.amenityIds.includes(a.amenityId)).length}</td>
+                  <td className="px-4 py-3 text-right space-x-4 whitespace-nowrap"><button onClick={() => handleEditAmenity(a)} className="text-navy-900 hover:text-brass-700 hover:underline font-semibold text-sm">Edytuj</button><button onClick={() => handleDeleteAmenity(a.amenityId)} className="text-danger-800 hover:underline font-semibold text-sm">Usuń</button></td>
                 </tr>
               ))}
-              {amenities.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-slate-500">Brak udogodnień.</td></tr>}
+              {amenities.length === 0 && <tr><td colSpan={4} className="px-4 py-5 text-center text-slate-500">Brak udogodnień.</td></tr>}
             </tbody>
           </table>
         </div>

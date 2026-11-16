@@ -68,13 +68,21 @@ export default function RoomAvailabilityCalendar({ roomTypeId, checkIn, checkOut
 
   const dayStyle = (day) => {
     const free = nights[day];
-    if (day < today) return 'text-slate-300 cursor-not-allowed';
-    if (rangeStart && day === rangeStart) return 'bg-emerald-600 text-white';
-    if (rangeStart && rangeEnd && day > rangeStart && day < rangeEnd) return 'bg-emerald-500 text-white';
-    if (rangeEnd && day === rangeEnd) return 'ring-2 ring-emerald-600 bg-white text-slate-800';
-    if (free === undefined) return 'bg-slate-50 text-slate-400';
-    if (free === 0) return 'bg-red-50 text-red-300 hover:bg-red-100';
-    return 'bg-emerald-50 text-slate-800 hover:bg-emerald-100';
+    if (day < today) return 'text-slate-400 cursor-not-allowed';
+    if (rangeStart && day === rangeStart) return 'bg-navy-900 text-white';
+    if (rangeStart && rangeEnd && day > rangeStart && day < rangeEnd) return 'bg-navy-900 text-white';
+    if (rangeEnd && day === rangeEnd) return 'bg-white text-navy-900 ring-2 ring-inset ring-navy-900';
+    if (free === undefined) return 'bg-sand-50 text-slate-400';
+    if (free === 0) return 'bg-slate-100 text-slate-500 ring-1 ring-inset ring-slate-300';
+    return 'bg-success-50 text-navy-900 hover:ring-2 hover:ring-inset hover:ring-navy-900';
+  };
+
+  // Podpis pod numerem dnia: przyjazd / wyjazd wybranego pobytu albo liczba wolnych pokoi
+  const dayNote = (day) => {
+    if (rangeStart && day === rangeStart) return 'przyjazd';
+    if (rangeEnd && day === rangeEnd) return 'wyjazd';
+    if (day < today || nights[day] === undefined) return '';
+    return nights[day] === 0 ? 'zajęte' : `wolne: ${nights[day]}`;
   };
 
   const dayTitle = (day) => {
@@ -83,32 +91,38 @@ export default function RoomAvailabilityCalendar({ roomTypeId, checkIn, checkOut
     return `${formatDate(day)} · ${free === 0 ? 'brak wolnych pokoi' : `wolne pokoje: ${free}`}`;
   };
 
+  const monthButton = 'w-11 h-11 rounded-full border border-slate-300 bg-white text-xl text-navy-900 hover:border-navy-900 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-300';
+
   return (
-    <div className="p-3 rounded-lg border border-slate-200 space-y-3">
+    <div className="card p-4 md:p-5 space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <button type="button" onClick={() => setMonth(addMonths(month, -1))} disabled={month <= firstDayOfMonth(today)} aria-label="Poprzedni miesiąc"
-          className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed">‹</button>
-        <div className="font-semibold text-slate-800 capitalize">{monthLabel(month)}</div>
-        <button type="button" onClick={() => setMonth(addMonths(month, 1))} disabled={month >= addMonths(firstDayOfMonth(today), 11)} aria-label="Następny miesiąc"
-          className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed">›</button>
+        <button type="button" onClick={() => setMonth(addMonths(month, -1))} disabled={month <= firstDayOfMonth(today)} aria-label="Poprzedni miesiąc" className={monthButton}>‹</button>
+        <div className="font-display text-xl md:text-[1.375rem]">{monthLabel(month)}</div>
+        <button type="button" onClick={() => setMonth(addMonths(month, 1))} disabled={month >= addMonths(firstDayOfMonth(today), 11)} aria-label="Następny miesiąc" className={monthButton}>›</button>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger-700">{error}</p>}
 
-      <div className="grid grid-cols-7 gap-1 text-center">
-        {weekdays.map(w => <div key={w} className="text-[10px] font-semibold uppercase text-slate-500">{w}</div>)}
+      <div className="grid grid-cols-7 gap-1 md:gap-1.5 text-center">
+        {weekdays.map(w => <div key={w} className="pb-1 text-xs font-semibold uppercase text-slate-500">{w}</div>)}
         {Array.from({ length: leadingBlanks }, (_, i) => <div key={`blank-${i}`} />)}
         {days.map(day => (
           <button key={day} type="button" disabled={day < today} onClick={() => handleDayClick(day)} title={dayTitle(day)} aria-label={dayTitle(day)}
-            className={`h-11 rounded-md text-sm leading-tight ${dayStyle(day)}`}>
-            <div className="font-semibold">{Number(day.slice(8, 10))}</div>
-            {day >= today && nights[day] !== undefined && <div className="text-[10px] opacity-80">{nights[day] === 0 ? '—' : nights[day]}</div>}
+            className={`min-h-13 rounded-[10px] flex flex-col items-center justify-center gap-0.5 leading-tight transition-shadow ${dayStyle(day)}`}>
+            <span className="text-[15px] font-semibold">{Number(day.slice(8, 10))}</span>
+            <span className="text-[10px] md:text-[11px] opacity-90">{dayNote(day)}</span>
           </button>
         ))}
       </div>
 
-      <p className="text-xs text-slate-500">
-        {message || 'Kliknij dzień przyjazdu, a potem dzień wyjazdu. Liczba pod datą to wolne pokoje tego typu w tę noc.'}
+      <div className="flex flex-wrap gap-x-5 gap-y-2 text-[13px] text-slate-500">
+        <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-success-50" aria-hidden="true" />wolny pokój</span>
+        <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-slate-100 ring-1 ring-inset ring-slate-300" aria-hidden="true" />brak wolnych pokoi</span>
+        <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-navy-900" aria-hidden="true" />wybrany pobyt</span>
+      </div>
+
+      <p className="text-sm text-slate-600">
+        {message || 'Liczba pod datą to wolne pokoje tego typu w tę noc.'}
       </p>
     </div>
   );

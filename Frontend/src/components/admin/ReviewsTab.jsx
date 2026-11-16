@@ -36,27 +36,27 @@ export default function ReviewsTab({ token }) {
       {error && <Alert type="error" message={error} />}
       {message && !error && <Alert type="success" message={message} />}
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-left border-collapse">
+      <div className="overflow-x-auto card">
+        <table className="data-table">
           <thead>
-            <tr className="bg-slate-100 text-slate-600 text-sm border-b">
-              <th className="p-4 font-semibold">Data</th><th className="p-4 font-semibold">Gość</th>
-              <th className="p-4 font-semibold">Pobyt</th><th className="p-4 font-semibold">Ocena</th>
-              <th className="p-4 font-semibold">Komentarz</th><th className="p-4 font-semibold text-right">Akcje</th>
+            <tr>
+              <th className="px-4 py-3">Data</th><th className="px-4 py-3">Gość</th>
+              <th className="px-4 py-3">Pobyt</th><th className="px-4 py-3">Ocena</th>
+              <th className="px-4 py-3">Komentarz</th><th className="px-4 py-3 text-right">Akcje</th>
             </tr>
           </thead>
           <tbody>
             {reviews.map(rv => (
-              <tr key={rv.reviewId} className="border-b hover:bg-slate-50">
-                <td className="p-4 text-slate-500">{formatDate(rv.date)}</td>
-                <td className="p-4 font-medium text-slate-800">{rv.guestName}</td>
-                <td className="p-4 text-slate-600">#{rv.reservationId} ({rv.roomTypeName})</td>
-                <td className="p-4"><StarRating rating={rv.rating} /></td>
-                <td className="p-4 text-slate-600">{rv.comment || '—'}</td>
-                <td className="p-4 text-right"><button onClick={() => handleDeleteReview(rv.reviewId)} className="text-red-500 hover:text-red-700 font-medium text-sm">Usuń</button></td>
+              <tr key={rv.reviewId} className="hover:bg-sand-50">
+                <td className="px-4 py-3 text-slate-500">{formatDate(rv.date)}</td>
+                <td className="px-4 py-3 font-medium">{rv.guestName}</td>
+                <td className="px-4 py-3 text-slate-600">#{rv.reservationId} ({rv.roomTypeName})</td>
+                <td className="px-4 py-3"><StarRating rating={rv.rating} /></td>
+                <td className="px-4 py-3 text-slate-600">{rv.comment || '—'}</td>
+                <td className="px-4 py-3 text-right"><button onClick={() => handleDeleteReview(rv.reviewId)} className="text-danger-800 hover:underline font-semibold text-sm">Usuń</button></td>
               </tr>
             ))}
-            {reviews.length === 0 && <tr><td colSpan={6} className="p-4 text-center text-slate-500">Brak opinii.</td></tr>}
+            {reviews.length === 0 && <tr><td colSpan={6} className="px-4 py-5 text-center text-slate-500">Brak opinii.</td></tr>}
           </tbody>
         </table>
       </div>

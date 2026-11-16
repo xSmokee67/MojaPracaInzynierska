@@ -71,28 +71,28 @@ export default function NotificationBell({ token, refreshKey, onOpenReservation 
     <div ref={panelRef} className="relative">
       <button type="button" onClick={handleToggle} aria-expanded={isOpen}
         aria-label={unreadCount > 0 ? `Powiadomienia, nowe: ${unreadCount}` : 'Powiadomienia'}
-        className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${isOpen ? 'bg-white/25 text-white' : 'bg-white/10 text-slate-100 hover:bg-white/20'}`}>
+        className={`relative w-11 h-11 rounded-full border border-white/30 flex items-center justify-center text-white transition-colors ${isOpen ? 'bg-white/20' : 'hover:bg-white/10'}`}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden="true">
           <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
           <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-brass-400 text-navy-950 text-xs font-bold flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>
+          <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-brass-400 text-navy-950 text-xs font-bold flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>
         )}
       </button>
 
       {isOpen && (
-        <div className={`absolute ${alignLeft ? 'left-0' : 'right-0'} mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white text-slate-800 rounded-xl shadow-xl ring-1 ring-slate-200 z-40 overflow-hidden`}>
-          <div className="flex justify-between items-center gap-2 px-4 py-3 border-b border-slate-200">
-            <span className="font-semibold">Powiadomienia</span>
-            {unreadCount > 0 && <button type="button" onClick={handleReadAll} className="text-xs font-semibold text-emerald-600 hover:underline whitespace-nowrap">Oznacz jako przeczytane</button>}
+        <div className={`absolute ${alignLeft ? 'left-0' : 'right-0'} mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white text-navy-900 rounded-2xl shadow-[0_12px_40px_rgb(20_33_61_/_0.18)] border border-sand-300 z-40 overflow-hidden`}>
+          <div className="flex justify-between items-center gap-2 px-4 py-3 border-b border-sand-200">
+            <span className="font-display font-medium text-lg">Powiadomienia</span>
+            {unreadCount > 0 && <button type="button" onClick={handleReadAll} className="text-xs font-semibold text-brass-700 hover:underline whitespace-nowrap">Oznacz jako przeczytane</button>}
           </div>
-          <ul className="max-h-96 overflow-y-auto divide-y divide-slate-100">
+          <ul className="max-h-96 overflow-y-auto divide-y divide-sand-200">
             {notifications.map(n => (
               <li key={n.notificationId}>
-                <button type="button" onClick={() => handleOpen(n)} className={`w-full text-left px-4 py-3 text-sm hover:bg-slate-50 ${n.isRead ? 'text-slate-500' : 'text-slate-800 bg-emerald-50/60'}`}>
+                <button type="button" onClick={() => handleOpen(n)} className={`w-full text-left px-4 py-3 text-sm hover:bg-sand-50 ${n.isRead ? 'text-slate-500' : 'text-navy-900 bg-sand-100'}`}>
                   <div className="flex gap-2">
-                    {!n.isRead && <span className="mt-1.5 w-2 h-2 rounded-full bg-emerald-500 shrink-0" aria-label="nowe" />}
+                    {!n.isRead && <span className="mt-1.5 w-2 h-2 rounded-full bg-brass-500 shrink-0" aria-label="nowe" />}
                     <span>{n.message}</span>
                   </div>
                   <div className="mt-1 text-xs text-slate-400">{formatDateTime(n.createdAt)}</div>
